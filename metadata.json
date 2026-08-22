@@ -1,0 +1,6 @@
+{
+  "name": "Itajubá Flat Hotel",
+  "description": "Plataforma de Hospitalidade e PMS White-Label personalizável para hotéis, pousadas, resorts, flats e chalés com motor de reservas em tempo real e controle de usuários.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
