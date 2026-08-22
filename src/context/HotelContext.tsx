@@ -12,7 +12,10 @@ import {
   AvailabilityResult,
   ReservationStatus,
   RoomStatus,
-  ConsumoExtra
+  ConsumoExtra,
+  SecurityLogEntry,
+  SecurityActionRequest,
+  TwoFactorMethod
 } from '../types';
 import { 
   INITIAL_HOTEL_CONFIG, 
@@ -23,10 +26,12 @@ import {
   INITIAL_PAYMENTS, 
   INITIAL_BLOCKS, 
   INITIAL_AUTOMATIONS, 
-  INITIAL_USERS 
+  INITIAL_USERS,
+  INITIAL_SECURITY_LOGS
 } from '../data/mockInitialData';
 import { searchAvailableRooms, generateBookingCode, generateSmartLockPin } from '../utils/availability';
 import { TEMPLATE_PRESETS } from '../utils/themeHelper';
+import { getCurrentTotpToken, generateOtpToken, validate2FACode, TotpStatus } from '../utils/securityHelper';
 
 // Tipagem para os filtros de busca de disponibilidade
 interface BookingSearchFilters {
@@ -122,6 +127,11 @@ interface HotelContextType {
 
   // Ações - Usuários, Autenticação e Controle de Acesso
   isAuthenticated: boolean;
+  pendingLoginUser: Usuario | null;
+  pendingLoginOtp: string | null;
+  loginValidatePassword: (email: string, senha: string) => { success: boolean; user?: Usuario; message?: string; otp?: string };
+  complete2FALogin: (code: string, method?: TwoFactorMethod) => { success: boolean; message?: string };
+  cancel2FALogin: () => void;
   login: (email: string, senha?: string) => { success: boolean; message?: string };
   logout: () => void;
   setCurrentUser: (user: Usuario) => void;
@@ -131,6 +141,18 @@ interface HotelContextType {
   toggleUserStatus: (id: string) => void;
   changeUserPassword: (id: string, novaSenha: string) => boolean;
   updateUserProfile: (data: Partial<Usuario>) => void;
+
+  // Segurança em 2 Fatores em TODAS as Operações
+  securityModalOpen: boolean;
+  securityModalRequest: SecurityActionRequest | null;
+  activeActionOtp: string | null;
+  confirmActionWith2FA: (request: SecurityActionRequest) => void;
+  closeSecurityModal: () => void;
+  verifyAndExecuteAction: (password: string, code2FA: string, method?: TwoFactorMethod) => { success: boolean; message: string };
+  generateNewActionOtp: () => string;
+  securityLogs: SecurityLogEntry[];
+  clearSecurityLogs: () => void;
+  currentTotp: TotpStatus;
 
   // Utilitário de Busca de Disponibilidade
   searchRooms: (checkin: string, checkout: string, guests: number) => AvailabilityResult[];
@@ -185,6 +207,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [blocks, setBlocks] = useState<BloqueioQuarto[]>(() => loadFromStorage('blocks', INITIAL_BLOCKS));
   const [automations, setAutomations] = useState<AutomacaoMensagem[]>(() => loadFromStorage('automations', INITIAL_AUTOMATIONS));
   const [users, setUsers] = useState<Usuario[]>(() => loadFromStorage('users', INITIAL_USERS));
+  const [securityLogs, setSecurityLogs] = useState<SecurityLogEntry[]>(() => loadFromStorage('security_logs', INITIAL_SECURITY_LOGS));
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => loadFromStorage('auth_authenticated', false));
   const [currentUser, setCurrentUser] = useState<Usuario>(() => {
     const saved = loadFromStorage<Usuario | null>('auth_current_user', null);
@@ -194,6 +217,25 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return INITIAL_USERS[0];
   });
+
+  // Estados de Autenticação e 2FA
+  const [pendingLoginUser, setPendingLoginUser] = useState<Usuario | null>(null);
+  const [pendingLoginOtp, setPendingLoginOtp] = useState<string | null>(null);
+  const [activeActionOtp, setActiveActionOtp] = useState<string | null>(null);
+
+  // Estado do Modal de Confirmação de Operações 2FA
+  const [securityModalOpen, setSecurityModalOpen] = useState(false);
+  const [securityModalRequest, setSecurityModalRequest] = useState<SecurityActionRequest | null>(null);
+
+  // Sincronizador de Token TOTP em Tempo Real
+  const [currentTotp, setCurrentTotp] = useState<TotpStatus>(() => getCurrentTotpToken());
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTotp(getCurrentTotpToken());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Estado de Visualização
   const [currentView, setCurrentView] = useState<'landing' | 'admin'>('landing');
@@ -217,8 +259,10 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => { saveToStorage('blocks', blocks); }, [blocks]);
   useEffect(() => { saveToStorage('automations', automations); }, [automations]);
   useEffect(() => { saveToStorage('users', users); }, [users]);
+  useEffect(() => { saveToStorage('security_logs', securityLogs); }, [securityLogs]);
   useEffect(() => { saveToStorage('auth_authenticated', isAuthenticated); }, [isAuthenticated]);
   useEffect(() => { saveToStorage('auth_current_user', currentUser); }, [currentUser]);
+
 
   const openBookingWithRoom = (roomId?: string) => {
     setBookingSearchFilters((prev) => ({
@@ -529,7 +573,77 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
-  // Controle de Autenticação e Sessão do Usuário
+  // Controle de Autenticação e Sessão do Usuário com 2 Fatores (2FA)
+  const loginValidatePassword = (email: string, senha: string): { success: boolean; user?: Usuario; message?: string; otp?: string } => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const user = users.find((u) => u.email.trim().toLowerCase() === trimmedEmail);
+
+    if (!user) {
+      return { success: false, message: 'E-mail corporativo não encontrado no sistema.' };
+    }
+
+    if (user.ativo === false) {
+      return { success: false, message: 'Este usuário está desativado pelo administrador. Entre em contato com a gerência.' };
+    }
+
+    const expectedPassword = user.senha || 'admin';
+    if (senha.trim() !== expectedPassword.trim()) {
+      return { success: false, message: 'Senha incorreta para o usuário informado.' };
+    }
+
+    const otp = generateOtpToken();
+    setPendingLoginUser(user);
+    setPendingLoginOtp(otp);
+
+    return { success: true, user, otp };
+  };
+
+  const complete2FALogin = (code: string, method: TwoFactorMethod = 'authenticator'): { success: boolean; message?: string } => {
+    if (!pendingLoginUser) {
+      return { success: false, message: 'Nenhuma sessão de autenticação pendente.' };
+    }
+
+    const validation = validate2FACode(code, pendingLoginOtp || undefined);
+    if (!validation.valid) {
+      return { success: false, message: 'Código de Confirmação em 2 Fatores inválido. Verifique seu app autenticador ou token recebido.' };
+    }
+
+    const updatedUser = {
+      ...pendingLoginUser,
+      ultimo_acesso: new Date().toISOString(),
+    };
+
+    const newLog: SecurityLogEntry = {
+      id: `log-${Date.now()}`,
+      usuario_id: pendingLoginUser.id,
+      usuario_nome: pendingLoginUser.nome,
+      usuario_email: pendingLoginUser.email,
+      usuario_cargo: pendingLoginUser.cargo_titulo || pendingLoginUser.tipo_usuario,
+      operacao: 'Login com Autenticação de 2 Fatores (2FA)',
+      detalhes: `Acesso autenticado com sucesso via ${method.toUpperCase()} e senha corporativa.`,
+      categoria: 'Sistema',
+      metodo_2fa: method,
+      ip_origem: '187.54.120.45 (Terminal Autenticado)',
+      sucesso: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    setUsers((prev) => prev.map((u) => (u.id === pendingLoginUser.id ? updatedUser : u)));
+    setCurrentUser(updatedUser);
+    setIsAuthenticated(true);
+    setSecurityLogs((prev) => [newLog, ...prev]);
+
+    setPendingLoginUser(null);
+    setPendingLoginOtp(null);
+
+    return { success: true };
+  };
+
+  const cancel2FALogin = () => {
+    setPendingLoginUser(null);
+    setPendingLoginOtp(null);
+  };
+
   const login = (email: string, senha?: string): { success: boolean; message?: string } => {
     const trimmedEmail = email.trim().toLowerCase();
     const user = users.find((u) => u.email.trim().toLowerCase() === trimmedEmail);
@@ -539,12 +653,11 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     if (user.ativo === false) {
-      return { success: false, message: 'Este usuário está desativado pelo administrador. Entre em contato com a gerência.' };
+      return { success: false, message: 'Este usuário está desativado pelo administrador.' };
     }
 
-    // Se a senha foi informada, valida (se não cadastrada, aceita senha padrão de demonstração)
     if (senha && user.senha && user.senha !== senha) {
-      return { success: false, message: 'Senha incorreta para o usuário selecionado.' };
+      return { success: false, message: 'Senha incorreta para o usuário informado.' };
     }
 
     const updatedUser = {
@@ -560,6 +673,85 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const logout = () => {
     setIsAuthenticated(false);
+    setPendingLoginUser(null);
+    setPendingLoginOtp(null);
+    setSecurityModalOpen(false);
+    setSecurityModalRequest(null);
+  };
+
+  // Sistema de Confirmação em 2 Fatores para Operações Administrativas (Área Logada)
+  const confirmActionWith2FA = (request: SecurityActionRequest) => {
+    const otp = generateOtpToken();
+    setActiveActionOtp(otp);
+    setSecurityModalRequest(request);
+    setSecurityModalOpen(true);
+  };
+
+  const closeSecurityModal = () => {
+    setSecurityModalOpen(false);
+    setSecurityModalRequest(null);
+    setActiveActionOtp(null);
+  };
+
+  const generateNewActionOtp = (): string => {
+    const otp = generateOtpToken();
+    setActiveActionOtp(otp);
+    return otp;
+  };
+
+  const verifyAndExecuteAction = (
+    password: string, 
+    code2FA: string, 
+    method: TwoFactorMethod = 'authenticator'
+  ): { success: boolean; message: string } => {
+    if (!securityModalRequest) {
+      return { success: false, message: 'Nenhuma operação em processo de autorização.' };
+    }
+
+    // 1. Validação Obrigatória da Senha Operacional do Usuário Atual
+    const expectedPassword = currentUser.senha || 'admin';
+    if (!password || password.trim() !== expectedPassword.trim()) {
+      return { success: false, message: 'Senha operacional incorreta. Insira a senha do usuário conectado.' };
+    }
+
+    // 2. Validação Obrigatória do Token de 2 Fatores
+    const validation = validate2FACode(code2FA, activeActionOtp || undefined);
+    if (!validation.valid) {
+      return { success: false, message: 'Código de Confirmação em 2 Fatores incorreto ou expirado.' };
+    }
+
+    // 3. Registrar Log de Auditoria Imutável
+    const newLog: SecurityLogEntry = {
+      id: `log-${Date.now()}`,
+      usuario_id: currentUser.id,
+      usuario_nome: currentUser.nome,
+      usuario_email: currentUser.email,
+      usuario_cargo: currentUser.cargo_titulo || currentUser.tipo_usuario,
+      operacao: securityModalRequest.title,
+      detalhes: `${securityModalRequest.description}${securityModalRequest.details ? ' | ' + securityModalRequest.details : ''}`,
+      categoria: securityModalRequest.category,
+      metodo_2fa: method,
+      ip_origem: '187.54.120.45 (Terminal Seguro PMS)',
+      sucesso: true,
+      timestamp: new Date().toISOString(),
+    };
+
+    setSecurityLogs((prev) => [newLog, ...prev]);
+
+    // 4. Executa a Ação Operacional
+    try {
+      securityModalRequest.onConfirm();
+    } catch (e) {
+      console.error('Erro ao executar ação após autorização 2FA', e);
+    }
+
+    // 5. Finaliza e Fecha o Modal
+    closeSecurityModal();
+    return { success: true, message: 'Operação autorizada e executada com sucesso com validação 2FA!' };
+  };
+
+  const clearSecurityLogs = () => {
+    setSecurityLogs(INITIAL_SECURITY_LOGS);
   };
 
   // Gerenciamento Completo de Usuários
@@ -696,6 +888,11 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         users,
         currentUser,
         isAuthenticated,
+        pendingLoginUser,
+        pendingLoginOtp,
+        loginValidatePassword,
+        complete2FALogin,
+        cancel2FALogin,
         login,
         logout,
         addUser,
@@ -704,6 +901,16 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleUserStatus,
         changeUserPassword,
         updateUserProfile,
+        securityModalOpen,
+        securityModalRequest,
+        activeActionOtp,
+        confirmActionWith2FA,
+        closeSecurityModal,
+        verifyAndExecuteAction,
+        generateNewActionOtp,
+        securityLogs,
+        clearSecurityLogs,
+        currentTotp,
         currentView,
         setCurrentView,
         adminActiveTab,

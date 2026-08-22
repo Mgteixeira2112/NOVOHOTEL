@@ -811,3 +811,49 @@ export const INITIAL_AUTOMATIONS: AutomacaoMensagem[] = [
     variaveis_disponiveis: ['{NOME_HOSPEDE}', '{CODIGO_RESERVA}'],
   }
 ];
+
+export const INITIAL_SECURITY_LOGS = [
+  {
+    id: 'log-1',
+    usuario_id: 'usr-1',
+    usuario_nome: 'Alice Guimarães',
+    usuario_email: 'admin@itajubaflat.com.br',
+    usuario_cargo: 'Diretora Geral & Administradora',
+    operacao: 'Login com Autenticação de 2 Fatores (2FA)',
+    detalhes: 'Autenticação bem-sucedida via Token TOTP Authenticator com validação de senha corporativa.',
+    categoria: 'Sistema',
+    metodo_2fa: 'authenticator' as const,
+    ip_origem: '187.54.120.45 (Itajubá/MG)',
+    sucesso: true,
+    timestamp: '2026-08-21T18:00:00Z',
+  },
+  {
+    id: 'log-2',
+    usuario_id: 'usr-3',
+    usuario_nome: 'Mariana Silveira',
+    usuario_email: 'recepcao@itajubaflat.com.br',
+    usuario_cargo: 'Recepcionista Líder / Concierge',
+    operacao: 'Check-in Realizado (Reserva IFH-84920)',
+    detalhes: 'Confirmação de entrada do hóspede Dr. Rodrigo Alcantara no Flat 102 com entrega do PIN.',
+    categoria: 'Reserva & Check-in',
+    metodo_2fa: 'authenticator' as const,
+    ip_origem: '187.54.120.45 (Terminal Front Desk 01)',
+    sucesso: true,
+    timestamp: '2026-08-20T14:10:00Z',
+  },
+  {
+    id: 'log-3',
+    usuario_id: 'usr-2',
+    usuario_nome: 'Carlos Eduardo Mendes',
+    usuario_email: 'gerencia@itajubaflat.com.br',
+    usuario_cargo: 'Gerente Operacional & Hospedagem',
+    operacao: 'Ajuste Tarifário em Massa',
+    detalhes: 'Reajuste na diária base do Flat Studio Executivo para R$ 230,00 autorizado via 2FA.',
+    categoria: 'Quartos & Tarifas',
+    metodo_2fa: 'whatsapp' as const,
+    ip_origem: '187.54.120.45 (Gerência)',
+    sucesso: true,
+    timestamp: '2026-08-19T10:30:00Z',
+  }
+];
+

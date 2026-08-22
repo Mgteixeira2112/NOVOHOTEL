@@ -280,3 +280,30 @@ export interface AvailabilityResult {
   taxas: number;
   valorTotal: number;
 }
+
+export type TwoFactorMethod = 'authenticator' | 'whatsapp' | 'sms' | 'email' | 'backup_code';
+
+export interface SecurityLogEntry {
+  id: string;
+  usuario_id: string;
+  usuario_nome: string;
+  usuario_email: string;
+  usuario_cargo: string;
+  operacao: string;
+  detalhes: string;
+  categoria: string;
+  metodo_2fa: TwoFactorMethod;
+  ip_origem: string;
+  sucesso: boolean;
+  timestamp: string;
+}
+
+export interface SecurityActionRequest {
+  title: string;
+  description: string;
+  details?: string;
+  category: 'Reserva & Check-in' | 'Financeiro & PIX' | 'Quartos & Tarifas' | 'Hóspedes & CRM' | 'Automações & Fechaduras' | 'Personalização White-Label' | 'Equipe & Acessos' | 'Configurações do Hotel' | 'Sistema';
+  severity?: 'normal' | 'warning' | 'danger';
+  onConfirm: () => void | Promise<void>;
+}
+

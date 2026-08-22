@@ -14,6 +14,7 @@ import { FloatingWhatsapp } from './components/landing/FloatingWhatsapp';
 import { BookingModal } from './components/booking/BookingModal';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminLogin } from './components/auth/AdminLogin';
+import { SecurityVerificationModal } from './components/security/SecurityVerificationModal';
 
 // Componente principal de renderização condicional (Landing Page vs Painel PMS Logado / Login)
 const MainContent: React.FC = () => {
@@ -45,6 +46,9 @@ const MainContent: React.FC = () => {
 
       {/* Modal global do motor de reservas em tempo real com assistente passo a passo */}
       <BookingModal />
+
+      {/* Modal global de confirmação com Senha + 2FA para operações administrativas */}
+      <SecurityVerificationModal />
     </div>
   );
 };
