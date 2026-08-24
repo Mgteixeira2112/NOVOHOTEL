@@ -22,19 +22,21 @@ export const FaqSection: React.FC = () => {
   const whatsappUrl = `https://wa.me/55${whatsappNumber}?text=${encodeURIComponent(hotelConfig.whatsapp_msg_padrao || 'Olá! Tenho uma dúvida sobre a hospedagem.')}`;
 
   return (
-    <section id="duvidas" className="py-24 bg-stone-950 text-stone-100 relative overflow-hidden border-t border-stone-900">
+    <section id="faq" className="py-24 bg-stone-950 text-stone-100 relative overflow-hidden border-t border-stone-900 scroll-mt-24">
+      {/* Anchor alias para compatibilidade */}
+      <span id="duvidas" className="absolute -top-24" aria-hidden="true" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Cabeçalho da Seção */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className={`text-xs font-bold uppercase tracking-widest ${theme.textAccentClass} block mb-2`}>
-            Tire Suas Dúvidas
+            {hotelConfig.faq_subtitulo || 'Tire Suas Dúvidas'}
           </span>
           <h2 className={`${fontClass} text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight`}>
-            Perguntas Frequentes
+            {hotelConfig.faq_titulo || 'Perguntas Frequentes'}
           </h2>
           <p className="mt-4 text-stone-400 text-base sm:text-lg">
-            Encontre respostas rápidas para as principais dúvidas sobre reservas, horários, pagamentos e comodidades.
+            {hotelConfig.faq_descricao || 'Encontre respostas rápidas para as principais dúvidas sobre reservas, horários, pagamentos e comodidades.'}
           </p>
         </div>
 

@@ -7,6 +7,7 @@ import { ReservationsModule } from './ReservationsModule';
 import { CheckInOutModule } from './CheckInOutModule';
 import { GuestsModule } from './GuestsModule';
 import { FinancialModule } from './FinancialModule';
+import { FrigobarModule } from './FrigobarModule';
 import { AutomationModule } from './AutomationModule';
 import { WhiteLabelCustomizerModule } from './WhiteLabelCustomizerModule';
 import { SettingsModule } from './SettingsModule';
@@ -18,6 +19,7 @@ import {
   LogIn, 
   Users, 
   DollarSign, 
+  ShoppingBag,
   Bot, 
   Palette,
   Settings, 
@@ -58,6 +60,7 @@ export const AdminLayout: React.FC = () => {
     { id: 'rooms', label: 'Quartos & Tarifas', icon: BedDouble },
     { id: 'guests', label: 'Hóspedes & CRM', icon: Users },
     { id: 'financial', label: 'Financeiro & PIX', icon: DollarSign, allowedRoles: ['admin', 'gerente', 'financeiro'] },
+    { id: 'frigobar', label: 'Frigobar & Estoque', icon: ShoppingBag, allowedRoles: ['admin', 'gerente', 'governanca', 'recepcionista', 'financeiro'] },
     { id: 'automation', label: 'Automações & Fechaduras', icon: Bot, allowedRoles: ['admin', 'gerente', 'recepcionista'] },
     { id: 'design', label: 'Personalizar Site (White-Label)', icon: Palette, allowedRoles: ['admin', 'gerente'] },
     { id: 'users', label: 'Equipe & Acessos', icon: UserCheck, badge: activeUsersCount, allowedRoles: ['admin', 'gerente'] },
@@ -164,6 +167,7 @@ export const AdminLayout: React.FC = () => {
               {adminActiveTab === 'rooms' && <RoomsModule />}
               {adminActiveTab === 'guests' && <GuestsModule />}
               {adminActiveTab === 'financial' && <FinancialModule />}
+              {adminActiveTab === 'frigobar' && <FrigobarModule />}
               {adminActiveTab === 'automation' && <AutomationModule />}
               {adminActiveTab === 'design' && <WhiteLabelCustomizerModule />}
               {adminActiveTab === 'users' && <UsersModule />}

@@ -24,7 +24,8 @@ export interface TipoQuarto {
   comodidades_principais: string[];
 }
 
-export type RoomStatus = 'disponivel' | 'ocupado' | 'manutencao' | 'limpeza';
+export type RoomStatus = 'disponivel' | 'ocupado' | 'manutencao' | 'limpeza' | 'bloqueado' | 'vistoria';
+export type HousekeepingStatus = 'limpo' | 'sujo' | 'em_limpeza' | 'inspecionado' | 'nao_perturbe';
 
 export interface Quarto {
   id: string;
@@ -35,6 +36,10 @@ export interface Quarto {
   valor_diaria: number;
   descricao: string;
   status: RoomStatus;
+  status_governanca?: HousekeepingStatus;
+  status_manutencao_motivo?: string;
+  ultima_limpeza?: string;
+  responsavel_limpeza?: string;
   ativo: boolean;
   andar: number;
   fotos: string[];
@@ -43,6 +48,9 @@ export interface Quarto {
   vista: string;
   cama: string;
   fechadura_pin?: string;
+  fechadura_bateria?: number;
+  fechadura_online?: boolean;
+  notas_internas?: string;
 }
 
 export interface Hospede {
@@ -206,8 +214,9 @@ export interface HotelConfig {
   hero_badge_custom?: string;
   hero_galeria?: string[];
   hero_overlay_opacity?: number;
+  hero_cta_text?: string;
   
-  // Conteúdos Editáveis
+  // Conteúdos Editáveis de Cada Seção da Landing Page
   sobre_titulo?: string;
   sobre_subtitulo?: string;
   sobre_texto: string;
@@ -215,6 +224,30 @@ export interface HotelConfig {
   sobre_diferenciais?: Array<{ titulo: string; desc: string }>;
   nota_avaliacao?: number;
   nota_label?: string;
+
+  // Títulos e Textos Customizáveis das Seções
+  estrutura_titulo?: string;
+  estrutura_subtitulo?: string;
+  estrutura_descricao?: string;
+  quartos_titulo?: string;
+  quartos_subtitulo?: string;
+  quartos_descricao?: string;
+  avaliacoes_titulo?: string;
+  avaliacoes_subtitulo?: string;
+  avaliacoes_descricao?: string;
+  faq_titulo?: string;
+  faq_subtitulo?: string;
+  faq_descricao?: string;
+  localizacao_titulo?: string;
+  localizacao_subtitulo?: string;
+  localizacao_descricao?: string;
+  contato_titulo?: string;
+  contato_subtitulo?: string;
+  contato_descricao?: string;
+  rodape_descricao?: string;
+  rodape_copyright?: string;
+  sobre_resumo?: string;
+  descricao_completa?: string;
   
   // Seções e Coleções
   secoes_visibilidade: SectionVisibility;
@@ -252,6 +285,7 @@ export type AdminTab =
   | 'checkin_out' 
   | 'rooms' 
   | 'guests' 
+  | 'frigobar'
   | 'financial' 
   | 'automation' 
   | 'design'
@@ -306,4 +340,7 @@ export interface SecurityActionRequest {
   severity?: 'normal' | 'warning' | 'danger';
   onConfirm: () => void | Promise<void>;
 }
+
+export * from './frigobar';
+
 

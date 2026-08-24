@@ -57,13 +57,13 @@ export const ContactSection: React.FC = () => {
         {/* Cabeçalho da seção */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className={`text-xs font-bold uppercase tracking-widest ${theme.textAccentClass} block mb-2`}>
-            Atendimento & Contato
+            {hotelConfig.contato_subtitulo || 'Atendimento & Contato'}
           </span>
           <h2 className={`${fontClass} text-3xl sm:text-4xl lg:text-5xl font-bold text-stone-900 tracking-tight`}>
-            Fale com a nossa equipe
+            {hotelConfig.contato_titulo || 'Fale com a nossa equipe'}
           </h2>
           <p className="mt-4 text-stone-600 text-base sm:text-lg">
-            Estamos prontos para atender você, tirar dúvidas sobre tarifas e reservas ou organizar sua estadia em {hotelConfig.cidade}.
+            {hotelConfig.contato_descricao || `Estamos prontos para atender você, tirar dúvidas sobre tarifas e reservas ou organizar sua estadia em ${hotelConfig.cidade}.`}
           </p>
         </div>
 

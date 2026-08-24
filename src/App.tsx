@@ -1,5 +1,6 @@
 import React from 'react';
 import { HotelProvider, useHotel } from './context/HotelContext';
+import { FrigobarProvider } from './context/FrigobarContext';
 import { Navbar } from './components/navigation/Navbar';
 import { HeroSection } from './components/landing/HeroSection';
 import { RoomsShowcase } from './components/landing/RoomsShowcase';
@@ -56,7 +57,9 @@ const MainContent: React.FC = () => {
 export default function App() {
   return (
     <HotelProvider>
-      <MainContent />
+      <FrigobarProvider>
+        <MainContent />
+      </FrigobarProvider>
     </HotelProvider>
   );
 }

@@ -11,13 +11,12 @@ import {
   CheckCircle2, 
   AlertCircle, 
   KeyRound, 
-  Sparkles,
   Smartphone,
   MessageSquare,
   RefreshCw,
   Fingerprint
 } from 'lucide-react';
-import { UserRole, TwoFactorMethod, Usuario } from '../../types';
+import { TwoFactorMethod } from '../../types';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
 // Tela de Login e Autenticação Segura em 2 Fatores para o Painel PMS Administrativo
@@ -25,7 +24,6 @@ export const AdminLogin: React.FC = () => {
   const { 
     hotelConfig, 
     setCurrentView, 
-    users, 
     loginValidatePassword, 
     complete2FALogin, 
     cancel2FALogin,
@@ -34,8 +32,8 @@ export const AdminLogin: React.FC = () => {
     currentTotp
   } = useHotel();
   
-  const [email, setEmail] = useState('admin@itajubaflat.com.br');
-  const [senha, setSenha] = useState('admin');
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -69,7 +67,7 @@ export const AdminLogin: React.FC = () => {
       const result = loginValidatePassword(email, senha);
       setLoading(false);
       if (!result.success) {
-        setErrorMsg(result.message || 'Erro ao validar credenciais.');
+        setErrorMsg(result.message || 'E-mail ou senha incorretos.');
       } else {
         setStep2FA(true);
         setCode2FA('');
@@ -104,32 +102,9 @@ export const AdminLogin: React.FC = () => {
     setCode2FA('');
   };
 
-  const handleQuickSelectUser = (userEmail: string, userPass: string) => {
-    setEmail(userEmail);
-    setSenha(userPass);
-    setErrorMsg(null);
-  };
-
   const handleFillCode = (code: string) => {
     setCode2FA(code);
     setErrorMsg(null);
-  };
-
-  const getRoleBadge = (role: UserRole) => {
-    switch (role) {
-      case 'admin':
-        return { label: 'Administrador Geral', color: 'bg-amber-500/20 text-amber-300 border-amber-500/40' };
-      case 'gerente':
-        return { label: 'Gerência Operacional', color: 'bg-blue-500/20 text-blue-300 border-blue-500/40' };
-      case 'recepcionista':
-        return { label: 'Recepção / Front Desk', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' };
-      case 'governanca':
-        return { label: 'Governança & Limpeza', color: 'bg-purple-500/20 text-purple-300 border-purple-500/40' };
-      case 'financeiro':
-        return { label: 'Gestão Financeira', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' };
-      default:
-        return { label: role, color: 'bg-stone-500/20 text-stone-300 border-stone-500/40' };
-    }
   };
 
   return (
@@ -184,7 +159,7 @@ export const AdminLogin: React.FC = () => {
             
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-stone-800 text-amber-400 text-xs font-bold uppercase tracking-wider border border-stone-700">
               <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-              <span>{step2FA ? 'Etapa 2: Confirmação 2FA' : 'Acesso PMS com 2FA Obrigatório'}</span>
+              <span>{step2FA ? 'Etapa 2: Confirmação 2FA' : 'Painel de Controle PMS'}</span>
             </div>
           </div>
 
@@ -200,7 +175,7 @@ export const AdminLogin: React.FC = () => {
           {!step2FA ? (
             <form id="form-login-step1" onSubmit={handlePasswordSubmit} className="space-y-4 text-xs">
               <p className="text-xs text-stone-400 text-center">
-                Passo 1 de 2: Digite seu e-mail e senha corporativa para prosseguir à confirmação em dois fatores.
+                Digite suas credenciais de acesso corporativo para prosseguir ao sistema.
               </p>
 
               <div>
@@ -215,7 +190,7 @@ export const AdminLogin: React.FC = () => {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu.email@itajubaflat.com.br"
+                    placeholder="seu.email@hotel.com.br"
                     className="w-full pl-10 pr-4 py-3 rounded-xl bg-stone-950/80 border border-stone-800 focus:border-amber-500 text-stone-100 text-xs sm:text-sm focus:outline-none transition"
                   />
                 </div>
@@ -226,9 +201,6 @@ export const AdminLogin: React.FC = () => {
                   <label className="block font-bold text-stone-300 uppercase tracking-wider text-[11px]">
                     Senha de Acesso
                   </label>
-                  <span className="text-[11px] text-stone-500">
-                    Padrão: <code className="text-amber-400">admin</code> ou senha do usuário
-                  </span>
                 </div>
                 <div className="relative">
                   <KeyRound className="w-4 h-4 text-stone-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -275,7 +247,7 @@ export const AdminLogin: React.FC = () => {
                 ) : (
                   <>
                     <Lock className="w-4 h-4" />
-                    <span>Continuar para Confirmação 2FA</span>
+                    <span>Entrar no Sistema</span>
                   </>
                 )}
               </button>
@@ -477,64 +449,12 @@ export const AdminLogin: React.FC = () => {
             </form>
           )}
 
-          {/* Seção de Acesso Rápido para Demonstração Interativa */}
-          {!step2FA && (
-            <div className="pt-4 border-t border-stone-800 space-y-3">
-              <div className="flex items-center justify-between text-xs text-stone-400">
-                <span className="font-semibold flex items-center gap-1.5 text-stone-300">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  Preencher Usuário de Teste:
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 gap-2">
-                {users.filter(u => u.ativo).map((u) => {
-                  const badge = getRoleBadge(u.tipo_usuario);
-                  const isSelected = email === u.email;
-
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => handleQuickSelectUser(u.email, u.senha || 'admin')}
-                      className={`p-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer ${
-                        isSelected
-                          ? 'bg-amber-500/15 border-amber-500/60 text-amber-200'
-                          : 'bg-stone-950/60 border-stone-800 hover:border-stone-700 text-stone-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={u.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
-                          alt={u.nome}
-                          className="w-7 h-7 rounded-full object-cover border border-stone-700"
-                        />
-                        <div>
-                          <strong className="block text-xs text-stone-200 leading-tight">
-                            {u.nome}
-                          </strong>
-                          <span className="text-[10px] text-stone-400">
-                            {u.cargo_titulo || u.email}
-                          </span>
-                        </div>
-                      </div>
-
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${badge.color}`}>
-                        {badge.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
         </div>
       </main>
 
       {/* Rodapé da tela de login */}
       <footer className="p-4 text-center text-[11px] text-stone-500 z-10">
-        <span>© 2026 {hotelConfig.nome} • Todos os direitos reservados • Sistema PMS com Controle de Acesso Baseado em Funções (RBAC) e 2FA</span>
+        <span>© 2026 {hotelConfig.nome} • Todos os direitos reservados • Sistema PMS com Autenticação em 2 Fatores (2FA)</span>
       </footer>
 
     </div>

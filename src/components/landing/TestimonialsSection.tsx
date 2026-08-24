@@ -14,19 +14,21 @@ export const TestimonialsSection: React.FC = () => {
   if (testimonials.length === 0) return null;
 
   return (
-    <section id="avaliacoes" className="py-24 bg-stone-900 text-stone-100 relative overflow-hidden border-t border-stone-800">
+    <section id="depoimentos" className="py-24 bg-stone-900 text-stone-100 relative overflow-hidden border-t border-stone-800 scroll-mt-24">
+      {/* Anchor alias para compatibilidade */}
+      <span id="avaliacoes" className="absolute -top-24" aria-hidden="true" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Cabeçalho da Seção */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className={`text-xs font-bold uppercase tracking-widest ${theme.textAccentClass} block mb-2`}>
-            Experiência dos Hóspedes
+            {hotelConfig.avaliacoes_subtitulo || 'Experiência dos Hóspedes'}
           </span>
           <h2 className={`${fontClass} text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight`}>
-            Quem se hospeda, recomenda e volta
+            {hotelConfig.avaliacoes_titulo || 'Quem se hospeda, recomenda e volta'}
           </h2>
           <p className="mt-4 text-stone-300 text-base sm:text-lg">
-            Avaliações autênticas de hóspedes que viveram momentos especiais em nossa hospedagem.
+            {hotelConfig.avaliacoes_descricao || 'Avaliações autênticas de hóspedes que viveram momentos especiais em nossa hospedagem.'}
           </p>
 
           {/* Selo com nota média */}

@@ -15,20 +15,22 @@ export const AmenitiesSection: React.FC = () => {
   }
 
   return (
-    <section id="estrutura" className="py-24 bg-stone-900 text-stone-100 relative overflow-hidden border-t border-stone-800">
+    <section id="estrutura" className="py-24 bg-stone-900 text-stone-100 relative overflow-hidden border-t border-stone-800 scroll-mt-24">
+      {/* Anchor alias para compatibilidade */}
+      <span id="comodidades" className="absolute -top-24" aria-hidden="true" />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
         {/* Cabeçalho da seção */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className={`text-xs font-bold uppercase tracking-widest ${theme.textAccentClass} block mb-2`}>
-            Estrutura Completa & Serviços
+            {hotelConfig.estrutura_subtitulo || 'Estrutura Completa & Serviços'}
           </span>
           <h2 className={`${fontClass} text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight`}>
-            Tudo o que você precisa em uma estadia inesquecível
+            {hotelConfig.estrutura_titulo || 'Tudo o que você precisa em uma estadia inesquecível'}
           </h2>
           <p className="mt-4 text-stone-300 text-base sm:text-lg">
-            Pensado nos mínimos detalhes para oferecer máxima comodidade, relaxamento e bem-estar no {hotelConfig.nome}.
+            {hotelConfig.estrutura_descricao || `Pensado nos mínimos detalhes para oferecer máxima comodidade, relaxamento e bem-estar no ${hotelConfig.nome}.`}
           </p>
         </div>
 

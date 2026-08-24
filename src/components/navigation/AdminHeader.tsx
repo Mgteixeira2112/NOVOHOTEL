@@ -13,12 +13,16 @@ import {
   ChevronDown,
   Settings,
   Sparkles,
-  Palette
+  Palette,
+  Database,
+  CloudCheck,
+  Cloud,
+  CloudAlert
 } from 'lucide-react';
 import { UserProfileModal } from '../admin/UserProfileModal';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
-// Componente de cabeçalho superior do painel administrativo PMS com controle de sessão
+// Componente de cabeçalho superior do painel administrativo PMS com controle de sessão e status do Supabase
 export const AdminHeader: React.FC = () => {
   const { 
     hotelConfig, 
@@ -29,7 +33,10 @@ export const AdminHeader: React.FC = () => {
     reservations,
     rooms,
     logout,
-    setAdminActiveTab
+    setAdminActiveTab,
+    supabaseStatus,
+    supabaseLatency,
+    lastSyncTime
   } = useHotel();
 
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -106,10 +113,44 @@ export const AdminHeader: React.FC = () => {
               </div>
 
               {/* Indicador de ocupação em tempo real */}
-              <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-stone-800/80 border border-stone-700 text-xs text-stone-300">
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-stone-800/80 border border-stone-700 text-xs text-stone-300">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Ocupação: <strong className="text-white">{occupancyRate}%</strong> ({occupiedRooms}/{totalRooms})</span>
               </div>
+
+              {/* Indicador de Status do Banco de Dados Supabase */}
+              <button
+                onClick={() => setAdminActiveTab('settings')}
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-800 hover:bg-stone-750 border border-stone-700 text-[11px] transition cursor-pointer"
+                title={`Supabase Cloud DB: ${supabaseStatus} ${supabaseLatency ? `(${supabaseLatency}ms)` : ''} ${lastSyncTime ? `| Última sinc: ${lastSyncTime}` : ''}`}
+              >
+                {supabaseStatus === 'connected' ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                    <Database className="w-3 h-3 text-emerald-400" />
+                    <span className="text-emerald-300 font-medium">Supabase Conectado</span>
+                    {supabaseLatency && <span className="text-[9px] text-stone-400">{supabaseLatency}ms</span>}
+                  </>
+                ) : supabaseStatus === 'syncing' ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                    <Database className="w-3 h-3 text-amber-400" />
+                    <span className="text-amber-300 font-medium">Sincronizando...</span>
+                  </>
+                ) : supabaseStatus === 'needs_tables' ? (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                    <Database className="w-3 h-3 text-amber-400" />
+                    <span className="text-amber-300 font-medium">Supabase (SQL pendente)</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-stone-500" />
+                    <Database className="w-3 h-3 text-stone-400" />
+                    <span className="text-stone-300 font-medium">Supabase Local Fallback</span>
+                  </>
+                )}
+              </button>
             </div>
 
             {/* Ações rápidas e menu de sessão do usuário */}
@@ -118,12 +159,12 @@ export const AdminHeader: React.FC = () => {
               {/* Botão de alternância direta para o site público / Landing Page */}
               <button
                 onClick={() => setCurrentView('landing')}
-                className="px-3 py-1.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-amber-300 hover:text-amber-200 text-xs font-semibold flex items-center gap-1.5 border border-stone-700 transition cursor-pointer"
-                title="Visualizar site como o cliente/hóspede vê"
+                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-amber-500/20 transition-all cursor-pointer transform active:scale-95"
+                title="Visualizar o site oficial como o cliente/hóspede vê"
               >
-                <Eye className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Ver Site do Hotel</span>
-                <ExternalLink className="w-3 h-3 opacity-60" />
+                <Eye className="w-4 h-4" />
+                <span className="font-bold">Ver Site Oficial</span>
+                <ExternalLink className="w-3 h-3 opacity-70" />
               </button>
 
               {/* Indicador de notificações de chegadas do dia */}
@@ -205,6 +246,17 @@ export const AdminHeader: React.FC = () => {
                         <span>Gestão de Usuários & Permissões</span>
                       </button>
                     )}
+
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        setAdminActiveTab('settings');
+                      }}
+                      className="w-full px-4 py-2 text-left text-stone-300 hover:text-white hover:bg-stone-800 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <Database className="w-4 h-4 text-emerald-400" />
+                      <span>Banco de Dados Supabase</span>
+                    </button>
 
                     {/* Alternador Rápido de Perfil para Demonstração */}
                     <div className="px-4 py-2 border-t border-stone-800 mt-1">

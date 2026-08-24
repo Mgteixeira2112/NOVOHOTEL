@@ -30,3 +30,51 @@
   background: #94a3b8;
 }
 
+/* Print and PDF Optimization Rules */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #printable-bill,
+  #printable-bill *,
+  #printable-receipt,
+  #printable-receipt *,
+  #printable-calendar-report,
+  #printable-calendar-report * {
+    visibility: visible;
+  }
+
+  #printable-bill,
+  #printable-receipt,
+  #printable-calendar-report {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 8mm !important;
+    background: #ffffff !important;
+    color: #1c1917 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  @page {
+    size: auto;
+    margin: 6mm;
+  }
+}
+

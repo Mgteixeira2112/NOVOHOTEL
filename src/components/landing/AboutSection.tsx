@@ -22,7 +22,9 @@ export const AboutSection: React.FC = () => {
   const sobreSubtitulo = hotelConfig.sobre_subtitulo || 'Hospitalidade & Conforto';
 
   return (
-    <section id="sobre" className="py-24 bg-stone-50 text-stone-900 relative border-t border-stone-200">
+    <section id="sobre" className="py-24 bg-stone-50 text-stone-900 relative border-t border-stone-200 scroll-mt-24">
+      {/* Anchor alias */}
+      <span id="about" className="absolute -top-24" aria-hidden="true" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">

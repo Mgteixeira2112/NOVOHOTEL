@@ -45,20 +45,22 @@ export const RoomsShowcase: React.FC = () => {
   };
 
   return (
-    <section id="quartos" className="py-24 bg-stone-100/70 relative">
+    <section id="quartos" className="py-24 bg-stone-100/70 relative scroll-mt-24">
+      {/* Anchor alias */}
+      <span id="acomodacoes" className="absolute -top-24" aria-hidden="true" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12">
           <div className="max-w-2xl">
             <span className={`text-xs font-bold uppercase tracking-widest ${theme.textAccentClass} block mb-2`}>
-              {getAccommodationSubtitle()}
+              {hotelConfig.quartos_subtitulo || getAccommodationSubtitle()}
             </span>
             <h2 className={`${fontClass} text-3xl sm:text-4xl lg:text-5xl font-bold text-stone-900 tracking-tight`}>
-              Espaço, privacidade e o conforto que você merece
+              {hotelConfig.quartos_titulo || 'Espaço, privacidade e o conforto que você merece'}
             </h2>
             <p className="mt-3 text-stone-600 text-base leading-relaxed">
-              Acomodações completas, higienizadas e preparadas com carinho para momentos inesquecíveis no {hotelConfig.nome}.
+              {hotelConfig.quartos_descricao || `Acomodações completas, higienizadas e preparadas com carinho para momentos inesquecíveis no ${hotelConfig.nome}.`}
             </p>
           </div>
 

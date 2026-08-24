@@ -33,13 +33,13 @@ export const LocationSection: React.FC = () => {
         {/* Cabeçalho da Seção */}
         <div className="text-center max-w-3xl mx-auto mb-16">
           <span className={`text-xs font-bold uppercase tracking-widest ${theme.textAccentClass} block mb-2`}>
-            Localização Privilegiada
+            {hotelConfig.localizacao_subtitulo || 'Localização Privilegiada'}
           </span>
           <h2 className={`${fontClass} text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight`}>
-            Fácil acesso aos principais pontos da região
+            {hotelConfig.localizacao_titulo || 'Fácil acesso aos principais pontos da região'}
           </h2>
           <p className="mt-4 text-stone-300 text-base sm:text-lg">
-            Posição estratégica para facilitar seu deslocamento a trabalho, estudos ou lazer.
+            {hotelConfig.localizacao_descricao || 'Posição estratégica para facilitar seu deslocamento a trabalho, estudos ou lazer.'}
           </p>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   HotelConfig, 
   Quarto, 
@@ -32,6 +32,42 @@ import {
 import { searchAvailableRooms, generateBookingCode, generateSmartLockPin } from '../utils/availability';
 import { TEMPLATE_PRESETS } from '../utils/themeHelper';
 import { getCurrentTotpToken, generateOtpToken, validate2FACode, TotpStatus } from '../utils/securityHelper';
+import {
+  isSupabaseConfigured,
+  SUPABASE_URL,
+  testSupabaseConnection,
+  checkAllTablesHealth,
+  SupabaseHealthReport,
+  updateSupabaseCredentials as updateSupabaseCredsService,
+  resetSupabaseCredentialsToDefault,
+  fetchHotelConfigFromSupabase,
+  saveHotelConfigToSupabase,
+  fetchRoomTypesFromSupabase,
+  upsertRoomTypeToSupabase,
+  fetchRoomsFromSupabase,
+  upsertRoomToSupabase,
+  deleteRoomFromSupabase,
+  fetchGuestsFromSupabase,
+  upsertGuestToSupabase,
+  deleteGuestFromSupabase,
+  fetchReservationsFromSupabase,
+  upsertReservationToSupabase,
+  deleteReservationFromSupabase,
+  fetchPaymentsFromSupabase,
+  upsertPaymentToSupabase,
+  fetchBlocksFromSupabase,
+  upsertBlockToSupabase,
+  deleteBlockFromSupabase,
+  fetchAutomationsFromSupabase,
+  upsertAutomationToSupabase,
+  fetchUsersFromSupabase,
+  upsertUserToSupabase,
+  deleteUserFromSupabase,
+  fetchSecurityLogsFromSupabase,
+  insertSecurityLogToSupabase,
+  seedAllDataToSupabase,
+  SeedAllResponse
+} from '../services/supabase';
 
 // Tipagem para os filtros de busca de disponibilidade
 interface BookingSearchFilters {
@@ -54,6 +90,20 @@ interface HotelContextType {
   automations: AutomacaoMensagem[];
   users: Usuario[];
   currentUser: Usuario;
+
+  // Supabase Cloud Database Status & Sincronização
+  supabaseConfigured: boolean;
+  supabaseUrl: string;
+  supabaseStatus: 'connected' | 'syncing' | 'offline' | 'needs_tables' | 'error';
+  supabaseLatency: number | null;
+  supabaseMessage: string;
+  lastSyncTime: string | null;
+  healthReport: SupabaseHealthReport | null;
+  syncFromSupabase: () => Promise<{ success: boolean; message: string }>;
+  exportAllToSupabase: () => Promise<SeedAllResponse>;
+  checkSupabaseHealth: () => Promise<void>;
+  updateSupabaseCredentials: (url: string, key: string) => { success: boolean; message: string };
+  resetSupabaseCredentials: () => void;
 
   // Estado de Visualização e Navegação
   currentView: 'landing' | 'admin';
@@ -169,7 +219,7 @@ interface HotelContextType {
 
 const HotelContext = createContext<HotelContextType | undefined>(undefined);
 
-const STORAGE_PREFIX = 'ITAJUBA_FLAT_PMS_V1_';
+const STORAGE_PREFIX = 'HOTEL_CENTENARIO_PMS_V2_';
 
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
@@ -218,6 +268,13 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return INITIAL_USERS[0];
   });
 
+  // Supabase State
+  const [supabaseStatus, setSupabaseStatus] = useState<'connected' | 'syncing' | 'offline' | 'needs_tables' | 'error'>('syncing');
+  const [supabaseLatency, setSupabaseLatency] = useState<number | null>(null);
+  const [supabaseMessage, setSupabaseMessage] = useState<string>('Verificando conexão com o Supabase...');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => loadFromStorage('supabase_last_sync', null));
+  const [healthReport, setHealthReport] = useState<SupabaseHealthReport | null>(null);
+
   // Estados de Autenticação e 2FA
   const [pendingLoginUser, setPendingLoginUser] = useState<Usuario | null>(null);
   const [pendingLoginOtp, setPendingLoginOtp] = useState<string | null>(null);
@@ -262,7 +319,143 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => { saveToStorage('security_logs', securityLogs); }, [securityLogs]);
   useEffect(() => { saveToStorage('auth_authenticated', isAuthenticated); }, [isAuthenticated]);
   useEffect(() => { saveToStorage('auth_current_user', currentUser); }, [currentUser]);
+  useEffect(() => { if (lastSyncTime) saveToStorage('supabase_last_sync', lastSyncTime); }, [lastSyncTime]);
 
+  // Função para testar saúde da conexão com Supabase e verificar todas as 10 tabelas
+  const checkSupabaseHealth = useCallback(async () => {
+    try {
+      const report = await checkAllTablesHealth();
+      setHealthReport(report);
+      setSupabaseLatency(report.latencyMs);
+
+      if (report.connected) {
+        if (!report.allTablesReady) {
+          setSupabaseStatus('needs_tables');
+          setSupabaseMessage(`Supabase conectado! ${report.missingTables.length} tabela(s) pendente(s) de criação.`);
+        } else {
+          setSupabaseStatus('connected');
+          setSupabaseMessage(`Conectado ao Supabase com todas as 10 tabelas prontas (${report.latencyMs}ms).`);
+        }
+      } else {
+        setSupabaseStatus('offline');
+        setSupabaseMessage(report.message || 'Falha ao conectar com o Supabase.');
+      }
+    } catch (err: any) {
+      setSupabaseStatus('offline');
+      setSupabaseMessage(`Erro de conexão: ${err?.message || 'Inacessível'}`);
+    }
+  }, []);
+
+  const updateSupabaseCredentials = useCallback((url: string, key: string) => {
+    const res = updateSupabaseCredsService(url, key);
+    if (res.success) {
+      checkSupabaseHealth();
+    }
+    return res;
+  }, [checkSupabaseHealth]);
+
+  const resetSupabaseCredentials = useCallback(() => {
+    resetSupabaseCredentialsToDefault();
+    checkSupabaseHealth();
+  }, [checkSupabaseHealth]);
+
+  // Função para sincronizar dados do Supabase para o estado local
+  const syncFromSupabase = useCallback(async (): Promise<{ success: boolean; message: string }> => {
+    setSupabaseStatus('syncing');
+    setSupabaseMessage('Sincronizando com Supabase...');
+
+    try {
+      const [
+        cfg,
+        remoteTypes,
+        remoteRooms,
+        remoteGuests,
+        remoteRes,
+        remotePay,
+        remoteBlocks,
+        remoteAuto,
+        remoteUsers,
+        remoteLogs
+      ] = await Promise.all([
+        fetchHotelConfigFromSupabase(),
+        fetchRoomTypesFromSupabase(),
+        fetchRoomsFromSupabase(),
+        fetchGuestsFromSupabase(),
+        fetchReservationsFromSupabase(),
+        fetchPaymentsFromSupabase(),
+        fetchBlocksFromSupabase(),
+        fetchAutomationsFromSupabase(),
+        fetchUsersFromSupabase(),
+        fetchSecurityLogsFromSupabase(),
+      ]);
+
+      let syncCount = 0;
+
+      if (cfg) { setHotelConfig(cfg); syncCount++; }
+      if (remoteTypes && remoteTypes.length > 0) { setRoomTypes(remoteTypes); syncCount += remoteTypes.length; }
+      if (remoteRooms && remoteRooms.length > 0) { setRooms(remoteRooms); syncCount += remoteRooms.length; }
+      if (remoteGuests && remoteGuests.length > 0) { setGuests(remoteGuests); syncCount += remoteGuests.length; }
+      if (remoteRes && remoteRes.length > 0) { setReservations(remoteRes); syncCount += remoteRes.length; }
+      if (remotePay && remotePay.length > 0) { setPayments(remotePay); syncCount += remotePay.length; }
+      if (remoteBlocks && remoteBlocks.length > 0) { setBlocks(remoteBlocks); syncCount += remoteBlocks.length; }
+      if (remoteAuto && remoteAuto.length > 0) { setAutomations(remoteAuto); syncCount += remoteAuto.length; }
+      if (remoteUsers && remoteUsers.length > 0) { setUsers(remoteUsers); syncCount += remoteUsers.length; }
+      if (remoteLogs && remoteLogs.length > 0) { setSecurityLogs(remoteLogs); syncCount += remoteLogs.length; }
+
+      const now = new Date().toLocaleTimeString('pt-BR');
+      setLastSyncTime(now);
+      setSupabaseStatus('connected');
+      const msg = `Sincronização concluída com sucesso! (${syncCount} registros atualizados).`;
+      setSupabaseMessage(msg);
+      return { success: true, message: msg };
+    } catch (err: any) {
+      setSupabaseStatus('error');
+      const msg = `Erro ao sincronizar com Supabase: ${err?.message || 'Falha de rede'}`;
+      setSupabaseMessage(msg);
+      return { success: false, message: msg };
+    }
+  }, []);
+
+  // Exportar / Enviar todos os dados locais para o Supabase (Seed / Push)
+  const exportAllToSupabase = useCallback(async () => {
+    setSupabaseStatus('syncing');
+    setSupabaseMessage('Enviando dados locais para o Supabase...');
+
+    const result = await seedAllDataToSupabase({
+      hotelConfig,
+      roomTypes,
+      rooms,
+      guests,
+      reservations,
+      payments,
+      blocks,
+      automations,
+      users,
+      securityLogs,
+    });
+
+    if (result.success) {
+      setSupabaseStatus('connected');
+      const now = new Date().toLocaleTimeString('pt-BR');
+      setLastSyncTime(now);
+      setSupabaseMessage('Todos os dados foram gravados no Supabase com sucesso!');
+    } else {
+      setSupabaseStatus(result.errors.some(e => e.includes('does not exist')) ? 'needs_tables' : 'error');
+      setSupabaseMessage(`Erros ao exportar: ${result.errors.join('; ')}`);
+    }
+
+    return result;
+  }, [hotelConfig, roomTypes, rooms, guests, reservations, payments, blocks, automations, users, securityLogs]);
+
+  // Inicialização no Mount: testa Supabase e tenta sincronizar
+  useEffect(() => {
+    checkSupabaseHealth().then(() => {
+      // Tenta sincronizar se estiver conectado
+      syncFromSupabase().catch(() => {
+        // Fallback silencioso para dados locais
+      });
+    });
+  }, [checkSupabaseHealth, syncFromSupabase]);
 
   const openBookingWithRoom = (roomId?: string) => {
     setBookingSearchFilters((prev) => ({
@@ -273,16 +466,21 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const updateHotelConfig = (newConfig: Partial<HotelConfig>) => {
-    setHotelConfig((prev) => ({ ...prev, ...newConfig }));
+    setHotelConfig((prev) => {
+      const updated = { ...prev, ...newConfig };
+      saveHotelConfigToSupabase(updated).catch(() => {});
+      return updated;
+    });
   };
 
   const applyTemplatePreset = (presetId: string): boolean => {
     const preset = TEMPLATE_PRESETS.find(p => p.id === presetId);
     if (!preset) return false;
-    setHotelConfig(prev => ({
-      ...prev,
-      ...preset.config
-    }));
+    setHotelConfig(prev => {
+      const updated = { ...prev, ...preset.config };
+      saveHotelConfigToSupabase(updated).catch(() => {});
+      return updated;
+    });
     return true;
   };
 
@@ -292,10 +490,11 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (!parsed || typeof parsed !== 'object' || !parsed.nome) {
         return { success: false, message: 'O arquivo JSON não possui o formato de configuração do hotel.' };
       }
-      setHotelConfig(prev => ({
-        ...prev,
-        ...parsed
-      }));
+      setHotelConfig(prev => {
+        const updated = { ...prev, ...parsed };
+        saveHotelConfigToSupabase(updated).catch(() => {});
+        return updated;
+      });
       return { success: true, message: `Configurações de "${parsed.nome}" importadas com sucesso!` };
     } catch {
       return { success: false, message: 'Erro ao interpretar arquivo JSON. Verifique a formatação do arquivo.' };
@@ -310,19 +509,30 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       fechadura_pin: roomData.fechadura_pin || generateSmartLockPin(),
     };
     setRooms((prev) => [...prev, newRoom]);
+    upsertRoomToSupabase(newRoom).catch(() => {});
     return newRoom;
   };
 
   const updateRoom = (id: string, data: Partial<Quarto>) => {
-    setRooms((prev) => prev.map((r) => (r.id === id ? { ...r, ...data } : r)));
+    setRooms((prev) =>
+      prev.map((r) => {
+        if (r.id === id) {
+          const updated = { ...r, ...data };
+          upsertRoomToSupabase(updated).catch(() => {});
+          return updated;
+        }
+        return r;
+      })
+    );
   };
 
   const deleteRoom = (id: string) => {
     setRooms((prev) => prev.filter((r) => r.id !== id));
+    deleteRoomFromSupabase(id).catch(() => {});
   };
 
   const setRoomStatus = (id: string, status: RoomStatus) => {
-    setRooms((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    updateRoom(id, { status });
   };
 
   const addRoomType = (typeData: Omit<TipoQuarto, 'id'>): TipoQuarto => {
@@ -331,11 +541,21 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `tipo-${Date.now()}`,
     };
     setRoomTypes((prev) => [...prev, newType]);
+    upsertRoomTypeToSupabase(newType).catch(() => {});
     return newType;
   };
 
   const updateRoomType = (id: string, data: Partial<TipoQuarto>) => {
-    setRoomTypes((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+    setRoomTypes((prev) =>
+      prev.map((t) => {
+        if (t.id === id) {
+          const updated = { ...t, ...data };
+          upsertRoomTypeToSupabase(updated).catch(() => {});
+          return updated;
+        }
+        return t;
+      })
+    );
   };
 
   // Bloqueios de Quarto e Manutenção
@@ -345,6 +565,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       id: `blk-${Date.now()}`,
     };
     setBlocks((prev) => [...prev, newBlock]);
+    upsertBlockToSupabase(newBlock).catch(() => {});
     // Define o quarto como em manutenção
     setRoomStatus(blockData.quarto_id, 'manutencao');
   };
@@ -355,6 +576,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setRoomStatus(block.quarto_id, 'disponivel');
     }
     setBlocks((prev) => prev.filter((b) => b.id !== id));
+    deleteBlockFromSupabase(id).catch(() => {});
   };
 
   // Cadastro e CRM de Hóspedes
@@ -363,6 +585,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (existing) {
       const updated: Hospede = { ...existing, ...guestData, total_estadias: (existing.total_estadias || 1) + 1 };
       setGuests((prev) => prev.map((g) => (g.id === existing.id ? updated : g)));
+      upsertGuestToSupabase(updated).catch(() => {});
       return updated;
     }
 
@@ -373,15 +596,26 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       created_at: new Date().toISOString(),
     };
     setGuests((prev) => [...prev, newGuest]);
+    upsertGuestToSupabase(newGuest).catch(() => {});
     return newGuest;
   };
 
   const updateGuest = (id: string, data: Partial<Hospede>) => {
-    setGuests((prev) => prev.map((g) => (g.id === id ? { ...g, ...data } : g)));
+    setGuests((prev) =>
+      prev.map((g) => {
+        if (g.id === id) {
+          const updated = { ...g, ...data };
+          upsertGuestToSupabase(updated).catch(() => {});
+          return updated;
+        }
+        return g;
+      })
+    );
   };
 
   const deleteGuest = (id: string) => {
     setGuests((prev) => prev.filter((g) => g.id !== id));
+    deleteGuestFromSupabase(id).catch(() => {});
   };
 
   // Fluxo Completo de Criação de Reserva (conforme fluxo de reservas)
@@ -473,6 +707,10 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPayments((prev) => [payment, ...prev]);
     setReservations((prev) => [reservation, ...prev]);
 
+    // Gravação no Supabase
+    upsertPaymentToSupabase(payment).catch(() => {});
+    upsertReservationToSupabase(reservation).catch(() => {});
+
     return { reserva: reservation, hospede: guest, pagamento: payment };
   };
 
@@ -494,6 +732,8 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else if (status === 'checkout_concluido') {
           setRoomStatus(res.quarto_id, 'limpeza');
         }
+
+        upsertReservationToSupabase(updated).catch(() => {});
         return updated;
       })
     );
@@ -504,11 +744,13 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map((res) => {
         if (res.id !== id) return res;
         setRoomStatus(res.quarto_id, 'disponivel');
-        return {
+        const updated: Reserva = {
           ...res,
           status: 'cancelada',
           observacoes: motivo ? `${res.observacoes ? res.observacoes + ' | ' : ''}Cancelada: ${motivo}` : res.observacoes,
         };
+        upsertReservationToSupabase(updated).catch(() => {});
+        return updated;
       })
     );
   };
@@ -527,23 +769,35 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const addedValue = consumo.quantidade * consumo.valor_unitario;
         const currentConsumo = res.valor_consumo || 0;
         const newConsumo = currentConsumo + addedValue;
-        return {
+        const updated: Reserva = {
           ...res,
           consumo_itens: updatedItens,
           valor_consumo: newConsumo,
           valor_total: res.valor_diarias + res.valor_taxas + newConsumo,
         };
+        upsertReservationToSupabase(updated).catch(() => {});
+        return updated;
       })
     );
   };
 
   const deleteReservation = (id: string) => {
     setReservations((prev) => prev.filter((r) => r.id !== id));
+    deleteReservationFromSupabase(id).catch(() => {});
   };
 
   // Automações de Mensagens
   const updateAutomation = (id: string, data: Partial<AutomacaoMensagem>) => {
-    setAutomations((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)));
+    setAutomations((prev) =>
+      prev.map((a) => {
+        if (a.id === id) {
+          const updated = { ...a, ...data };
+          upsertAutomationToSupabase(updated).catch(() => {});
+          return updated;
+        }
+        return a;
+      })
+    );
   };
 
   const simulateMessageDispatch = (automationId: string, reservaId: string) => {
@@ -633,6 +887,10 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsAuthenticated(true);
     setSecurityLogs((prev) => [newLog, ...prev]);
 
+    // Supabase
+    upsertUserToSupabase(updatedUser).catch(() => {});
+    insertSecurityLogToSupabase(newLog).catch(() => {});
+
     setPendingLoginUser(null);
     setPendingLoginOtp(null);
 
@@ -668,6 +926,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
     setCurrentUser(updatedUser);
     setIsAuthenticated(true);
+    upsertUserToSupabase(updatedUser).catch(() => {});
     return { success: true };
   };
 
@@ -737,6 +996,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setSecurityLogs((prev) => [newLog, ...prev]);
+    insertSecurityLogToSupabase(newLog).catch(() => {});
 
     // 4. Executa a Ação Operacional
     try {
@@ -764,6 +1024,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ultimo_acesso: undefined,
     };
     setUsers((prev) => [...prev, newUser]);
+    upsertUserToSupabase(newUser).catch(() => {});
     return newUser;
   };
 
@@ -775,6 +1036,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (currentUser.id === id) {
             setCurrentUser(updated);
           }
+          upsertUserToSupabase(updated).catch(() => {});
           return updated;
         }
         return u;
@@ -798,6 +1060,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     setUsers((prev) => prev.filter((u) => u.id !== id));
+    deleteUserFromSupabase(id).catch(() => {});
     return { success: true };
   };
 
@@ -810,6 +1073,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             return u;
           }
           const updated = { ...u, ativo: !u.ativo };
+          upsertUserToSupabase(updated).catch(() => {});
           return updated;
         }
         return u;
@@ -826,6 +1090,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (currentUser.id === id) {
             setCurrentUser(updated);
           }
+          upsertUserToSupabase(updated).catch(() => {});
           return updated;
         }
         return u;
@@ -887,6 +1152,18 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         automations,
         users,
         currentUser,
+        supabaseConfigured: isSupabaseConfigured,
+        supabaseUrl: SUPABASE_URL,
+        supabaseStatus,
+        supabaseLatency,
+        supabaseMessage,
+        lastSyncTime,
+        healthReport,
+        syncFromSupabase,
+        exportAllToSupabase,
+        checkSupabaseHealth,
+        updateSupabaseCredentials,
+        resetSupabaseCredentials,
         isAuthenticated,
         pendingLoginUser,
         pendingLoginOtp,

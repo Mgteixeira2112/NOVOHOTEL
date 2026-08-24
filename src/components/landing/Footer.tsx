@@ -61,7 +61,7 @@ export const Footer: React.FC = () => {
             </div>
 
             <p className="text-xs text-stone-400 leading-relaxed">
-              {hotelConfig.sobre_resumo || hotelConfig.descricao_completa || 'Hospitalidade premium, conforto e excelência no atendimento com reservas instantâneas e seguras.'}
+              {hotelConfig.rodape_descricao || hotelConfig.sobre_resumo || hotelConfig.descricao_completa || hotelConfig.sobre_texto || 'Hospitalidade premium, conforto e excelência no atendimento com reservas instantâneas e seguras.'}
             </p>
 
             <div className="text-[11px] text-stone-500 space-y-0.5 pt-2">

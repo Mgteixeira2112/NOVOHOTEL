@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useHotel } from '../../context/HotelContext';
-import { formatCurrency, formatDateBR, formatDateTimeBR } from '../../utils/formatters';
+import { formatCurrency, formatDateBR, formatDateTimeBR, generateWhatsAppLink } from '../../utils/formatters';
 import { 
   LogIn, 
   LogOut, 
@@ -11,9 +11,16 @@ import {
   DollarSign, 
   Sparkles, 
   AlertCircle, 
-  FileCheck 
+  FileCheck,
+  Printer,
+  MessageSquare,
+  Mail,
+  FileText,
+  Eye,
+  Share2
 } from 'lucide-react';
 import { Reserva } from '../../types';
+import { GuestBillModal } from './GuestBillModal';
 
 // Componente de Desk de Recepção para gestão ágil de Check-in, Hóspedes In-House e Check-out
 export const CheckInOutModule: React.FC = () => {
@@ -23,11 +30,14 @@ export const CheckInOutModule: React.FC = () => {
     guests, 
     updateReservationStatus, 
     setRoomStatus, 
-    addConsumoToReservation 
+    addConsumoToReservation,
+    hotelConfig,
+    currentUser
   } = useHotel();
 
   const [activeTab, setActiveTab] = useState<'checkin' | 'checkout' | 'in_house'>('checkin');
   const [checkoutModalReserva, setCheckoutModalReserva] = useState<Reserva | null>(null);
+  const [selectedFolioReserva, setSelectedFolioReserva] = useState<Reserva | null>(null);
 
   const todayStr = '2026-08-21';
 
@@ -48,7 +58,25 @@ export const CheckInOutModule: React.FC = () => {
     updateReservationStatus(res.id, 'checkout_concluido', {
       checkoutTime: new Date().toISOString(),
     });
+    setRoomStatus(res.quarto_id, 'limpeza');
     setCheckoutModalReserva(null);
+  };
+
+  // Helper para abrir WhatsApp rápido da conta
+  const handleQuickWhatsAppFolio = (res: Reserva) => {
+    const g = guests.find((guest) => guest.id === res.hospede_id);
+    const rm = rooms.find((room) => room.id === res.quarto_id);
+    const phone = g?.telefone || '(35) 99123-4567';
+    const text = `🏨 *${hotelConfig.nome.toUpperCase()} - EXTRATO DE HOSPEDAGEM*\n\n` +
+      `Olá, *${g?.nome || 'Hóspede'}*! Segue o resumo de sua estadia no Quarto ${rm?.numero || ''}:\n` +
+      `• Período: ${formatDateBR(res.checkin)} a ${formatDateBR(res.checkout)}\n` +
+      `• Hospedagem: ${formatCurrency(res.valor_diarias)}\n` +
+      `• Taxa de Serviço (5%): ${formatCurrency(res.valor_taxas)}\n` +
+      `• Consumos Frigobar / Extras: ${formatCurrency(res.valor_consumo || 0)}\n` +
+      `💰 *Total da Conta: ${formatCurrency(res.valor_total)}*\n\n` +
+      `Chave PIX do Hotel (CNPJ): ${hotelConfig.cnpj}\n` +
+      `Agradecemos pela estadia! Esperamos recebê-lo novamente.`;
+    window.open(generateWhatsAppLink(phone, text), '_blank');
   };
 
   return (
@@ -61,7 +89,7 @@ export const CheckInOutModule: React.FC = () => {
             Desk de Recepção: Check-in & Check-out
           </h2>
           <p className="text-xs sm:text-sm text-stone-500">
-            Controle de estadias em tempo real, emissão de chaves/PINs e faturamento no fechamento da conta.
+            Controle de estadias em tempo real, emissão de faturas/PDF, envio de extratos por WhatsApp e fechamento de contas.
           </p>
         </div>
 
@@ -150,10 +178,15 @@ export const CheckInOutModule: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-stone-100 flex items-center justify-between">
-                    <span className="text-[11px] text-stone-500">
-                      {res.observacoes ? `Obs: ${res.observacoes}` : 'Sem observações'}
-                    </span>
+                  <div className="mt-5 pt-3 border-t border-stone-100 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => setSelectedFolioReserva(res)}
+                      className="p-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold flex items-center gap-1"
+                      title="Ver Fólio / Extrato"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>Fólio</span>
+                    </button>
 
                     <button
                       onClick={() => handlePerformCheckin(res)}
@@ -211,7 +244,7 @@ export const CheckInOutModule: React.FC = () => {
                         <strong className="text-stone-900">{formatDateBR(res.checkout)} (12h)</strong>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-stone-500">Consumos Extras:</span>
+                        <span className="text-stone-500">Consumos Extras / Frigobar:</span>
                         <span className="font-mono text-amber-800 font-bold">{formatCurrency(res.valor_consumo || 0)}</span>
                       </div>
                       <div className="flex justify-between border-t border-stone-200 pt-1 font-bold">
@@ -221,17 +254,38 @@ export const CheckInOutModule: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-3 border-t border-stone-100 flex items-center justify-between">
-                    <span className="text-xs font-mono text-stone-600">
-                      PIN: {res.pin_fechadura}#
-                    </span>
+                  <div className="mt-5 pt-3 border-t border-stone-100 flex flex-col gap-2">
+                    {/* Botões de Extrato e Compartilhamento */}
+                    <div className="flex items-center justify-between gap-1 text-xs">
+                      <button
+                        onClick={() => setSelectedFolioReserva(res)}
+                        className="px-2.5 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-medium flex items-center gap-1 transition"
+                        title="Ver extrato completo e imprimir em PDF"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-stone-600" />
+                        <span>Extrato / PDF</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleQuickWhatsAppFolio(res)}
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-medium flex items-center gap-1 transition"
+                        title="Enviar extrato resumido via WhatsApp"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>WhatsApp</span>
+                      </button>
+
+                      <span className="text-xs font-mono text-stone-500 font-semibold">
+                        PIN: {res.pin_fechadura}#
+                      </span>
+                    </div>
 
                     <button
                       onClick={() => setCheckoutModalReserva(res)}
-                      className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md flex items-center gap-1.5 transition"
+                      className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md flex items-center justify-center gap-1.5 transition"
                     >
                       <LogOut className="w-4 h-4" />
-                      <span>Fechar Check-out</span>
+                      <span>Fechar Check-out da Conta</span>
                     </button>
                   </div>
                 </div>
@@ -259,7 +313,8 @@ export const CheckInOutModule: React.FC = () => {
                   <th className="py-3 px-4">Quarto</th>
                   <th className="py-3 px-4">Período Estadia</th>
                   <th className="py-3 px-4">Total Faturado</th>
-                  <th className="py-3 px-4">Status Quarto</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Ações Fatura / Extrato</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -273,11 +328,28 @@ export const CheckInOutModule: React.FC = () => {
                       <td className="py-3 px-4 font-semibold text-stone-900">{guest?.nome}</td>
                       <td className="py-3 px-4">#{room?.numero} - {room?.nome}</td>
                       <td className="py-3 px-4">{formatDateBR(res.checkin)} a {formatDateBR(res.checkout)}</td>
-                      <td className="py-3 px-4 font-mono font-bold">{formatCurrency(res.valor_total)}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-emerald-800">{formatCurrency(res.valor_total)}</td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded bg-stone-200 text-stone-700 text-[10px] font-bold">
+                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                           Estadia Concluída
                         </span>
+                      </td>
+                      <td className="py-3 px-4 text-right space-x-1">
+                        <button
+                          onClick={() => setSelectedFolioReserva(res)}
+                          className="px-2.5 py-1.5 rounded-lg bg-stone-900 hover:bg-stone-800 text-amber-300 text-xs font-bold inline-flex items-center gap-1 transition"
+                          title="Imprimir Extrato / PDF"
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                          <span>Imprimir PDF</span>
+                        </button>
+                        <button
+                          onClick={() => handleQuickWhatsAppFolio(res)}
+                          className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-xs font-bold inline-flex items-center transition"
+                          title="Reenviar via WhatsApp"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -288,54 +360,112 @@ export const CheckInOutModule: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL DE FECHAMENTO DE CONTA E CHECK-OUT */}
+      {/* MODAL DE FECHAMENTO DE CONTA E CHECK-OUT (COMO NA IMAGEM ENVIADA PELO USUÁRIO) */}
       {checkoutModalReserva && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl border border-stone-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-stone-200">
             
             <div className="flex items-center justify-between pb-3 border-b border-stone-100">
               <div>
-                <span className="text-xs font-bold text-orange-700 uppercase">Fechamento de Conta & Check-out</span>
-                <h4 className="font-serif-luxury text-xl font-bold text-stone-900">
+                <span className="text-xs font-bold text-orange-700 uppercase tracking-wider block">
+                  FECHAMENTO DE CONTA & CHECK-OUT
+                </span>
+                <h4 className="font-serif-luxury text-2xl font-bold text-stone-900 mt-0.5">
                   {guests.find((g) => g.id === checkoutModalReserva.hospede_id)?.nome}
                 </h4>
               </div>
-              <button onClick={() => setCheckoutModalReserva(null)} className="text-stone-400 hover:text-stone-700">✕</button>
+              <button 
+                onClick={() => setCheckoutModalReserva(null)} 
+                className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-500 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
             </div>
 
-            <div className="p-4 rounded-xl bg-stone-50 space-y-2 text-xs">
-              <div className="flex justify-between">
-                <span className="text-stone-600">Hospedagem ({checkoutModalReserva.checkin} a {checkoutModalReserva.checkout}):</span>
-                <span className="font-mono">{formatCurrency(checkoutModalReserva.valor_diarias)}</span>
+            {/* Quadro de Valores da Estadia */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-stone-50 space-y-2.5 text-xs sm:text-sm">
+              <div className="flex justify-between text-stone-600">
+                <span>Hospedagem ({checkoutModalReserva.checkin} a {checkoutModalReserva.checkout}):</span>
+                <span className="font-mono font-medium text-stone-900">{formatCurrency(checkoutModalReserva.valor_diarias)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-stone-600">Taxa de Serviço:</span>
-                <span className="font-mono">{formatCurrency(checkoutModalReserva.valor_taxas)}</span>
+              <div className="flex justify-between text-stone-600">
+                <span>Taxa de Serviço:</span>
+                <span className="font-mono font-medium text-stone-900">{formatCurrency(checkoutModalReserva.valor_taxas)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-stone-600">Consumos Frigobar / Extras:</span>
-                <span className="font-mono">{formatCurrency(checkoutModalReserva.valor_consumo || 0)}</span>
+              <div className="flex justify-between text-stone-600">
+                <span>Consumos Frigobar / Extras:</span>
+                <span className="font-mono font-medium text-amber-800">{formatCurrency(checkoutModalReserva.valor_consumo || 0)}</span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-stone-200 font-bold text-stone-900 text-sm">
+              <div className="flex justify-between pt-3 border-t border-stone-200 font-bold text-stone-900 text-base">
                 <span>Total Final da Conta:</span>
-                <span className="font-mono text-emerald-800">{formatCurrency(checkoutModalReserva.valor_total)}</span>
+                <span className="font-mono text-emerald-800 text-lg font-black">{formatCurrency(checkoutModalReserva.valor_total)}</span>
               </div>
             </div>
 
-            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs">
+            {/* Opções de Apresentação e Envio da Conta para o Hóspede */}
+            <div className="p-3.5 bg-stone-100/90 rounded-2xl border border-stone-200/80 space-y-2">
+              <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider block">
+                Apresentação & Envio da Conta ao Hóspede:
+              </span>
+              
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {/* Visualizar e Imprimir PDF */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const res = checkoutModalReserva;
+                    setSelectedFolioReserva(res);
+                  }}
+                  className="p-2.5 rounded-xl bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 font-bold flex flex-col items-center justify-center gap-1 shadow-xs transition hover:border-stone-400 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4 text-amber-600" />
+                  <span className="text-[11px]">Imprimir PDF</span>
+                </button>
+
+                {/* Enviar WhatsApp */}
+                <button
+                  type="button"
+                  onClick={() => handleQuickWhatsAppFolio(checkoutModalReserva)}
+                  className="p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold flex flex-col items-center justify-center gap-1 shadow-xs transition cursor-pointer"
+                >
+                  <MessageSquare className="w-4 h-4 text-emerald-600" />
+                  <span className="text-[11px]">Via WhatsApp</span>
+                </button>
+
+                {/* Enviar E-mail */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const g = guests.find((guest) => guest.id === checkoutModalReserva.hospede_id);
+                    const email = g?.email || 'hospede@email.com';
+                    const subject = encodeURIComponent(`[${hotelConfig.nome}] Extrato de Conta - ${checkoutModalReserva.codigo}`);
+                    const body = encodeURIComponent(`Olá, ${g?.nome}!\n\nSegue o extrato detalhado de sua hospedagem no ${hotelConfig.nome}.\nTotal da conta: ${formatCurrency(checkoutModalReserva.valor_total)}\n\nAgradecemos sua preferência!`);
+                    window.location.href = `mailto:${email}?subject=${subject}&body=${body}`;
+                  }}
+                  className="p-2.5 rounded-xl bg-white hover:bg-stone-50 border border-stone-300 text-stone-800 font-bold flex flex-col items-center justify-center gap-1 shadow-xs transition hover:border-stone-400 cursor-pointer"
+                >
+                  <Mail className="w-4 h-4 text-blue-600" />
+                  <span className="text-[11px]">Via E-mail</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Aviso de Governança */}
+            <div className="p-3.5 bg-amber-50 rounded-2xl border border-amber-200/90 text-amber-900 text-xs">
               <strong>Atenção:</strong> Ao confirmar o Check-out, o quarto passará automaticamente para o status <strong>"Em Limpeza"</strong> para a equipe de governança.
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            {/* Botões de Ação */}
+            <div className="flex items-center justify-end gap-3 pt-1">
               <button
                 onClick={() => setCheckoutModalReserva(null)}
-                className="px-4 py-2.5 rounded-xl border border-stone-300 text-stone-700 text-xs font-bold"
+                className="px-5 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-100 text-stone-700 text-xs font-bold transition cursor-pointer"
               >
                 Voltar
               </button>
               <button
                 onClick={() => handleCompleteCheckout(checkoutModalReserva)}
-                className="px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md"
+                className="px-6 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
               >
                 Confirmar Saída & Liberar Quarto
               </button>
@@ -343,6 +473,23 @@ export const CheckInOutModule: React.FC = () => {
 
           </div>
         </div>
+      )}
+
+      {/* MODAL COMPLETO DE FÓLIO DE HOSPEDAGEM COM IMPRESSÃO EM PDF & ENVIOS */}
+      {selectedFolioReserva && (
+        <GuestBillModal
+          isOpen={!!selectedFolioReserva}
+          onClose={() => setSelectedFolioReserva(null)}
+          reserva={selectedFolioReserva}
+          guest={guests.find((g) => g.id === selectedFolioReserva.hospede_id)}
+          room={rooms.find((r) => r.id === selectedFolioReserva.quarto_id)}
+          hotelConfig={hotelConfig}
+          currentUser={currentUser}
+          onConfirmCheckout={(res) => {
+            handleCompleteCheckout(res);
+            setSelectedFolioReserva(null);
+          }}
+        />
       )}
 
     </div>

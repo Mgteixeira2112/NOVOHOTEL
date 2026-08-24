@@ -10,7 +10,9 @@ import {
   Sparkles,
   ShieldCheck,
   HelpCircle,
-  MessageSquare
+  MessageSquare,
+  Info,
+  Star
 } from 'lucide-react';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
@@ -24,9 +26,30 @@ export const Navbar: React.FC = () => {
 
   const scrollToSection = (id: string) => {
     setMobileMenuOpen(false);
-    const element = document.getElementById(id);
+
+    // Mapeamento abrangente de aliases para encontrar o elemento correto
+    const targetIds = [id];
+    if (id === 'sobre') targetIds.push('about');
+    if (id === 'quartos') targetIds.push('acomodacoes', 'rooms');
+    if (id === 'estrutura' || id === 'comodidades') targetIds.push('estrutura', 'comodidades', 'amenities');
+    if (id === 'depoimentos' || id === 'avaliacoes') targetIds.push('depoimentos', 'avaliacoes', 'testimonials');
+    if (id === 'faq' || id === 'duvidas') targetIds.push('faq', 'duvidas', 'perguntas');
+    if (id === 'contato') targetIds.push('contact', 'localizacao');
+
+    let element: HTMLElement | null = null;
+    for (const targetId of targetIds) {
+      element = document.getElementById(targetId);
+      if (element) break;
+    }
+
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
+      const headerOffset = 90;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
     }
   };
 
@@ -111,9 +134,10 @@ export const Navbar: React.FC = () => {
             {hotelConfig.secoes_visibilidade?.show_about !== false && (
               <button 
                 onClick={() => scrollToSection('sobre')}
-                className={`hover:${theme.textAccentClass} transition-colors cursor-pointer`}
+                className={`hover:${theme.textAccentClass} transition-colors cursor-pointer flex items-center gap-1.5`}
               >
-                Sobre
+                <Info className={`w-4 h-4 ${theme.textAccentClass}`} />
+                <span>Sobre</span>
               </button>
             )}
             {hotelConfig.secoes_visibilidade?.show_rooms !== false && (
@@ -122,7 +146,7 @@ export const Navbar: React.FC = () => {
                 className={`hover:${theme.textAccentClass} transition-colors cursor-pointer flex items-center gap-1.5`}
               >
                 <BedDouble className={`w-4 h-4 ${theme.textAccentClass}`} />
-                Acomodações
+                <span>Acomodações</span>
               </button>
             )}
             {hotelConfig.secoes_visibilidade?.show_amenities !== false && (
@@ -131,7 +155,7 @@ export const Navbar: React.FC = () => {
                 className={`hover:${theme.textAccentClass} transition-colors cursor-pointer flex items-center gap-1.5`}
               >
                 <Sparkles className={`w-4 h-4 ${theme.textAccentClass}`} />
-                Comodidades
+                <span>Comodidades</span>
               </button>
             )}
             {hotelConfig.secoes_visibilidade?.show_testimonials !== false && (
@@ -139,7 +163,8 @@ export const Navbar: React.FC = () => {
                 onClick={() => scrollToSection('depoimentos')}
                 className={`hover:${theme.textAccentClass} transition-colors cursor-pointer flex items-center gap-1.5`}
               >
-                Avaliações
+                <Star className={`w-4 h-4 ${theme.textAccentClass}`} />
+                <span>Avaliações</span>
               </button>
             )}
             {hotelConfig.secoes_visibilidade?.show_faq !== false && (
@@ -148,7 +173,7 @@ export const Navbar: React.FC = () => {
                 className={`hover:${theme.textAccentClass} transition-colors cursor-pointer flex items-center gap-1.5`}
               >
                 <HelpCircle className={`w-4 h-4 ${theme.textAccentClass}`} />
-                Dúvidas
+                <span>Dúvidas</span>
               </button>
             )}
             {hotelConfig.secoes_visibilidade?.show_contact !== false && (
@@ -157,7 +182,7 @@ export const Navbar: React.FC = () => {
                 className={`hover:${theme.textAccentClass} transition-colors cursor-pointer flex items-center gap-1.5`}
               >
                 <Phone className={`w-4 h-4 ${theme.textAccentClass}`} />
-                Contato
+                <span>Contato</span>
               </button>
             )}
           </nav>
@@ -210,43 +235,45 @@ export const Navbar: React.FC = () => {
         <div className="lg:hidden bg-stone-950 border-b border-stone-800 px-4 pt-3 pb-6 space-y-3 animate-in fade-in slide-in-from-top-4 duration-200">
           <button 
             onClick={() => scrollToSection('sobre')}
-            className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-stone-900 text-stone-200 font-medium"
+            className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-stone-900 text-stone-200 font-medium flex items-center gap-2"
           >
-            Sobre
+            <Info className={`w-4 h-4 ${theme.textAccentClass}`} />
+            <span>Sobre</span>
           </button>
           <button 
             onClick={() => scrollToSection('quartos')}
             className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-stone-900 text-stone-200 font-medium flex items-center gap-2"
           >
             <BedDouble className={`w-4 h-4 ${theme.textAccentClass}`} />
-            Acomodações
+            <span>Acomodações</span>
           </button>
           <button 
             onClick={() => scrollToSection('estrutura')}
             className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-stone-900 text-stone-200 font-medium flex items-center gap-2"
           >
             <Sparkles className={`w-4 h-4 ${theme.textAccentClass}`} />
-            Comodidades
+            <span>Comodidades</span>
           </button>
           <button 
             onClick={() => scrollToSection('depoimentos')}
             className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-stone-900 text-stone-200 font-medium flex items-center gap-2"
           >
-            Avaliações
+            <Star className={`w-4 h-4 ${theme.textAccentClass}`} />
+            <span>Avaliações</span>
           </button>
           <button 
             onClick={() => scrollToSection('faq')}
             className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-stone-900 text-stone-200 font-medium flex items-center gap-2"
           >
             <HelpCircle className={`w-4 h-4 ${theme.textAccentClass}`} />
-            Perguntas Frequentes
+            <span>Perguntas Frequentes (FAQ)</span>
           </button>
           <button 
             onClick={() => scrollToSection('contato')}
             className="w-full text-left py-2.5 px-3 rounded-xl hover:bg-stone-900 text-stone-200 font-medium flex items-center gap-2"
           >
-            <MapPin className={`w-4 h-4 ${theme.textAccentClass}`} />
-            Contato & Localização
+            <Phone className={`w-4 h-4 ${theme.textAccentClass}`} />
+            <span>Contato & Localização</span>
           </button>
 
           <div className="pt-3 border-t border-stone-800 flex flex-col gap-2">
