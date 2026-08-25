@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+:root {
+  --theme-primary: #f59e0b;
+  --theme-primary-hover: #d97706;
+  --theme-primary-light: #fef3c7;
+  --theme-primary-border: #fde68a;
+  --theme-primary-text: #f59e0b;
+  --theme-primary-dark-text: #78350f;
+  --theme-primary-ring: #f59e0b;
+  --theme-gradient-from: #f59e0b;
+  --theme-gradient-to: #d97706;
+  --theme-badge-bg: rgba(245, 158, 11, 0.15);
+  --theme-badge-text: #fcd34d;
+}
+
 @layer base {
   body {
     font-family: 'Plus Jakarta Sans', sans-serif;
@@ -12,6 +26,34 @@
   .font-display-hotel {
     font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
   }
+}
+
+/* Dynamic Theme Utility Classes */
+.theme-btn-primary {
+  background-color: var(--theme-primary);
+  color: #0c0a09;
+  font-weight: 700;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.theme-btn-primary:hover {
+  background-color: var(--theme-primary-hover);
+}
+
+.theme-text-accent {
+  color: var(--theme-primary-text);
+}
+
+.theme-border-accent {
+  border-color: var(--theme-primary);
+}
+
+.theme-bg-subtle {
+  background-color: var(--theme-badge-bg);
+}
+
+.theme-ring-focus:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--theme-primary-ring);
 }
 
 /* Custom scrollbars for clean UI */

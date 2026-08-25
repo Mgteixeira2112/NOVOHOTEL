@@ -22,7 +22,7 @@ import {
 import { UserProfileModal } from '../admin/UserProfileModal';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
-// Componente de cabeçalho superior do painel administrativo PMS com controle de sessão e status do Supabase
+// Componente de cabeçalho superior do painel administrativo PMS integrado com a paleta de cores do hotel
 export const AdminHeader: React.FC = () => {
   const { 
     hotelConfig, 
@@ -85,7 +85,7 @@ export const AdminHeader: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             
-            {/* Identidade visual e logo do hotel */}
+            {/* Identidade visual e logo do hotel com suporte às cores do tema */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2.5">
                 {hotelConfig.logo_url ? (
@@ -93,10 +93,10 @@ export const AdminHeader: React.FC = () => {
                     src={hotelConfig.logo_url}
                     alt={hotelConfig.nome}
                     referrerPolicy="no-referrer"
-                    className="w-9 h-9 rounded-lg object-cover border border-stone-700"
+                    className={`w-9 h-9 rounded-lg object-cover border ${theme.primaryBorder}`}
                   />
                 ) : (
-                  <div className={`w-9 h-9 rounded-lg ${theme.badgeClass} flex items-center justify-center font-black shadow-sm border border-stone-700`}>
+                  <div className={`w-9 h-9 rounded-lg ${theme.badgeClass} flex items-center justify-center font-black shadow-sm`}>
                     <span className={`${fontClass} text-xs tracking-tighter font-black`}>
                       {getInitials(hotelConfig.nome)}
                     </span>
@@ -133,9 +133,9 @@ export const AdminHeader: React.FC = () => {
                   </>
                 ) : supabaseStatus === 'syncing' ? (
                   <>
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                    <Database className="w-3 h-3 text-amber-400" />
-                    <span className="text-amber-300 font-medium">Sincronizando...</span>
+                    <span className={`w-2 h-2 rounded-full ${theme.primary} animate-ping`} />
+                    <Database className={`w-3 h-3 ${theme.textAccentClass}`} />
+                    <span className={`${theme.textAccentClass} font-medium`}>Sincronizando...</span>
                   </>
                 ) : supabaseStatus === 'needs_tables' ? (
                   <>
@@ -156,18 +156,18 @@ export const AdminHeader: React.FC = () => {
             {/* Ações rápidas e menu de sessão do usuário */}
             <div className="flex items-center gap-3">
               
-              {/* Botão de alternância direta para o site público / Landing Page */}
+              {/* Botão dinâmico com o sistema de cores do site */}
               <button
                 onClick={() => setCurrentView('landing')}
-                className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-amber-500/20 transition-all cursor-pointer transform active:scale-95"
+                className={`px-3.5 py-1.5 rounded-xl ${theme.buttonClass} text-xs font-bold flex items-center gap-2 transition-all cursor-pointer transform active:scale-95 shadow-md`}
                 title="Visualizar o site oficial como o cliente/hóspede vê"
               >
                 <Eye className="w-4 h-4" />
                 <span className="font-bold">Ver Site Oficial</span>
-                <ExternalLink className="w-3 h-3 opacity-70" />
+                <ExternalLink className="w-3 h-3 opacity-75" />
               </button>
 
-              {/* Indicador de notificações de chegadas do dia */}
+              {/* Indicador de notificações de chegadas do dia com cor do tema */}
               <div 
                 onClick={() => setAdminActiveTab('checkin_out')}
                 className="relative p-2 text-stone-400 hover:text-white transition cursor-pointer"
@@ -175,7 +175,7 @@ export const AdminHeader: React.FC = () => {
               >
                 <Bell className="w-4 h-4" />
                 {checkinsToday > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-stone-900" />
+                  <span className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${theme.primary} ring-2 ring-stone-900 animate-pulse`} />
                 )}
               </div>
 
@@ -186,7 +186,7 @@ export const AdminHeader: React.FC = () => {
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
                   className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-stone-800 transition cursor-pointer text-left"
                 >
-                  <div className="w-8 h-8 rounded-full overflow-hidden border border-amber-500/50 bg-stone-800 flex-shrink-0">
+                  <div className={`w-8 h-8 rounded-full overflow-hidden border ${theme.primaryBorder} bg-stone-800 flex-shrink-0`}>
                     <img
                       src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
                       alt={currentUser?.nome}
@@ -198,7 +198,7 @@ export const AdminHeader: React.FC = () => {
                     <strong className="block text-xs text-stone-200 leading-tight">
                       {currentUser?.nome}
                     </strong>
-                    <span className="text-[10px] text-amber-400/90 font-medium">
+                    <span className={`text-[10px] ${theme.textAccentClass} font-medium`}>
                       {currentUser?.cargo_titulo || getRoleLabel(currentUser?.tipo_usuario || 'admin')}
                     </span>
                   </div>
@@ -217,7 +217,7 @@ export const AdminHeader: React.FC = () => {
                     <div className="px-4 py-2 border-b border-stone-800 mb-1">
                       <strong className="block text-stone-100 font-bold truncate">{currentUser?.nome}</strong>
                       <span className="text-[11px] text-stone-400 truncate block">{currentUser?.email}</span>
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 text-[10px] font-bold uppercase border border-amber-500/30">
+                      <span className={`inline-block mt-1 px-2 py-0.5 rounded ${theme.badgeClass} text-[10px] font-bold uppercase`}>
                         {currentUser?.tipo_usuario}
                       </span>
                     </div>
@@ -230,7 +230,7 @@ export const AdminHeader: React.FC = () => {
                       }}
                       className="w-full px-4 py-2 text-left text-stone-300 hover:text-white hover:bg-stone-800 flex items-center gap-2.5 transition cursor-pointer"
                     >
-                      <User className="w-4 h-4 text-amber-400" />
+                      <User className={`w-4 h-4 ${theme.textAccentClass}`} />
                       <span>Meu Perfil & Senha</span>
                     </button>
 
@@ -242,7 +242,7 @@ export const AdminHeader: React.FC = () => {
                         }}
                         className="w-full px-4 py-2 text-left text-stone-300 hover:text-white hover:bg-stone-800 flex items-center gap-2.5 transition cursor-pointer"
                       >
-                        <Users className="w-4 h-4 text-amber-400" />
+                        <Users className={`w-4 h-4 ${theme.textAccentClass}`} />
                         <span>Gestão de Usuários & Permissões</span>
                       </button>
                     )}
@@ -254,14 +254,14 @@ export const AdminHeader: React.FC = () => {
                       }}
                       className="w-full px-4 py-2 text-left text-stone-300 hover:text-white hover:bg-stone-800 flex items-center gap-2.5 transition cursor-pointer"
                     >
-                      <Database className="w-4 h-4 text-emerald-400" />
-                      <span>Banco de Dados Supabase</span>
+                      <Palette className={`w-4 h-4 ${theme.textAccentClass}`} />
+                      <span>Identidade Visual & Cores</span>
                     </button>
 
                     {/* Alternador Rápido de Perfil para Demonstração */}
                     <div className="px-4 py-2 border-t border-stone-800 mt-1">
-                      <span className="text-[10px] text-stone-500 uppercase font-bold tracking-wider block mb-1.5 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span className={`text-[10px] text-stone-500 uppercase font-bold tracking-wider block mb-1.5 flex items-center gap-1`}>
+                        <Sparkles className={`w-3 h-3 ${theme.textAccentClass}`} />
                         Trocar Usuário (Demo):
                       </span>
                       <select

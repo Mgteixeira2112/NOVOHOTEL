@@ -25,6 +25,7 @@ import {
   MessageSquare 
 } from 'lucide-react';
 import { Quarto, TipoQuarto, AvailabilityResult, Reserva } from '../../types';
+import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
 // Componente Modal do Motor de Reservas Integrado (Passo a Passo / Wizard)
 export const BookingModal: React.FC = () => {
@@ -39,6 +40,9 @@ export const BookingModal: React.FC = () => {
     setCurrentView,
     setAdminActiveTab
   } = useHotel();
+
+  const theme = getTheme(hotelConfig.tema_cor);
+  const fontClass = getFontFamilyClass(hotelConfig.tipografia);
 
   // Etapas do Wizard: 1 = Datas/Hóspedes, 2 = Escolha de Quarto, 3 = Dados do Hóspede, 4 = Pagamento, 5 = Confirmação & Voucher
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4 | 5>(1);
@@ -208,32 +212,32 @@ export const BookingModal: React.FC = () => {
 
         {/* Barra de Progresso do Wizard */}
         <div className="bg-stone-100 px-4 sm:px-6 py-3 border-b border-stone-200 flex items-center justify-between overflow-x-auto text-xs font-semibold text-stone-600 flex-shrink-0">
-          <div className={`flex items-center gap-1.5 ${currentStep >= 1 ? 'text-amber-700 font-bold' : 'text-stone-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 1 ? 'bg-amber-600 text-white' : 'bg-stone-300 text-stone-600'}`}>1</span>
+          <div className={`flex items-center gap-1.5 ${currentStep >= 1 ? `${theme.textAccentClass} font-bold` : 'text-stone-400'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 1 ? `${theme.primary} text-stone-950 font-bold` : 'bg-stone-300 text-stone-600'}`}>1</span>
             <span>Datas & Período</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
           
-          <div className={`flex items-center gap-1.5 ${currentStep >= 2 ? 'text-amber-700 font-bold' : 'text-stone-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 2 ? 'bg-amber-600 text-white' : 'bg-stone-300 text-stone-600'}`}>2</span>
+          <div className={`flex items-center gap-1.5 ${currentStep >= 2 ? `${theme.textAccentClass} font-bold` : 'text-stone-400'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 2 ? `${theme.primary} text-stone-950 font-bold` : 'bg-stone-300 text-stone-600'}`}>2</span>
             <span>Acomodação</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
 
-          <div className={`flex items-center gap-1.5 ${currentStep >= 3 ? 'text-amber-700 font-bold' : 'text-stone-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 3 ? 'bg-amber-600 text-white' : 'bg-stone-300 text-stone-600'}`}>3</span>
+          <div className={`flex items-center gap-1.5 ${currentStep >= 3 ? `${theme.textAccentClass} font-bold` : 'text-stone-400'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 3 ? `${theme.primary} text-stone-950 font-bold` : 'bg-stone-300 text-stone-600'}`}>3</span>
             <span>Hóspede</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
 
-          <div className={`flex items-center gap-1.5 ${currentStep >= 4 ? 'text-amber-700 font-bold' : 'text-stone-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 4 ? 'bg-amber-600 text-white' : 'bg-stone-300 text-stone-600'}`}>4</span>
+          <div className={`flex items-center gap-1.5 ${currentStep >= 4 ? `${theme.textAccentClass} font-bold` : 'text-stone-400'}`}>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep >= 4 ? `${theme.primary} text-stone-950 font-bold` : 'bg-stone-300 text-stone-600'}`}>4</span>
             <span>Pagamento</span>
           </div>
           <ChevronRight className="w-3.5 h-3.5 text-stone-400" />
 
           <div className={`flex items-center gap-1.5 ${currentStep === 5 ? 'text-emerald-700 font-bold' : 'text-stone-400'}`}>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep === 5 ? 'bg-emerald-600 text-white' : 'bg-stone-300 text-stone-600'}`}>5</span>
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${currentStep === 5 ? 'bg-emerald-600 text-white font-bold' : 'bg-stone-300 text-stone-600'}`}>5</span>
             <span>Voucher</span>
           </div>
         </div>
@@ -247,7 +251,7 @@ export const BookingModal: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                    <Calendar className={`w-3.5 h-3.5 ${theme.textAccentClass}`} />
                     Data de Entrada (Check-in)
                   </label>
                   <input
@@ -262,7 +266,7 @@ export const BookingModal: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-stone-600 mb-1 flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                    <Calendar className={`w-3.5 h-3.5 ${theme.textAccentClass}`} />
                     Data de Saída (Check-out)
                   </label>
                   <input
@@ -308,8 +312,8 @@ export const BookingModal: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-700 flex-shrink-0" />
+              <div className={`p-4 rounded-xl ${theme.bgSubtleClass} border ${theme.primaryBorder} text-stone-900 text-xs flex items-center gap-2`}>
+                <Clock className={`w-4 h-4 ${theme.textAccentClass} flex-shrink-0`} />
                 <span>
                   Período solicitado: <strong>{nights} {nights === 1 ? 'noite' : 'noites'}</strong> ({formatDateBR(checkin)} até {formatDateBR(checkout)}) para <strong>{totalGuests} {totalGuests === 1 ? 'hóspede' : 'hóspedes'}</strong>.
                 </span>
@@ -317,7 +321,7 @@ export const BookingModal: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-base shadow-md flex items-center justify-center gap-2 transition cursor-pointer"
+                className={`w-full py-3.5 rounded-xl ${theme.buttonClass} font-bold text-base flex items-center justify-center gap-2 transition cursor-pointer`}
               >
                 Buscar Quartos Disponíveis
               </button>

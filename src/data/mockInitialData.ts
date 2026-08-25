@@ -7,11 +7,163 @@ import {
   Pagamento, 
   BloqueioQuarto, 
   HotelConfig, 
-  AutomacaoMensagem 
+  AutomacaoMensagem,
+  RBACMatrixConfig
 } from '../types';
 
+export const INITIAL_RBAC_MATRIX: RBACMatrixConfig = {
+  version: 2,
+  lastUpdated: new Date().toISOString(),
+  updatedBy: 'Alice Guimarães (Administradora)',
+  resources: [
+    {
+      id: 'dashboard',
+      moduleName: 'Dashboard & Indicadores de Ocupação',
+      description: 'Métricas de RevPAR, Diária Média, Ocupação em tempo real e gráficos analíticos',
+      adminTab: 'dashboard',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Visão executiva, faturamento e ocupação consolidada' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Acesso total aos indicadores gerenciais e operacionais' },
+        recepcionista: { granted: true, level: 'custom', customLabel: '✓ Operacional', description: 'Painel operacional de chegadas e saídas do dia' },
+        governanca: { granted: true, level: 'custom', customLabel: '✓ Ocupação', description: 'Visão de quartos ocupados, limpezas e vistorias' },
+        financeiro: { granted: true, level: 'custom', customLabel: '✓ Faturamento', description: 'Indicadores de faturamento, recebíveis e PIX' },
+      }
+    },
+    {
+      id: 'kanban',
+      moduleName: 'Operação Kanban em Tempo Real & SLAs',
+      description: 'Quadros integrados para Recepção, Governança, Cozinha (Room Service) e Manutenção',
+      adminTab: 'kanban',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Acesso a todos os quadros, criação/edição de colunas e métricas de SLA' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Acesso a todos os quadros, relatórios e customização de colunas' },
+        recepcionista: { granted: true, level: 'total', customLabel: '✓ Operacional Recepção', description: 'Gestão do Kanban da Recepção e visão integrada' },
+        governanca: { granted: true, level: 'custom', customLabel: '✓ Governança', description: 'Gestão das colunas de limpeza, inspeção e pedidos extras' },
+        financeiro: { granted: true, level: 'readonly', customLabel: '✓ Consulta & A&B', description: 'Consulta de status e conferência de pedidos de Room Service' },
+      }
+    },
+    {
+      id: 'reservations',
+      moduleName: 'Mapa de Reservas (Criar, Editar, Cancelar)',
+      description: 'Grid visual de reservas, criação de walk-ins, alterações de datas e cancelamentos',
+      adminTab: 'reservations',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Criação, edição, bloqueios e cancelamentos irrestritos' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Gerenciamento completo do grid e reservas diretas' },
+        recepcionista: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Criação de reservas, walk-in e edições operacionais' },
+        governanca: { granted: false, level: 'readonly', customLabel: '✗ Somente Leitura', description: 'Apenas visualização do mapa para previsão de ocupação' },
+        financeiro: { granted: false, level: 'readonly', customLabel: '✗ Consulta', description: 'Consulta de dados de reservas para conciliação' },
+      }
+    },
+    {
+      id: 'frontdesk',
+      moduleName: 'Front Desk: Check-in, Check-out & Consumos',
+      description: 'Check-in rápido, emissão de voucher, check-out express e cobrança de extras',
+      adminTab: 'checkin_out',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Execução de check-in, check-out e cancelamento de lançamentos' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Supervisão de recepção e fechamento de contas' },
+        recepcionista: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Operação diária completa de entrada, saída e cobranças' },
+        governanca: { granted: true, level: 'custom', customLabel: '✓ Status Limpeza', description: 'Atualização de quartos prontos para entrega de chaves' },
+        financeiro: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso ao balcão de atendimento' },
+      }
+    },
+    {
+      id: 'rooms',
+      moduleName: 'Quartos, Tarifas & Bloqueios de Manutenção',
+      description: 'Cadastro de acomodações, valores de diárias, bloqueio de manutenções e fechaduras',
+      adminTab: 'rooms',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Edição de tarifas, novos quartos e geração de senhas mestres' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Ajuste de preços, manutenções e senhas digitais' },
+        recepcionista: { granted: true, level: 'readonly', customLabel: '✗ Consulta', description: 'Visualização da disponibilidade e senhas de hóspedes' },
+        governanca: { granted: true, level: 'custom', customLabel: '✓ Alterar Status', description: 'Controle do status de limpeza (limpo, sujo, vistoria)' },
+        financeiro: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso a manutenção e fechaduras' },
+      }
+    },
+    {
+      id: 'guests',
+      moduleName: 'CRM de Hóspedes & Histórico',
+      description: 'Base de clientes VIP, preferências, histórico de estadias e documentos (FNRH)',
+      adminTab: 'guests',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Acesso a toda a base, exportação e edição de fichas' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Gestão de clientes VIP e histórico de fidelidade' },
+        recepcionista: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Cadastro e atualização de fichas de hóspedes' },
+        governanca: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso a dados pessoais' },
+        financeiro: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso a dados pessoais' },
+      }
+    },
+    {
+      id: 'financial',
+      moduleName: 'Módulo Financeiro, Relatórios & DRE',
+      description: 'Controle de caixa, conciliação PIX QR Code Dinâmico, despesas e DRE hoteleiro',
+      adminTab: 'financial',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Acesso irrestrito a receitas, custos e relatórios fiscais' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Conferência de caixa diário e relatórios operacionais' },
+        recepcionista: { granted: false, level: 'none', customLabel: '✗ Restrito', description: 'Acesso restrito ao financeiro geral' },
+        governanca: { granted: false, level: 'none', customLabel: '✗ Restrito', description: 'Acesso restrito ao financeiro geral' },
+        financeiro: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Lançamentos, conciliação de pagamentos e DRE' },
+      }
+    },
+    {
+      id: 'automation',
+      moduleName: 'Automações de WhatsApp / E-mail & Fechaduras',
+      description: 'Disparos automáticos pré-checkin, senha de fechadura por WhatsApp e pós-checkout',
+      adminTab: 'automation',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Configuração de regras e templates de mensagens' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Monitoramento de disparos e envio manual' },
+        recepcionista: { granted: true, level: 'custom', customLabel: '✓ Enviar Mensagens', description: 'Reenvio de voucher e senha de fechadura para hóspede' },
+        governanca: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso a automações' },
+        financeiro: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso a automações' },
+      }
+    },
+    {
+      id: 'users',
+      moduleName: 'Gestão de Usuários, Senhas & Permissões',
+      description: 'Criação de novos acessos, redefinição de senhas e auditoria de segurança 2FA',
+      adminTab: 'users',
+      permissions: {
+        admin: { granted: true, level: 'exclusive', customLabel: '✓ Exclusivo', description: 'Controle absoluto de permissões e cadastro de equipe' },
+        gerente: { granted: false, level: 'readonly', customLabel: '✗ Consulta', description: 'Visualização da lista de colaboradores sem permissão de edição' },
+        recepcionista: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso' },
+        governanca: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso' },
+        financeiro: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso' },
+      }
+    },
+    {
+      id: 'frigobar',
+      moduleName: 'Frigobar & Controle de Estoque',
+      description: 'Gestão de produtos do frigobar, reposição por quarto e lançamento de consumos',
+      adminTab: 'frigobar',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Controle total de produtos, preços de venda e estoque' },
+        gerente: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Supervisão de estoque e auditorias de frigobar' },
+        recepcionista: { granted: true, level: 'custom', customLabel: '✓ Lançar', description: 'Lançamento de consumos informados no check-out' },
+        governanca: { granted: true, level: 'custom', customLabel: '✓ Lançar & Reposição', description: 'Conferência física na arrumação e reposição de itens' },
+        financeiro: { granted: true, level: 'custom', customLabel: '✓ Consulta & Custo', description: 'Relatório de custos e margem de lucro de frigobar' },
+      }
+    },
+    {
+      id: 'settings',
+      moduleName: 'Personalização & Configurações White-Label',
+      description: 'Customização visual da landing page, paletas de cores, banco de dados e dados cadastrais',
+      adminTab: 'settings',
+      permissions: {
+        admin: { granted: true, level: 'total', customLabel: '✓ Total', description: 'Customização de tema, fotos, textos e sincronização cloud' },
+        gerente: { granted: true, level: 'custom', customLabel: '✓ Parcial', description: 'Edição de textos e políticas operacionais do hotel' },
+        recepcionista: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso' },
+        governanca: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso' },
+        financeiro: { granted: false, level: 'none', customLabel: '✗', description: 'Sem acesso' },
+      }
+    }
+  ]
+};
+
 export const INITIAL_HOTEL_CONFIG: HotelConfig = {
-  nome: 'Hotel Centenário Itajubá',
+  nome: 'Hotel Centenário',
   tipo_estabelecimento: 'hotel',
   slogan: 'Tradição, hospitalidade mineira e a localização mais nobre no coração de Itajubá - MG.',
   estrelas: 4,
@@ -29,9 +181,9 @@ export const INITIAL_HOTEL_CONFIG: HotelConfig = {
   tema_cor: 'blue',
   tema_estilo: 'luxury',
   tipografia: 'serif_luxury',
-  logo_iniciais: 'HCI',
+  logo_iniciais: 'HC',
   banner_hero: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80',
-  hero_titulo_custom: 'Hotel Centenário Itajubá',
+  hero_titulo_custom: 'Hotel Centenário',
   hero_subtitulo_custom: 'Tradição, acolhimento mineiro e a melhor localização em frente à Praça Central de Itajubá.',
   hero_badge_custom: 'Centro Histórico, Itajubá — MG | Hotel Tradicional & Executivo',
   hero_overlay_opacity: 70,
@@ -241,7 +393,9 @@ export const INITIAL_HOTEL_CONFIG: HotelConfig = {
     'Serviço de Quarto e Arrumação Diária',
     'Pet Friendly (Pequeno Porte sob Consulta)',
     'Localização Central Privilegiada (Próximo à Matriz, UNIFEI e Helibras)'
-  ]
+  ],
+
+  rbac_matrix: INITIAL_RBAC_MATRIX
 };
 
 export const INITIAL_USERS: Usuario[] = [
@@ -856,4 +1010,5 @@ export const INITIAL_SECURITY_LOGS = [
     timestamp: '2026-08-19T10:30:00Z',
   }
 ];
+
 

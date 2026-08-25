@@ -15,7 +15,13 @@ import {
   ConsumoExtra,
   SecurityLogEntry,
   SecurityActionRequest,
-  TwoFactorMethod
+  TwoFactorMethod,
+  UserRole,
+  AdminTab,
+  RBACMatrixConfig,
+  RBACResourceRule,
+  RBACRolePermission,
+  RBACAccessLevel
 } from '../types';
 import { 
   INITIAL_HOTEL_CONFIG, 
@@ -27,10 +33,11 @@ import {
   INITIAL_BLOCKS, 
   INITIAL_AUTOMATIONS, 
   INITIAL_USERS,
-  INITIAL_SECURITY_LOGS
+  INITIAL_SECURITY_LOGS,
+  INITIAL_RBAC_MATRIX
 } from '../data/mockInitialData';
 import { searchAvailableRooms, generateBookingCode, generateSmartLockPin } from '../utils/availability';
-import { TEMPLATE_PRESETS } from '../utils/themeHelper';
+import { TEMPLATE_PRESETS, applyThemeVariables } from '../utils/themeHelper';
 import { getCurrentTotpToken, generateOtpToken, validate2FACode, TotpStatus } from '../utils/securityHelper';
 import {
   isSupabaseConfigured,
@@ -192,6 +199,17 @@ interface HotelContextType {
   changeUserPassword: (id: string, novaSenha: string) => boolean;
   updateUserProfile: (data: Partial<Usuario>) => void;
 
+  // Matriz de Controle de Acesso Baseado em Funções (RBAC Customizável)
+  rbacMatrix: RBACMatrixConfig;
+  updateRBACMatrix: (newMatrix: RBACMatrixConfig) => void;
+  updateRBACPermission: (resourceId: string, role: UserRole, permission: Partial<RBACRolePermission>) => void;
+  addRBACResource: (resource: Omit<RBACResourceRule, 'id'>) => void;
+  editRBACResource: (resourceId: string, data: Partial<RBACResourceRule>) => void;
+  deleteRBACResource: (resourceId: string) => void;
+  resetRBACMatrix: () => void;
+  hasTabAccess: (role: UserRole, tab: AdminTab) => boolean;
+  getRoleModulePermission: (role: UserRole, resourceId: string) => RBACRolePermission | undefined;
+
   // Segurança em 2 Fatores em TODAS as Operações
   securityModalOpen: boolean;
   securityModalRequest: SecurityActionRequest | null;
@@ -248,7 +266,16 @@ dayAfter.setDate(dayAfter.getDate() + 4);
 const formatDateForInput = (d: Date) => d.toISOString().split('T')[0];
 
 export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [hotelConfig, setHotelConfig] = useState<HotelConfig>(() => loadFromStorage('hotel_config', INITIAL_HOTEL_CONFIG));
+  const [hotelConfig, setHotelConfig] = useState<HotelConfig>(() => {
+    const loaded = loadFromStorage<HotelConfig>('hotel_config', INITIAL_HOTEL_CONFIG);
+    if (loaded.hero_titulo_custom === 'Hotel Centenário Itajubá') {
+      loaded.hero_titulo_custom = 'Hotel Centenário';
+    }
+    if (loaded.nome === 'Hotel Centenário Itajubá') {
+      loaded.nome = 'Hotel Centenário';
+    }
+    return loaded;
+  });
   const [rooms, setRooms] = useState<Quarto[]>(() => loadFromStorage('rooms', INITIAL_ROOMS));
   const [roomTypes, setRoomTypes] = useState<TipoQuarto[]>(() => loadFromStorage('room_types', INITIAL_ROOM_TYPES));
   const [guests, setGuests] = useState<Hospede[]>(() => loadFromStorage('guests', INITIAL_GUESTS));
@@ -257,6 +284,9 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [blocks, setBlocks] = useState<BloqueioQuarto[]>(() => loadFromStorage('blocks', INITIAL_BLOCKS));
   const [automations, setAutomations] = useState<AutomacaoMensagem[]>(() => loadFromStorage('automations', INITIAL_AUTOMATIONS));
   const [users, setUsers] = useState<Usuario[]>(() => loadFromStorage('users', INITIAL_USERS));
+  const [rbacMatrix, setRbacMatrix] = useState<RBACMatrixConfig>(() => {
+    return loadFromStorage<RBACMatrixConfig>('rbac_matrix', hotelConfig.rbac_matrix || INITIAL_RBAC_MATRIX);
+  });
   const [securityLogs, setSecurityLogs] = useState<SecurityLogEntry[]>(() => loadFromStorage('security_logs', INITIAL_SECURITY_LOGS));
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => loadFromStorage('auth_authenticated', false));
   const [currentUser, setCurrentUser] = useState<Usuario>(() => {
@@ -306,8 +336,11 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     guests: 2,
   });
 
-  // Sincronização Automática com o Armazenamento Local (localStorage)
-  useEffect(() => { saveToStorage('hotel_config', hotelConfig); }, [hotelConfig]);
+  // Sincronização Automática com o Armazenamento Local (localStorage) e Variáveis CSS de Tema
+  useEffect(() => { 
+    saveToStorage('hotel_config', hotelConfig); 
+    applyThemeVariables(hotelConfig.tema_cor);
+  }, [hotelConfig]);
   useEffect(() => { saveToStorage('rooms', rooms); }, [rooms]);
   useEffect(() => { saveToStorage('room_types', roomTypes); }, [roomTypes]);
   useEffect(() => { saveToStorage('guests', guests); }, [guests]);
@@ -316,6 +349,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => { saveToStorage('blocks', blocks); }, [blocks]);
   useEffect(() => { saveToStorage('automations', automations); }, [automations]);
   useEffect(() => { saveToStorage('users', users); }, [users]);
+  useEffect(() => { saveToStorage('rbac_matrix', rbacMatrix); }, [rbacMatrix]);
   useEffect(() => { saveToStorage('security_logs', securityLogs); }, [securityLogs]);
   useEffect(() => { saveToStorage('auth_authenticated', isAuthenticated); }, [isAuthenticated]);
   useEffect(() => { saveToStorage('auth_current_user', currentUser); }, [currentUser]);
@@ -885,6 +919,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUsers((prev) => prev.map((u) => (u.id === pendingLoginUser.id ? updatedUser : u)));
     setCurrentUser(updatedUser);
     setIsAuthenticated(true);
+    setAdminActiveTab('dashboard');
     setSecurityLogs((prev) => [newLog, ...prev]);
 
     // Supabase
@@ -926,6 +961,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
     setCurrentUser(updatedUser);
     setIsAuthenticated(true);
+    setAdminActiveTab('dashboard');
     upsertUserToSupabase(updatedUser).catch(() => {});
     return { success: true };
   };
@@ -1104,6 +1140,115 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateUser(currentUser.id, data);
   };
 
+  // Gerenciamento e Customização da Matriz de Controle de Acesso (RBAC)
+  const hasTabAccess = useCallback((role: UserRole, tab: AdminTab): boolean => {
+    if (role === 'admin') return true;
+
+    // Buscar recurso mapeado com adminTab ou pelo id
+    const rule = rbacMatrix.resources.find((r) => r.adminTab === tab || r.id === tab);
+    if (rule && rule.permissions && rule.permissions[role]) {
+      return rule.permissions[role].granted;
+    }
+
+    // Regras padrão de contingência
+    if (tab === 'dashboard') return true;
+    if (tab === 'settings' || tab === 'users') return role === 'gerente';
+    if (tab === 'financial') return role === 'gerente' || role === 'financeiro';
+    if (tab === 'rooms' || tab === 'checkin_out' || tab === 'frigobar') return true;
+    if (tab === 'reservations' || tab === 'guests' || tab === 'automation') return role === 'gerente' || role === 'recepcionista';
+    return false;
+  }, [rbacMatrix]);
+
+  const getRoleModulePermission = useCallback((role: UserRole, resourceId: string): RBACRolePermission | undefined => {
+    const rule = rbacMatrix.resources.find((r) => r.id === resourceId);
+    return rule?.permissions?.[role];
+  }, [rbacMatrix]);
+
+  const updateRBACPermission = useCallback((resourceId: string, role: UserRole, permissionData: Partial<RBACRolePermission>) => {
+    setRbacMatrix((prev) => {
+      const updated: RBACMatrixConfig = {
+        ...prev,
+        lastUpdated: new Date().toISOString(),
+        updatedBy: currentUser?.nome ? `${currentUser.nome} (${currentUser.cargo_titulo || currentUser.tipo_usuario})` : 'Administrador',
+        resources: prev.resources.map((res) => {
+          if (res.id !== resourceId) return res;
+          const currentRolePerm = res.permissions[role] || { granted: true, level: 'total', customLabel: '✓ Total' };
+          return {
+            ...res,
+            permissions: {
+              ...res.permissions,
+              [role]: {
+                ...currentRolePerm,
+                ...permissionData,
+              },
+            },
+          };
+        }),
+      };
+      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
+      return updated;
+    });
+  }, [currentUser]);
+
+  const updateRBACMatrix = useCallback((newMatrix: RBACMatrixConfig) => {
+    setRbacMatrix(newMatrix);
+    setHotelConfig((h) => ({ ...h, rbac_matrix: newMatrix }));
+    saveToStorage('rbac_matrix', newMatrix);
+  }, []);
+
+  const addRBACResource = useCallback((resourceData: Omit<RBACResourceRule, 'id'>) => {
+    const newId = 'custom-res-' + Date.now();
+    setRbacMatrix((prev) => {
+      const updated: RBACMatrixConfig = {
+        ...prev,
+        lastUpdated: new Date().toISOString(),
+        updatedBy: currentUser?.nome || 'Administrador',
+        resources: [
+          ...prev.resources,
+          {
+            ...resourceData,
+            id: newId,
+            isCustom: true,
+          },
+        ],
+      };
+      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
+      return updated;
+    });
+  }, [currentUser]);
+
+  const editRBACResource = useCallback((resourceId: string, data: Partial<RBACResourceRule>) => {
+    setRbacMatrix((prev) => {
+      const updated: RBACMatrixConfig = {
+        ...prev,
+        lastUpdated: new Date().toISOString(),
+        updatedBy: currentUser?.nome || 'Administrador',
+        resources: prev.resources.map((r) => (r.id === resourceId ? { ...r, ...data } : r)),
+      };
+      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
+      return updated;
+    });
+  }, [currentUser]);
+
+  const deleteRBACResource = useCallback((resourceId: string) => {
+    setRbacMatrix((prev) => {
+      const updated: RBACMatrixConfig = {
+        ...prev,
+        lastUpdated: new Date().toISOString(),
+        updatedBy: currentUser?.nome || 'Administrador',
+        resources: prev.resources.filter((r) => r.id !== resourceId),
+      };
+      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
+      return updated;
+    });
+  }, [currentUser]);
+
+  const resetRBACMatrix = useCallback(() => {
+    setRbacMatrix(INITIAL_RBAC_MATRIX);
+    setHotelConfig((h) => ({ ...h, rbac_matrix: INITIAL_RBAC_MATRIX }));
+    saveToStorage('rbac_matrix', INITIAL_RBAC_MATRIX);
+  }, []);
+
   // Motor de Busca de Disponibilidade
   const searchRooms = (checkin: string, checkout: string, guestsCount: number) => {
     return searchAvailableRooms(
@@ -1135,6 +1280,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setBlocks(INITIAL_BLOCKS);
     setAutomations(INITIAL_AUTOMATIONS);
     setUsers(INITIAL_USERS);
+    setRbacMatrix(INITIAL_RBAC_MATRIX);
     setCurrentUser(INITIAL_USERS[0]);
     setIsAuthenticated(true);
   };
@@ -1152,6 +1298,15 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         automations,
         users,
         currentUser,
+        rbacMatrix,
+        updateRBACMatrix,
+        updateRBACPermission,
+        addRBACResource,
+        editRBACResource,
+        deleteRBACResource,
+        resetRBACMatrix,
+        hasTabAccess,
+        getRoleModulePermission,
         supabaseConfigured: isSupabaseConfigured,
         supabaseUrl: SUPABASE_URL,
         supabaseStatus,

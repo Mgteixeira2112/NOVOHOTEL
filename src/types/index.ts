@@ -1,5 +1,31 @@
 export type UserRole = 'admin' | 'gerente' | 'recepcionista' | 'governanca' | 'financeiro';
 
+export type RBACAccessLevel = 'total' | 'readonly' | 'custom' | 'exclusive' | 'none';
+
+export interface RBACRolePermission {
+  granted: boolean;
+  level: RBACAccessLevel;
+  customLabel: string;
+  description?: string;
+}
+
+export interface RBACResourceRule {
+  id: string;
+  moduleName: string;
+  description?: string;
+  category?: string;
+  adminTab?: AdminTab;
+  isCustom?: boolean;
+  permissions: Record<UserRole, RBACRolePermission>;
+}
+
+export interface RBACMatrixConfig {
+  version: number;
+  lastUpdated: string;
+  updatedBy?: string;
+  resources: RBACResourceRule[];
+}
+
 export interface Usuario {
   id: string;
   nome: string;
@@ -275,12 +301,16 @@ export interface HotelConfig {
   };
   whatsapp_msg_padrao?: string;
 
+  // Matriz de Controle de Acesso Baseado em Funções (RBAC)
+  rbac_matrix?: RBACMatrixConfig;
+
   // Campo retrocompatível
   comodidades_gerais?: string[];
 }
 
 export type AdminTab = 
   | 'dashboard' 
+  | 'kanban'
   | 'reservations' 
   | 'checkin_out' 
   | 'rooms' 
@@ -342,6 +372,7 @@ export interface SecurityActionRequest {
 }
 
 export * from './frigobar';
+export * from './kanban';
 
 export type MediaCategory = 'hero' | 'logo' | 'sobre' | 'quarto' | 'avatar' | 'depoimento' | 'comodidade' | 'outro';
 

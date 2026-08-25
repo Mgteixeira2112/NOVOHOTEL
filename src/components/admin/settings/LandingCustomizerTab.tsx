@@ -507,31 +507,78 @@ export const LandingCustomizerTab: React.FC = () => {
 
             {/* Textos Principais do Hero */}
             <div className="space-y-4 pt-4 border-t border-stone-100">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                Textos & Selos de Destaque da Seção Hero
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
+                  <Type className="w-3.5 h-3.5 text-amber-500" />
+                  Textos & Letreiros de Destaque da Seção Hero (Capa)
+                </h4>
+                <span className="text-[11px] text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full font-medium border border-amber-200">
+                  Edição em tempo real com prévia acima
+                </span>
+              </div>
+
+              {/* Campo Principal de Controle do Letreiro / Título do Hero */}
+              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                    <span>Título Principal da Capa (Letreiro Gigante do Hero)</span>
+                    <span className="text-[10px] text-amber-800 bg-amber-200/80 px-2 py-0.5 rounded-md font-bold uppercase">
+                      Exibido na Foto
+                    </span>
+                  </label>
+                  {formData.hero_titulo_custom && formData.hero_titulo_custom !== formData.nome && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, hero_titulo_custom: formData.nome })}
+                      className="text-[11px] text-amber-800 hover:text-amber-950 underline font-medium cursor-pointer"
+                    >
+                      Usar Nome Oficial ({formData.nome})
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={formData.hero_titulo_custom !== undefined ? formData.hero_titulo_custom : formData.nome || ''}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    hero_titulo_custom: e.target.value 
+                  })}
+                  placeholder="Ex: Hotel Centenário"
+                  className="w-full px-4 py-3 rounded-xl border border-amber-300 bg-white focus:ring-2 focus:ring-amber-400 text-sm text-stone-950 font-black tracking-tight"
+                />
+                <p className="text-[11px] text-stone-600 leading-normal">
+                  Este é exatamente o texto de destaque exibido no meio da foto de abertura da página inicial. Altere aqui para <strong>"Hotel Centenário"</strong> ou qualquer variação desejada.
+                </p>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Nome Oficial do Estabelecimento
+                    Nome Oficial do Estabelecimento (Sistema & Rodapé)
                   </label>
                   <input
                     type="text"
                     value={formData.nome || ''}
-                    onChange={(e) => setFormData({ 
-                      ...formData, 
-                      nome: e.target.value,
-                      hero_titulo_custom: e.target.value 
-                    })}
-                    placeholder="Ex: Hotel Centenário Itajubá"
+                    onChange={(e) => {
+                      const newNome = e.target.value;
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        nome: newNome,
+                        // Se o título customizado for igual ao nome anterior ou vazio, sincroniza junto
+                        hero_titulo_custom: !prev.hero_titulo_custom || prev.hero_titulo_custom === prev.nome ? newNome : prev.hero_titulo_custom
+                      }));
+                    }}
+                    placeholder="Ex: Hotel Centenário"
                     className="w-full px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white text-xs text-stone-900 font-bold"
                   />
+                  <span className="text-[10px] text-stone-500 mt-1 block">
+                    Usado em documentos, cabeçalhos administrativos e e-mails de reserva.
+                  </span>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Selo / Badge de Localização (Superior)
+                    Selo / Badge de Localização (Topo do Hero)
                   </label>
                   <input
                     type="text"
@@ -540,16 +587,19 @@ export const LandingCustomizerTab: React.FC = () => {
                     placeholder="Ex: Centro Histórico, Itajubá — MG"
                     className="w-full px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white text-xs text-stone-900"
                   />
+                  <span className="text-[10px] text-stone-500 mt-1 block">
+                    Tag em formato de pílula exibida acima do título com ícone de localização.
+                  </span>
                 </div>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Slogan Oficial & Subtítulo de Impacto
+                  Slogan Oficial & Subtítulo de Impacto (Abaixo do Título)
                 </label>
                 <textarea
                   rows={2}
-                  value={formData.slogan || formData.hero_subtitulo_custom || ''}
+                  value={formData.hero_subtitulo_custom !== undefined ? formData.hero_subtitulo_custom : formData.slogan || ''}
                   onChange={(e) => setFormData({ 
                     ...formData, 
                     slogan: e.target.value,

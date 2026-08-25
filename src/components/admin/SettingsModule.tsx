@@ -311,16 +311,53 @@ export const SettingsModule: React.FC = () => {
 
           <form onSubmit={handleSaveGeneral} className="space-y-5 text-xs">
             
+            {/* Bloco de Destaque para Letreiro / Título do Hero */}
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label className="font-bold text-stone-900 text-xs flex items-center gap-1.5">
+                  <Palette className="w-4 h-4 text-amber-600" />
+                  <span>Título de Destaque na Capa (Letreiro Principal do Hero na Landing Page)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setActiveMainTab('landing')}
+                  className="text-[11px] font-bold text-amber-800 hover:text-amber-950 underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Abrir Editor Visual & Fundo →</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                value={formData.hero_titulo_custom !== undefined ? formData.hero_titulo_custom : formData.nome || ''}
+                onChange={(e) => setFormData({ ...formData, hero_titulo_custom: e.target.value })}
+                placeholder="Ex: Hotel Centenário"
+                className="w-full p-2.5 rounded-xl border border-amber-300 bg-white text-sm font-bold text-stone-900 focus:ring-2 focus:ring-amber-400"
+              />
+              <p className="text-[11px] text-stone-600">
+                Texto gigante de apresentação exibido na foto principal da Landing Page pública.
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block font-bold uppercase text-stone-600 mb-1">Nome Fantasia / Razão</label>
+                <label className="block font-bold uppercase text-stone-600 mb-1">Nome Fantasia Oficial</label>
                 <input
                   type="text"
                   required
                   value={formData.nome}
-                  onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                  onChange={(e) => {
+                    const newNome = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      nome: newNome,
+                      hero_titulo_custom: !prev.hero_titulo_custom || prev.hero_titulo_custom === prev.nome ? newNome : prev.hero_titulo_custom
+                    }));
+                  }}
                   className="w-full p-2.5 rounded-xl border border-stone-300 text-sm font-semibold"
                 />
+                <span className="text-[10px] text-stone-500 mt-1 block">
+                  Usado em relatórios, vouchers, cabeçalhos do sistema e rodapés.
+                </span>
               </div>
 
               <div>

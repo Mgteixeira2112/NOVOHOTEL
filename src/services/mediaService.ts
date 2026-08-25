@@ -13,7 +13,7 @@ import {
 export async function uploadHotelImage({
   fileOrDataUrl,
   fileName,
-  category,
+  category = 'outro',
   roomId = null,
   isCover = false,
   sortOrder = 0,
@@ -25,7 +25,7 @@ export async function uploadHotelImage({
 }: {
   fileOrDataUrl: File | Blob | string;
   fileName?: string;
-  category: MediaCategory;
+  category?: MediaCategory | string;
   roomId?: string | null;
   isCover?: boolean;
   sortOrder?: number;
@@ -38,7 +38,7 @@ export async function uploadHotelImage({
   return await uploadImageToSupabaseStorage({
     fileOrDataUrl,
     fileName,
-    category,
+    category: (category || 'outro') as MediaCategory,
     roomId,
     isCover,
     sortOrder,
@@ -106,11 +106,11 @@ export function extractAllLocalImages(
     });
   }
 
-  if (hotelConfig.hero_bg_url) {
+  if (hotelConfig.banner_hero) {
     records.push({
       id: 'media_cfg_hero',
       file_name: 'hero_background.jpg',
-      url: hotelConfig.hero_bg_url,
+      url: hotelConfig.banner_hero,
       category: 'hero',
       is_cover: true,
       sort_order: 0,

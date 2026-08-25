@@ -219,6 +219,147 @@ export const THEME_PALETTES: Record<ThemeColorPalette, ThemeStyles> = {
   }
 };
 
+export interface PaletteMeta {
+  id: ThemeColorPalette;
+  name: string;
+  desc: string;
+  primaryHex: string;
+  primaryHoverHex: string;
+  lightBgHex: string;
+  borderHex: string;
+  textHex: string;
+  darkTextHex: string;
+  gradientFrom: string;
+  gradientTo: string;
+  badgeBg: string;
+  badgeText: string;
+}
+
+export const PALETTE_METAS: Record<ThemeColorPalette, PaletteMeta> = {
+  amber: {
+    id: 'amber',
+    name: 'Dourado & Âmbar Clássico',
+    desc: 'Ouro nobre, madeira e elegância tradicional',
+    primaryHex: '#f59e0b',
+    primaryHoverHex: '#d97706',
+    lightBgHex: '#fef3c7',
+    borderHex: '#fde68a',
+    textHex: '#f59e0b',
+    darkTextHex: '#78350f',
+    gradientFrom: '#f59e0b',
+    gradientTo: '#d97706',
+    badgeBg: 'rgba(245, 158, 11, 0.15)',
+    badgeText: '#fcd34d'
+  },
+  emerald: {
+    id: 'emerald',
+    name: 'Verde Esmeralda & Natureza',
+    desc: 'Frescor, montanhas, pousadas ecológicas e bem-estar',
+    primaryHex: '#10b981',
+    primaryHoverHex: '#059669',
+    lightBgHex: '#d1fae5',
+    borderHex: '#a7f3d0',
+    textHex: '#10b981',
+    darkTextHex: '#064e3b',
+    gradientFrom: '#10b981',
+    gradientTo: '#0d9488',
+    badgeBg: 'rgba(16, 185, 129, 0.15)',
+    badgeText: '#6ee7b7'
+  },
+  blue: {
+    id: 'blue',
+    name: 'Azul Safira & Oceano',
+    desc: 'Modernidade executiva, resorts pé na areia e flats urbanos',
+    primaryHex: '#0ea5e9',
+    primaryHoverHex: '#0284c7',
+    lightBgHex: '#e0f2fe',
+    borderHex: '#bae6fd',
+    textHex: '#38bdf8',
+    darkTextHex: '#0c4a6e',
+    gradientFrom: '#0ea5e9',
+    gradientTo: '#2563eb',
+    badgeBg: 'rgba(14, 165, 233, 0.15)',
+    badgeText: '#7dd3fc'
+  },
+  rose: {
+    id: 'rose',
+    name: 'Ouro Rosa & Rosé Romântico',
+    desc: 'Intimista, hotéis boutique, viagens a dois e châteaux',
+    primaryHex: '#f43f5e',
+    primaryHoverHex: '#e11d48',
+    lightBgHex: '#ffe4e6',
+    borderHex: '#fecdd3',
+    textHex: '#fb7185',
+    darkTextHex: '#881337',
+    gradientFrom: '#f43f5e',
+    gradientTo: '#db2777',
+    badgeBg: 'rgba(244, 63, 94, 0.15)',
+    badgeText: '#fda4af'
+  },
+  purple: {
+    id: 'purple',
+    name: 'Púrpura Imperial & Lavanda',
+    desc: 'Exclusividade de alto padrão, spa sensorial e luxo',
+    primaryHex: '#8b5cf6',
+    primaryHoverHex: '#7c3aed',
+    lightBgHex: '#ede9fe',
+    borderHex: '#ddd6fe',
+    textHex: '#a78bfa',
+    darkTextHex: '#4c1d95',
+    gradientFrom: '#8b5cf6',
+    gradientTo: '#6366f1',
+    badgeBg: 'rgba(139, 92, 246, 0.15)',
+    badgeText: '#c4b5fd'
+  },
+  terracotta: {
+    id: 'terracotta',
+    name: 'Terracotta Rústico & Fazenda',
+    desc: 'Chalés de montanha, clima acolhedor de serra e lareira',
+    primaryHex: '#ea580c',
+    primaryHoverHex: '#c2410c',
+    lightBgHex: '#ffedd5',
+    borderHex: '#fed7aa',
+    textHex: '#fb923c',
+    darkTextHex: '#7c2d12',
+    gradientFrom: '#ea580c',
+    gradientTo: '#b45309',
+    badgeBg: 'rgba(234, 88, 12, 0.15)',
+    badgeText: '#fdba74'
+  },
+  slate: {
+    id: 'slate',
+    name: 'Grafite & Prata Contemporâneo',
+    desc: 'Arquitetura moderna, lofts urbanos e design minimalista',
+    primaryHex: '#64748b',
+    primaryHoverHex: '#475569',
+    lightBgHex: '#f1f5f9',
+    borderHex: '#cbd5e1',
+    textHex: '#cbd5e1',
+    darkTextHex: '#0f172a',
+    gradientFrom: '#475569',
+    gradientTo: '#1e293b',
+    badgeBg: 'rgba(100, 116, 139, 0.25)',
+    badgeText: '#e2e8f0'
+  }
+};
+
+export function applyThemeVariables(palette?: ThemeColorPalette) {
+  if (typeof document === 'undefined') return;
+  const meta = PALETTE_METAS[palette || 'amber'] || PALETTE_METAS.amber;
+  const root = document.documentElement;
+  root.style.setProperty('--theme-primary', meta.primaryHex);
+  root.style.setProperty('--theme-primary-hover', meta.primaryHoverHex);
+  root.style.setProperty('--theme-primary-light', meta.lightBgHex);
+  root.style.setProperty('--theme-primary-border', meta.borderHex);
+  root.style.setProperty('--theme-primary-text', meta.textHex);
+  root.style.setProperty('--theme-primary-dark-text', meta.darkTextHex);
+  root.style.setProperty('--theme-primary-ring', meta.primaryHex);
+  root.style.setProperty('--theme-gradient-from', meta.gradientFrom);
+  root.style.setProperty('--theme-gradient-to', meta.gradientTo);
+  root.style.setProperty('--theme-badge-bg', meta.badgeBg);
+  root.style.setProperty('--theme-badge-text', meta.badgeText);
+}
+
 export function getTheme(palette?: ThemeColorPalette): ThemeStyles {
   return THEME_PALETTES[palette || 'amber'] || THEME_PALETTES.amber;
 }

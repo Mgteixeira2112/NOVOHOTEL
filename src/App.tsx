@@ -1,6 +1,7 @@
 import React from 'react';
 import { HotelProvider, useHotel } from './context/HotelContext';
 import { FrigobarProvider } from './context/FrigobarContext';
+import { KanbanProvider } from './context/KanbanContext';
 import { Navbar } from './components/navigation/Navbar';
 import { HeroSection } from './components/landing/HeroSection';
 import { RoomsShowcase } from './components/landing/RoomsShowcase';
@@ -58,7 +59,9 @@ export default function App() {
   return (
     <HotelProvider>
       <FrigobarProvider>
-        <MainContent />
+        <KanbanProvider>
+          <MainContent />
+        </KanbanProvider>
       </FrigobarProvider>
     </HotelProvider>
   );

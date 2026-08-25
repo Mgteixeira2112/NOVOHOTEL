@@ -1,6 +1,6 @@
 {
   "name": "Itajubá Flat Hotel",
-  "description": "Plataforma de Hospitalidade e PMS para hotéis e flats com motor de reservas, mapa de ocupação e calendário em timeline com exportação em PDF personalizável, CRM financeiro com DRE, controle de frigobar, central de quarto, fechaduras eletrônicas inteligentes e emissão de extratos com envio via WhatsApp e E-mail.",
+  "description": "Plataforma de Hospitalidade e PMS para hotéis e flats com motor de reservas, arquitetura Kanban em tempo real multidepartamental (Recepção, Governança, Cozinha e Manutenção) com controle de SLA e monitor KDS/TV, matriz de controle de acesso RBAC editável, mapa de ocupação e calendário em timeline com exportação em PDF, CRM financeiro com DRE, controle de frigobar, central de quarto e fechaduras eletrônicas inteligentes.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
