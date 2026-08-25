@@ -10,6 +10,8 @@ import {
   AutomacaoMensagem,
   Usuario,
   SecurityLogEntry,
+  MediaUploadRecord,
+  MediaCategory,
 } from '../types';
 
 // ============================================================================
@@ -171,6 +173,31 @@ CREATE TABLE IF NOT EXISTS public.logs_seguranca (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 11. Tabela de Uploads de Mídia & Galeria de Fotos (media_uploads)
+CREATE TABLE IF NOT EXISTS public.media_uploads (
+    id TEXT PRIMARY KEY,
+    file_name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    storage_path TEXT,
+    category TEXT NOT NULL CHECK (category IN ('hero', 'logo', 'sobre', 'quarto', 'avatar', 'depoimento', 'comodidade', 'outro')),
+    room_id TEXT,
+    is_cover BOOLEAN DEFAULT false,
+    sort_order INTEGER DEFAULT 0,
+    width INTEGER,
+    height INTEGER,
+    aspect_ratio TEXT,
+    file_size_bytes BIGINT,
+    mime_type TEXT DEFAULT 'image/jpeg',
+    crop_data JSONB,
+    uploaded_by TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_media_category ON public.media_uploads(category);
+CREATE INDEX IF NOT EXISTS idx_media_room_id ON public.media_uploads(room_id);
+CREATE INDEX IF NOT EXISTS idx_media_sort_order ON public.media_uploads(sort_order);
+
 -- MIGRAÇÃO / GARANTIA DE COLUNAS (Para bancos já existentes)
 ALTER TABLE IF EXISTS public.quartos ADD COLUMN IF NOT EXISTS tipo_quarto_id TEXT;
 ALTER TABLE IF EXISTS public.quartos ADD COLUMN IF NOT EXISTS valor_diaria NUMERIC(10,2) DEFAULT 0;
@@ -191,6 +218,8 @@ ALTER TABLE IF EXISTS public.logs_seguranca ADD COLUMN IF NOT EXISTS usuario_ema
 ALTER TABLE IF EXISTS public.logs_seguranca ADD COLUMN IF NOT EXISTS operacao TEXT;
 ALTER TABLE IF EXISTS public.logs_seguranca ADD COLUMN IF NOT EXISTS categoria TEXT DEFAULT 'Geral';
 ALTER TABLE IF EXISTS public.logs_seguranca ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+ALTER TABLE IF EXISTS public.media_uploads ADD COLUMN IF NOT EXISTS storage_path TEXT;
+ALTER TABLE IF EXISTS public.media_uploads ADD COLUMN IF NOT EXISTS crop_data JSONB;
 
 -- HABILITAÇÃO DO ROW LEVEL SECURITY (RLS) E POLÍTICAS PÚBLICAS
 ALTER TABLE public.hotel_config ENABLE ROW LEVEL SECURITY;
@@ -203,6 +232,7 @@ ALTER TABLE public.bloqueios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.automacoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.logs_seguranca ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.media_uploads ENABLE ROW LEVEL SECURITY;
 
 -- POLÍTICAS PERMISSIVAS PARA OPERAÇÃO DO PMS
 DROP POLICY IF EXISTS "Acesso Total Anon hotel_config" ON public.hotel_config;
@@ -234,6 +264,27 @@ CREATE POLICY "Acesso Total Anon usuarios" ON public.usuarios FOR ALL USING (tru
 
 DROP POLICY IF EXISTS "Acesso Total Anon logs_seguranca" ON public.logs_seguranca;
 CREATE POLICY "Acesso Total Anon logs_seguranca" ON public.logs_seguranca FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Acesso Total Anon media_uploads" ON public.media_uploads;
+CREATE POLICY "Acesso Total Anon media_uploads" ON public.media_uploads FOR ALL USING (true) WITH CHECK (true);
+
+-- CRIAÇÃO DO BUCKET DE ARMAZENAMENTO NO STORAGE SUPABASE (hotel-media)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'storage') THEN
+        INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+        VALUES (
+            'hotel-media',
+            'hotel-media',
+            true,
+            10485760,
+            ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml']
+        )
+        ON CONFLICT (id) DO NOTHING;
+    END IF;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
 `;
 const DEFAULT_URL = 'https://awyxubhwtdgwnssvajnr.supabase.co';
 const DEFAULT_KEY = 'sb_publishable_rsP8t4buqj2R7OnMCf0q6g_tuq0nWOh';
@@ -338,6 +389,7 @@ const REQUIRED_TABLES = [
   'automacoes',
   'usuarios',
   'logs_seguranca',
+  'media_uploads',
 ];
 
 export async function testSupabaseConnection(): Promise<{
@@ -850,6 +902,218 @@ export async function insertSecurityLogToSupabase(log: SecurityLogEntry): Promis
 }
 
 // ============================================================================
+// SERVIÇOS DE SINCRONIZAÇÃO E STORAGE - MÍDIA & FOTOS (media_uploads)
+// ============================================================================
+
+/**
+ * Converte DataURL Base64 em Blob Binário para upload direto no Storage Supabase
+ */
+export function dataUrlToBlob(dataUrl: string): Blob {
+  const parts = dataUrl.split(',');
+  const mimeMatch = parts[0].match(/:(.*?);/);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const byteString = atob(parts[1]);
+  const arrayBuffer = new ArrayBuffer(byteString.length);
+  const uint8Array = new Uint8Array(arrayBuffer);
+  for (let i = 0; i < byteString.length; i++) {
+    uint8Array[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([uint8Array], { type: mime });
+}
+
+export async function fetchMediaUploadsFromSupabase(
+  category?: string,
+  roomId?: string
+): Promise<MediaUploadRecord[] | null> {
+  try {
+    let query = supabase.from('media_uploads').select('*').order('created_at', { ascending: false });
+    if (category) {
+      query = query.eq('category', category);
+    }
+    if (roomId) {
+      query = query.eq('room_id', roomId);
+    }
+    const { data, error } = await query;
+    if (error || !data) return null;
+    return data as MediaUploadRecord[];
+  } catch {
+    return null;
+  }
+}
+
+export async function upsertMediaUploadToSupabase(record: MediaUploadRecord): Promise<boolean> {
+  try {
+    const { error } = await supabase.from('media_uploads').upsert({
+      id: record.id,
+      file_name: record.file_name,
+      url: record.url,
+      storage_path: record.storage_path || null,
+      category: record.category,
+      room_id: record.room_id || null,
+      is_cover: Boolean(record.is_cover),
+      sort_order: Number(record.sort_order) || 0,
+      width: record.width || null,
+      height: record.height || null,
+      aspect_ratio: record.aspect_ratio || null,
+      file_size_bytes: record.file_size_bytes || null,
+      mime_type: record.mime_type || 'image/jpeg',
+      crop_data: record.crop_data || null,
+      uploaded_by: record.uploaded_by || null,
+      created_at: record.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+export async function deleteMediaUploadFromSupabase(id: string, storagePath?: string | null): Promise<boolean> {
+  try {
+    if (storagePath) {
+      try {
+        await supabase.storage.from('hotel-media').remove([storagePath]);
+      } catch (storageErr) {
+        console.warn('Não foi possível remover arquivo do Storage:', storageErr);
+      }
+    }
+    const { error } = await supabase.from('media_uploads').delete().eq('id', id);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Envia uma foto diretamente para o Supabase Storage (Bucket 'hotel-media')
+ * e salva o registro estruturado na tabela SQL 'media_uploads'.
+ */
+export async function uploadImageToSupabaseStorage({
+  fileOrDataUrl,
+  fileName,
+  category,
+  roomId,
+  isCover = false,
+  sortOrder = 0,
+  width,
+  height,
+  aspectRatio,
+  cropData,
+  uploadedBy,
+}: {
+  fileOrDataUrl: File | Blob | string;
+  fileName?: string;
+  category: MediaCategory;
+  roomId?: string | null;
+  isCover?: boolean;
+  sortOrder?: number;
+  width?: number | null;
+  height?: number | null;
+  aspectRatio?: string | null;
+  cropData?: Record<string, any> | null;
+  uploadedBy?: string | null;
+}): Promise<{ success: boolean; url: string; record?: MediaUploadRecord; error?: string }> {
+  try {
+    let blob: Blob;
+    let actualName = fileName || `foto_${category}_${Date.now()}.jpg`;
+
+    if (typeof fileOrDataUrl === 'string') {
+      if (fileOrDataUrl.startsWith('data:')) {
+        blob = dataUrlToBlob(fileOrDataUrl);
+      } else {
+        // Imagem já é uma URL HTTP -> salva apenas metadados na tabela
+        const record: MediaUploadRecord = {
+          id: `media_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          file_name: actualName,
+          url: fileOrDataUrl,
+          storage_path: null,
+          category,
+          room_id: roomId || null,
+          is_cover: isCover,
+          sort_order: sortOrder,
+          width: width || null,
+          height: height || null,
+          aspect_ratio: aspectRatio || null,
+          file_size_bytes: null,
+          mime_type: 'image/jpeg',
+          crop_data: cropData || null,
+          uploaded_by: uploadedBy || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await upsertMediaUploadToSupabase(record);
+        return { success: true, url: fileOrDataUrl, record };
+      }
+    } else {
+      blob = fileOrDataUrl;
+    }
+
+    const fileExt = actualName.split('.').pop() || 'jpg';
+    const cleanFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+    const storagePath = `${category}/${cleanFileName}`;
+
+    let finalUrl = '';
+    const { error: storageError } = await supabase.storage
+      .from('hotel-media')
+      .upload(storagePath, blob, {
+        contentType: blob.type || 'image/jpeg',
+        upsert: true,
+      });
+
+    if (storageError) {
+      console.warn('Storage hotel-media upload aviso:', storageError.message);
+      if (typeof fileOrDataUrl === 'string') {
+        finalUrl = fileOrDataUrl;
+      }
+    } else {
+      const { data: publicUrlData } = supabase.storage
+        .from('hotel-media')
+        .getPublicUrl(storagePath);
+      finalUrl = publicUrlData?.publicUrl || '';
+    }
+
+    if (!finalUrl && typeof fileOrDataUrl === 'string') {
+      finalUrl = fileOrDataUrl;
+    }
+
+    const record: MediaUploadRecord = {
+      id: `media_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      file_name: actualName,
+      url: finalUrl || (typeof fileOrDataUrl === 'string' ? fileOrDataUrl : ''),
+      storage_path: storageError ? null : storagePath,
+      category,
+      room_id: roomId || null,
+      is_cover: isCover,
+      sort_order: sortOrder,
+      width: width || null,
+      height: height || null,
+      aspect_ratio: aspectRatio || null,
+      file_size_bytes: blob.size || null,
+      mime_type: blob.type || 'image/jpeg',
+      crop_data: cropData || null,
+      uploaded_by: uploadedBy || null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await upsertMediaUploadToSupabase(record);
+
+    return {
+      success: true,
+      url: record.url,
+      record,
+    };
+  } catch (err: any) {
+    console.error('Erro no upload de foto para o Supabase:', err);
+    return {
+      success: false,
+      url: typeof fileOrDataUrl === 'string' ? fileOrDataUrl : '',
+      error: err?.message || String(err),
+    };
+  }
+}
+
+// ============================================================================
 // EXPORTAÇÃO E SEED EM MASSA (LOCAL -> SUPABASE) COM FEEDBACK DETALHADO
 // ============================================================================
 export interface TableExportResult {
@@ -878,6 +1142,7 @@ export async function seedAllDataToSupabase(data: {
   automations: AutomacaoMensagem[];
   users: Usuario[];
   securityLogs: SecurityLogEntry[];
+  mediaUploads?: MediaUploadRecord[];
 }): Promise<SeedAllResponse> {
   const errors: string[] = [];
   const insertedCounts: Record<string, number> = {};
@@ -1084,6 +1349,31 @@ export async function seedAllDataToSupabase(data: {
       sucesso: l.sucesso !== false,
       timestamp: l.timestamp || new Date().toISOString(),
     }));
+
+    // 11. media_uploads (Mídia e Galeria de Fotos no Supabase)
+    if (data.mediaUploads && data.mediaUploads.length > 0) {
+      await exportTable('media_uploads', data.mediaUploads, (m) => ({
+        id: String(m.id),
+        file_name: String(m.file_name),
+        url: String(m.url),
+        storage_path: m.storage_path || null,
+        category: m.category,
+        room_id: m.room_id || null,
+        is_cover: Boolean(m.is_cover),
+        sort_order: Number(m.sort_order) || 0,
+        width: m.width || null,
+        height: m.height || null,
+        aspect_ratio: m.aspect_ratio || null,
+        file_size_bytes: m.file_size_bytes || null,
+        mime_type: m.mime_type || 'image/jpeg',
+        crop_data: m.crop_data || null,
+        uploaded_by: m.uploaded_by || null,
+        created_at: m.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }));
+    } else {
+      tableResults.push({ table: 'media_uploads', success: true, count: 0 });
+    }
 
   } catch (err: any) {
     errors.push(`Erro geral inesperado: ${err?.message || err}`);

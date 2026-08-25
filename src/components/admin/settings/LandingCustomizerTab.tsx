@@ -34,6 +34,8 @@ import {
   PointOfInterest 
 } from '../../../types';
 import { getTheme, getFontFamilyClass, getIconComponent } from '../../../utils/themeHelper';
+import { SingleImageUploader } from '../../common/media/SingleImageUploader';
+import { AvatarUploader } from '../../common/media/AvatarUploader';
 
 // Presets de Imagem de Fundo (Wallpapers de Alta Resolução)
 export const HERO_BACKGROUND_PRESETS = [
@@ -463,79 +465,43 @@ export const LandingCustomizerTab: React.FC = () => {
               </div>
             </div>
 
-            {/* Campo para Inserir URL Direta */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-              <div className="md:col-span-8">
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  URL da Imagem de Fundo (Wallpaper)
-                </label>
-                <input
-                  type="url"
-                  value={formData.banner_hero}
-                  onChange={(e) => setFormData({ ...formData, banner_hero: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white focus:ring-2 focus:ring-amber-500 text-xs text-stone-900"
-                />
-              </div>
+            {/* Upload e Gestor Completo de Imagem de Fundo (Wallpaper) */}
+            <div className="space-y-4">
+              <SingleImageUploader
+                label="Foto de Capa Principal (Wallpaper de Alta Resolução)"
+                description="Carregue uma foto em alta definição, realize corte panorâmico (21:9 / 16:9), rotação, redimensionamento ou selecione um preset da galeria."
+                value={formData.banner_hero}
+                onChange={(newUrl) => setFormData({ ...formData, banner_hero: newUrl })}
+                aspectRatioHint="21:9 Panorâmico"
+                defaultAspectRatio={21 / 9}
+                presets={HERO_BACKGROUND_PRESETS}
+                previewHeightClass="aspect-[21/9] max-h-72"
+              />
 
-              <div className="md:col-span-4">
-                <label className="block text-xs font-bold text-stone-700 mb-1 flex items-center justify-between">
-                  <span>Escurecimento / Overlay:</span>
-                  <span className="text-amber-600 font-black">{formData.hero_overlay_opacity || 70}%</span>
-                </label>
-                <input
-                  type="range"
-                  min="10"
-                  max="95"
-                  step="5"
-                  value={formData.hero_overlay_opacity !== undefined ? formData.hero_overlay_opacity : 70}
-                  onChange={(e) => setFormData({ ...formData, hero_overlay_opacity: Number(e.target.value) })}
-                  className="w-full accent-amber-600 h-2 bg-stone-200 rounded-lg cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* Galeria de Wallpapers Prontos para 1-Clique */}
-            <div className="space-y-3 pt-4 border-t border-stone-100">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-stone-600 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>Ou escolha um Plano de Fundo de Alta Definição da Galeria:</span>
-              </h4>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                {HERO_BACKGROUND_PRESETS.map((preset) => {
-                  const isSelected = formData.banner_hero === preset.url;
-                  return (
-                    <div
-                      key={preset.id}
-                      onClick={() => setFormData({ ...formData, banner_hero: preset.url })}
-                      className={`group relative rounded-2xl overflow-hidden border-2 cursor-pointer transition-all aspect-[16/10] ${
-                        isSelected 
-                          ? 'border-amber-500 ring-2 ring-amber-400 shadow-md scale-[1.02]' 
-                          : 'border-stone-200 hover:border-stone-400'
-                      }`}
-                    >
-                      <img 
-                        src={preset.url} 
-                        alt={preset.name} 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/40 to-transparent p-2.5 flex flex-col justify-end">
-                        <span className="text-[9px] font-bold text-amber-300 uppercase tracking-wider block">
-                          {preset.category}
-                        </span>
-                        <strong className="text-xs text-white font-bold leading-tight truncate">
-                          {preset.name}
-                        </strong>
-                      </div>
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-amber-500 text-stone-950 flex items-center justify-center font-bold shadow">
-                          <Check className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              {/* Slider de Escurecimento / Overlay */}
+              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                  <span className="text-xs font-bold text-stone-800 block">
+                    Escurecimento do Fundo (Overlay Escuro)
+                  </span>
+                  <span className="text-[11px] text-stone-500">
+                    Ajuste o contraste para garantir leitura perfeita dos textos e botões sobre a foto.
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 w-full sm:w-64">
+                  <input
+                    type="range"
+                    min="10"
+                    max="95"
+                    step="5"
+                    value={formData.hero_overlay_opacity !== undefined ? formData.hero_overlay_opacity : 70}
+                    onChange={(e) => setFormData({ ...formData, hero_overlay_opacity: Number(e.target.value) })}
+                    className="w-full accent-amber-600 h-2 bg-stone-200 rounded-lg cursor-pointer"
+                  />
+                  <span className="text-xs font-black font-mono text-amber-600 w-10 text-right">
+                    {formData.hero_overlay_opacity !== undefined ? formData.hero_overlay_opacity : 70}%
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -724,35 +690,39 @@ export const LandingCustomizerTab: React.FC = () => {
                 Logotipo & Iniciais da Marca
               </h4>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    URL da Imagem da Logomarca (Opcional)
-                  </label>
-                  <input
-                    type="url"
+                  <SingleImageUploader
+                    label="Logomarca Oficial"
+                    description="Envie o arquivo do seu logotipo (PNG com fundo transparente ou JPG). Você pode recortar e ajustar proporção 1:1."
                     value={formData.logo_url || ''}
-                    onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
-                    placeholder="https://sua-hospedagem.com.br/logo.png"
-                    className="w-full px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white text-xs text-stone-900"
+                    onChange={(newUrl) => setFormData({ ...formData, logo_url: newUrl })}
+                    aspectRatioHint="1:1 Quadrado"
+                    defaultAspectRatio={1}
+                    previewHeightClass="h-28 aspect-square"
                   />
-                  <span className="text-[10px] text-stone-500 mt-1 block">
+                  <span className="text-[10px] text-stone-500 mt-2 block">
                     Se vazio, o sistema gerará automaticamente um brasão elegante com as iniciais do nome.
                   </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Iniciais para o Brasão / Monograma
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={4}
-                    value={formData.logo_iniciais || ''}
-                    onChange={(e) => setFormData({ ...formData, logo_iniciais: e.target.value.toUpperCase() })}
-                    placeholder="Ex: IFH, PVV, GBR"
-                    className="w-full px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white text-xs text-stone-900 font-bold uppercase"
-                  />
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Iniciais para o Brasão / Monograma
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={4}
+                      value={formData.logo_iniciais || ''}
+                      onChange={(e) => setFormData({ ...formData, logo_iniciais: e.target.value.toUpperCase() })}
+                      placeholder="Ex: IFH, PVV, GBR"
+                      className="w-full px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white text-xs text-stone-900 font-bold uppercase"
+                    />
+                    <p className="text-[11px] text-stone-500 mt-1">
+                      Usado no cabeçalho e rodapé caso não haja imagem de logotipo enviada.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -817,24 +787,21 @@ export const LandingCustomizerTab: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-stone-700 mb-1">
-                  URL da Foto Institucional do Sobre
-                </label>
-                <input
-                  type="url"
-                  value={formData.sobre_foto_url || ''}
-                  onChange={(e) => setFormData({ ...formData, sobre_foto_url: e.target.value })}
-                  placeholder="https://images.unsplash.com/..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 focus:bg-white text-xs text-stone-900"
-                />
-              </div>
+            <div className="space-y-4">
+              <SingleImageUploader
+                label="Foto Institucional da Seção Sobre"
+                description="Carregue uma foto acolhedora da fachada, recepção ou ambiente nobre do estabelecimento. Você pode cortar na proporção 16:9 ou 4:3."
+                value={formData.sobre_foto_url || ''}
+                onChange={(newUrl) => setFormData({ ...formData, sobre_foto_url: newUrl })}
+                aspectRatioHint="16:9 Paisagem"
+                defaultAspectRatio={16 / 9}
+                previewHeightClass="aspect-[16/9] max-h-64"
+              />
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-stone-50 border border-stone-200">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Nota Média
+                    Nota Média das Avaliações (Badge)
                   </label>
                   <input
                     type="number"
@@ -843,20 +810,20 @@ export const LandingCustomizerTab: React.FC = () => {
                     max="10"
                     value={formData.nota_avaliacao || 9.4}
                     onChange={(e) => setFormData({ ...formData, nota_avaliacao: Number(e.target.value) })}
-                    className="w-full px-3 py-2.5 rounded-xl border border-stone-300 bg-stone-50 text-xs text-stone-900 font-bold"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs text-stone-900 font-bold"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Rótulo Nota
+                    Rótulo da Nota (Ex: Excelente / Fabuloso)
                   </label>
                   <input
                     type="text"
                     value={formData.nota_label || ''}
                     onChange={(e) => setFormData({ ...formData, nota_label: e.target.value })}
                     placeholder="Excelente"
-                    className="w-full px-3 py-2.5 rounded-xl border border-stone-300 bg-stone-50 text-xs text-stone-900"
+                    className="w-full px-3 py-2 rounded-xl border border-stone-300 bg-white text-xs text-stone-900"
                   />
                 </div>
               </div>
@@ -1198,29 +1165,39 @@ export const LandingCustomizerTab: React.FC = () => {
                   </div>
 
                   <div className="space-y-2 pt-2 border-t border-stone-200">
-                    <input
-                      type="text"
-                      value={dep.nome}
-                      onChange={(e) => handleUpdateTestimonial(dep.id, { nome: e.target.value })}
-                      placeholder="Nome do cliente"
-                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-bold text-stone-900"
-                    />
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={dep.origem}
-                        onChange={(e) => handleUpdateTestimonial(dep.id, { origem: e.target.value })}
-                        placeholder="Cidade - UF"
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white text-[11px] text-stone-600"
+                    <div className="flex items-center gap-3">
+                      <AvatarUploader
+                        value={dep.avatar || ''}
+                        onChange={(newAvatar) => handleUpdateTestimonial(dep.id, { avatar: newAvatar })}
+                        size="sm"
+                        shape="circle"
+                        label="Foto do Hóspede"
                       />
-                      <input
-                        type="text"
-                        value={dep.data}
-                        onChange={(e) => handleUpdateTestimonial(dep.id, { data: e.target.value })}
-                        placeholder="Data"
-                        className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 bg-white text-[11px] text-stone-600"
-                      />
+                      <div className="flex-1 space-y-1.5">
+                        <input
+                          type="text"
+                          value={dep.nome}
+                          onChange={(e) => handleUpdateTestimonial(dep.id, { nome: e.target.value })}
+                          placeholder="Nome do cliente"
+                          className="w-full px-3 py-1.5 rounded-lg border border-stone-300 bg-white text-xs font-bold text-stone-900"
+                        />
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <input
+                            type="text"
+                            value={dep.origem}
+                            onChange={(e) => handleUpdateTestimonial(dep.id, { origem: e.target.value })}
+                            placeholder="Cidade - UF"
+                            className="w-full px-2 py-1 rounded-lg border border-stone-300 bg-white text-[11px] text-stone-600"
+                          />
+                          <input
+                            type="text"
+                            value={dep.data}
+                            onChange={(e) => handleUpdateTestimonial(dep.id, { data: e.target.value })}
+                            placeholder="Data"
+                            className="w-full px-2 py-1 rounded-lg border border-stone-300 bg-white text-[11px] text-stone-600"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

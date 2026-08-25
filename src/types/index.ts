@@ -343,4 +343,26 @@ export interface SecurityActionRequest {
 
 export * from './frigobar';
 
+export type MediaCategory = 'hero' | 'logo' | 'sobre' | 'quarto' | 'avatar' | 'depoimento' | 'comodidade' | 'outro';
+
+export interface MediaUploadRecord {
+  id: string;
+  file_name: string;
+  url: string;
+  storage_path?: string | null;
+  category: MediaCategory;
+  room_id?: string | null;
+  is_cover?: boolean;
+  sort_order?: number;
+  width?: number | null;
+  height?: number | null;
+  aspect_ratio?: string | null;
+  file_size_bytes?: number | null;
+  mime_type?: string;
+  crop_data?: Record<string, any> | null;
+  uploaded_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 

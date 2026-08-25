@@ -38,6 +38,8 @@ import {
 import { getStoredSupabaseUrl, getStoredSupabaseKey, SeedAllResponse, TableHealthStatus, SUPABASE_SQL_SCRIPT } from '../../services/supabase';
 import { LandingCustomizerTab } from './settings/LandingCustomizerTab';
 import { PresetsPortabilityTab } from './settings/PresetsPortabilityTab';
+import { MediaGalleryExplorer } from '../common/media/MediaGalleryExplorer';
+import { extractAllLocalImages } from '../../services/mediaService';
 
 export const SettingsModule: React.FC = () => {
   const { 
@@ -67,7 +69,7 @@ export const SettingsModule: React.FC = () => {
     roomTypes
   } = useHotel();
 
-  const [activeMainTab, setActiveMainTab] = useState<'landing' | 'general' | 'presets' | 'supabase' | 'team'>('landing');
+  const [activeMainTab, setActiveMainTab] = useState<'landing' | 'general' | 'presets' | 'supabase' | 'media' | 'team'>('landing');
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [formData, setFormData] = useState({ ...hotelConfig });
   const [isSyncing, setIsSyncing] = useState(false);
@@ -146,6 +148,8 @@ export const SettingsModule: React.FC = () => {
     }
   };
 
+  const allMediaRecords = extractAllLocalImages(hotelConfig, rooms, users);
+
   const allTables = [
     { key: 'hotel_config', label: 'Configurações do Hotel', localCount: 1 },
     { key: 'tipos_quarto', label: 'Categorias de Quarto', localCount: roomTypes.length },
@@ -157,6 +161,7 @@ export const SettingsModule: React.FC = () => {
     { key: 'automacoes', label: 'Automações de Mensagens', localCount: automations.length },
     { key: 'usuarios', label: 'Usuários do Painel', localCount: users.length },
     { key: 'logs_seguranca', label: 'Logs de Segurança & 2FA', localCount: 3 },
+    { key: 'media_uploads', label: 'Fotos & Mídias (Storage)', localCount: allMediaRecords.length },
   ];
 
   return (
@@ -243,6 +248,19 @@ export const SettingsModule: React.FC = () => {
         >
           <Database className="w-4 h-4 text-emerald-400" />
           <span>☁️ Banco de Dados Supabase</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveMainTab('media')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer whitespace-nowrap ${
+            activeMainTab === 'media' 
+              ? 'bg-stone-900 text-amber-300 shadow-sm' 
+              : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+          }`}
+        >
+          <Palette className="w-4 h-4 text-amber-400" />
+          <span>🖼️ Fotos & Mídias (Storage)</span>
         </button>
 
         <button
@@ -558,6 +576,14 @@ export const SettingsModule: React.FC = () => {
                 </button>
 
                 <button
+                  onClick={() => setActiveMainTab('media')}
+                  className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-semibold flex items-center gap-1.5 border border-stone-700 transition cursor-pointer"
+                >
+                  <Palette className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Galeria de Fotos</span>
+                </button>
+
+                <button
                   onClick={() => setSqlModalOpen(true)}
                   className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-amber-300 text-xs font-semibold flex items-center gap-1.5 border border-amber-500/30 transition cursor-pointer"
                 >
@@ -582,14 +608,14 @@ export const SettingsModule: React.FC = () => {
               )}
             </div>
 
-            {/* Status Detalhado das 10 Tabelas */}
+            {/* Status Detalhado das 11 Tabelas */}
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs text-stone-400 px-1">
-                <span className="font-bold uppercase tracking-wider text-[10px]">Diagnóstico das 10 Tabelas no Supabase</span>
-                <span>{healthReport ? `${(Object.values(healthReport.tables) as TableHealthStatus[]).filter((t) => t.accessible).length} de 10 prontas` : 'Carregando status...'}</span>
+                <span className="font-bold uppercase tracking-wider text-[10px]">Diagnóstico das {allTables.length} Tabelas no Supabase (incluindo Fotos & Mídias)</span>
+                <span>{healthReport ? `${(Object.values(healthReport.tables) as TableHealthStatus[]).filter((t) => t.accessible).length} de ${allTables.length} prontas` : 'Carregando status...'}</span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
                 {allTables.map((tbl) => {
                   const status = healthReport?.tables[tbl.key];
                   const isReady = status?.accessible;
@@ -661,7 +687,12 @@ export const SettingsModule: React.FC = () => {
         </div>
       )}
 
-      {/* ABA 5: EQUIPE, ACESSOS E DEMONSTRAÇÃO */}
+      {/* ABA 5: BANCO DE MÍDIAS & FOTOS SUPABASE */}
+      {activeMainTab === 'media' && (
+        <MediaGalleryExplorer />
+      )}
+
+      {/* ABA 6: EQUIPE, ACESSOS E DEMONSTRAÇÃO */}
       {activeMainTab === 'team' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           

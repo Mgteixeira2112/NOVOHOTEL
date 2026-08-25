@@ -14,6 +14,7 @@ import {
   Clock 
 } from 'lucide-react';
 import { formatDateBR } from '../../utils/availability';
+import { AvatarUploader } from '../common/media/AvatarUploader';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -158,29 +159,15 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                 </div>
               )}
 
-              {/* Seletor de Avatar */}
-              <div>
-                <label className="block font-bold text-stone-700 uppercase mb-2">Foto / Avatar</label>
-                <div className="flex items-center gap-2 flex-wrap mb-2">
-                  {avatarsPresets.map((presetUrl, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => setAvatar(presetUrl)}
-                      className={`w-10 h-10 rounded-full overflow-hidden border-2 transition cursor-pointer ${
-                        avatar === presetUrl ? 'border-amber-600 scale-110 shadow-md' : 'border-stone-200 opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      <img src={presetUrl} alt="Preset" className="w-full h-full object-cover" />
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="url"
+              {/* Seletor de Avatar com Upload e Corte Interativo */}
+              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200">
+                <AvatarUploader
+                  label="Foto de Perfil / Avatar"
                   value={avatar}
-                  onChange={(e) => setAvatar(e.target.value)}
-                  placeholder="Ou cole o link direto de uma foto online..."
-                  className="w-full p-2.5 rounded-xl border border-stone-200 text-xs"
+                  onChange={(newAvatar) => setAvatar(newAvatar)}
+                  presets={avatarsPresets}
+                  size="md"
+                  shape="circle"
                 />
               </div>
 

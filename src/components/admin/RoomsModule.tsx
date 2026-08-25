@@ -17,6 +17,46 @@ import {
   Image as ImageIcon 
 } from 'lucide-react';
 import { Quarto, TipoQuarto } from '../../types';
+import { MultiImageGalleryUploader } from '../common/media/MultiImageGalleryUploader';
+
+const ROOM_PHOTO_PRESETS = [
+  {
+    id: 'suite_king',
+    title: 'Suíte King Luxo',
+    url: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80',
+    category: 'Quarto'
+  },
+  {
+    id: 'banheiro_hidro',
+    title: 'Banheiro com Hidro',
+    url: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=1000&q=80',
+    category: 'Banheiro'
+  },
+  {
+    id: 'sacada_vista',
+    title: 'Sacada & Vista Panorâmica',
+    url: 'https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=1000&q=80',
+    category: 'Vista'
+  },
+  {
+    id: 'decoracao_detalhe',
+    title: 'Acolhimento & Detalhes',
+    url: 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1000&q=80',
+    category: 'Decoração'
+  },
+  {
+    id: 'living_suite',
+    title: 'Sala de Estar / Living',
+    url: 'https://images.unsplash.com/photo-1591088398332-8a7791972843?auto=format&fit=crop&w=1000&q=80',
+    category: 'Estar'
+  },
+  {
+    id: 'cafe_quarto',
+    title: 'Café da Manhã Exclusivo',
+    url: 'https://images.unsplash.com/photo-1533750349088-cd871a92f312?auto=format&fit=crop&w=1000&q=80',
+    category: 'Café'
+  }
+];
 
 // Componente de Gestão de Quartos, Tarifas, Fotos e Status de Publicação
 export const RoomsModule: React.FC = () => {
@@ -39,7 +79,9 @@ export const RoomsModule: React.FC = () => {
     vista: 'Vista para os Jardins',
     cama: '1 Cama Queen Size',
     fechadura_pin: '123456',
-    fotosStr: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80',
+    fotos: [
+      'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80'
+    ] as string[],
     comodidadesStr: 'Wi-Fi 6, Ar-condicionado, Smart TV, Frigobar, Cofre Eletrônico',
     ativo: true,
   });
@@ -58,7 +100,9 @@ export const RoomsModule: React.FC = () => {
       vista: 'Vista Panorâmica',
       cama: '1 Cama King Size',
       fechadura_pin: Math.floor(100000 + Math.random() * 900000).toString(),
-      fotosStr: 'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80',
+      fotos: [
+        'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80'
+      ],
       comodidadesStr: 'Wi-Fi 6, Ar-condicionado Split, Smart TV 55", Frigobar, Cofre Digital, Enxoval Premium',
       ativo: true,
     });
@@ -79,7 +123,9 @@ export const RoomsModule: React.FC = () => {
       vista: room.vista,
       cama: room.cama,
       fechadura_pin: room.fechadura_pin || '123456',
-      fotosStr: room.fotos.join('\n'),
+      fotos: room.fotos && room.fotos.length > 0 ? room.fotos : [
+        'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80'
+      ],
       comodidadesStr: room.comodidades.join(', '),
       ativo: room.ativo,
     });
@@ -88,7 +134,7 @@ export const RoomsModule: React.FC = () => {
 
   const handleSaveRoom = (e: React.FormEvent) => {
     e.preventDefault();
-    const fotos = formData.fotosStr.split('\n').map((s) => s.trim()).filter(Boolean);
+    const fotos = formData.fotos.map((s) => s.trim()).filter(Boolean);
     const comodidades = formData.comodidadesStr.split(',').map((s) => s.trim()).filter(Boolean);
 
     if (editingRoom) {
@@ -443,13 +489,17 @@ export const RoomsModule: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold uppercase text-stone-600 mb-1">URLs das Fotos (uma por linha)</label>
-                <textarea
-                  rows={2}
-                  value={formData.fotosStr}
-                  onChange={(e) => setFormData({ ...formData, fotosStr: e.target.value })}
-                  className="w-full p-2.5 rounded-lg border border-stone-200 text-xs font-mono"
+              {/* Galeria de Fotos do Quarto com Upload, Recorte, Reordenação e Presets */}
+              <div className="pt-1">
+                <MultiImageGalleryUploader
+                  label="Galeria de Fotos da Acomodação"
+                  description="A primeira foto será utilizada como Capa Principal da acomodação. Reordene, corte ou exclua imagens conforme desejar."
+                  images={formData.fotos}
+                  onChange={(newPhotos) => setFormData({ ...formData, fotos: newPhotos })}
+                  maxImages={12}
+                  aspectRatioHint="16:10 / 4:3"
+                  defaultAspectRatio={16 / 10}
+                  presets={ROOM_PHOTO_PRESETS}
                 />
               </div>
 
