@@ -249,3 +249,48 @@ test('phase 2 device types are constrained to valid enum values', () => {
   assert.equal(allowed.includes('MOBILE'), true);
   assert.equal(allowed.includes('UNKNOWN'), false);
 });
+
+// Prompt 04: Validação de isolamento entre hotéis e papéis (localStorage tamper protection)
+test('Prompt 04: alteração em localStorage não concede acesso a hotel não autorizado', () => {
+  const membershipsHotelA: HotelMembership[] = [
+    {
+      id: 'mem-1',
+      user_id: 'usr-recepcao',
+      organization_id: 'org-hotelaria',
+      hotel_id: 'hotel-a',
+      role: 'recepcionista',
+      active: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  ];
+
+  // Tentativa de acessar Hotel B com credenciais do Hotel A
+  const hasAccessToHotelB = canUseHotel('usr-recepcao', 'hotel-b', membershipsHotelA);
+  assert.equal(hasAccessToHotelB, false, 'Usuário não deve ter acesso ao Hotel B');
+
+  // Tentativa de forjar tenantContext alterando hotelId
+  const forgedTenantContext: TenantContext = {
+    userId: 'usr-recepcao',
+    organizationId: 'org-hotelaria',
+    hotelId: 'hotel-b', // forjado
+    role: 'admin',      // forjado
+  };
+
+  const isForgedContextValid = isTenantContextValid(forgedTenantContext, membershipsHotelA);
+  assert.equal(isForgedContextValid, false, 'Contexto forjado no cliente deve ser rejeitado');
+});
+
+test('Prompt 04: validação entre dois papéis distintos (recepcionista vs financeiro)', () => {
+  // Recepcionista não deve conseguir pagar contas ou acessar DRE
+  assert.equal(hasRolePermission('recepcionista', PERMISSIONS.financeCreatePayment), false);
+  assert.equal(canAccessTab(undefined, 'recepcionista', 'financial'), false);
+  assert.equal(canAccessTab(undefined, 'recepcionista', 'checkin_out'), true);
+
+  // Financeiro não deve conseguir cancelar reservas ou fazer check-in
+  assert.equal(hasRolePermission('financeiro', PERMISSIONS.reservationsCancel), false);
+  assert.equal(hasRolePermission('financeiro', PERMISSIONS.reservationsCheckin), false);
+  assert.equal(canAccessTab(undefined, 'financeiro', 'financial'), true);
+  assert.equal(canAccessTab(undefined, 'financeiro', 'checkin_out'), false);
+});
+

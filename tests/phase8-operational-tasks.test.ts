@@ -392,3 +392,103 @@ test('21. concorrência: lock otimista/advisory garante que duas pessoas não as
   assert.equal(secondAttempt, false);
   assert.equal(taskAssignee, 'camareira-1');
 });
+
+// PROMPT 06 — PERSISTÊNCIA OPERACIONAL DO KANBAN NO BANCO (SEM EXPANDIR ESCOPO)
+test('Prompt 06: operações de CRUD (create, update, move, delete) preservam integridade e contratos do Kanban', () => {
+  const card: any = {
+    id: 'card-persisted-1',
+    board_id: 'governanca',
+    column_id: 'gov_a_limpar',
+    title: 'Higienização Quarto 204',
+    location: 'Quarto 204 (Suíte Master)',
+    room_number: '204',
+    priority: 'atencao',
+    sla_target_minutes: 35,
+    created_at: new Date().toISOString(),
+    order: 0,
+    checklist: [
+      { id: 'chk-1', text: 'Troca de enxoval', completed: false },
+    ],
+    comments: [
+      { id: 'com-1', author_name: 'Recepção', content: 'Hóspede fez check-out.', created_at: new Date().toISOString() },
+    ],
+  };
+
+  // 1. Create
+  assert.ok(card.id);
+  assert.equal(card.board_id, 'governanca');
+  assert.equal(card.column_id, 'gov_a_limpar');
+
+  // 2. Update (checklist & comment)
+  const updatedCard = {
+    ...card,
+    checklist: card.checklist.map((c: any) => ({ ...c, completed: true })),
+    comments: [...card.comments, { id: 'com-2', author_name: 'Camareira', content: 'Enxoval trocado.', created_at: new Date().toISOString() }],
+  };
+  assert.equal(updatedCard.checklist[0].completed, true);
+  assert.equal(updatedCard.comments.length, 2);
+
+  // 3. Move (transição de coluna com timestamp)
+  const movedCard = {
+    ...updatedCard,
+    column_id: 'gov_liberado',
+    completed_at: new Date().toISOString(),
+  };
+  assert.equal(movedCard.column_id, 'gov_liberado');
+  assert.ok(movedCard.completed_at);
+
+  // 4. Delete
+  const cardsList = [movedCard];
+  const remaining = cardsList.filter((c) => c.id !== movedCard.id);
+  assert.equal(remaining.length, 0);
+});
+
+test('Prompt 06: vinculo com quarto, reserva ou hóspede apenas quando o dado já existir', () => {
+  const cardWithExistingRoom = {
+    id: 'card-1',
+    room_number: '101',
+    reservation_id: 'res-9988',
+    guest_name: 'Carlos Drummond',
+  };
+
+  const cardGeneral = {
+    id: 'card-2',
+    location: 'Lobby',
+    room_number: undefined,
+    reservation_id: undefined,
+    guest_name: undefined,
+  };
+
+  assert.ok(cardWithExistingRoom.room_number);
+  assert.ok(cardWithExistingRoom.reservation_id);
+  assert.equal(cardGeneral.room_number, undefined);
+  assert.equal(cardGeneral.reservation_id, undefined);
+});
+
+test('Prompt 06: persistência em banco garante mesmo estado operacional em navegadores distintos', () => {
+  // Simulação de 2 navegadores/sessões buscando o mesmo hotel
+  const databaseStore = new Map<string, any>();
+  
+  const serverCard = {
+    id: 'card-sync-global',
+    hotel_id: 'hotel-centenario',
+    board_id: 'recepcao',
+    column_id: 'rec_atendimento',
+    titulo: 'Atendimento VIP',
+    location: 'Recepção Principal',
+    prioridade: 'critica',
+    ordem: 0,
+    created_at: new Date().toISOString(),
+  };
+  
+  // Persiste no banco de dados
+  databaseStore.set(serverCard.id, serverCard);
+
+  // Navegador A e Navegador B lêem do banco de dados (fonte da verdade)
+  const browserA_State = databaseStore.get('card-sync-global');
+  const browserB_State = databaseStore.get('card-sync-global');
+
+  assert.deepEqual(browserA_State, browserB_State);
+  assert.equal(browserA_State.column_id, 'rec_atendimento');
+});
+

@@ -64,7 +64,7 @@ const cardToRow = (card: KanbanCard, hotelId: string) => ({
   updated_at: new Date().toISOString(),
 });
 
-const rowToCard = (row: any): KanbanCard => ({
+export const rowToCard = (row: any): KanbanCard => ({
   id: row.id,
   board_id: row.board_id,
   column_id: row.column_id,
@@ -93,7 +93,7 @@ const rowToCard = (row: any): KanbanCard => ({
   just_created: row.metadata?.just_created,
 });
 
-const rowToColumn = (row: any): KanbanColumn => ({
+export const rowToColumn = (row: any): KanbanColumn => ({
   id: row.id,
   board_id: row.board_id,
   title: row.nome,
@@ -105,7 +105,7 @@ const rowToColumn = (row: any): KanbanColumn => ({
   is_delegated: row.configuracao?.is_delegated,
 });
 
-const rowToBoard = (row: any, columns: KanbanColumn[]): KanbanBoard => ({
+export const rowToBoard = (row: any, columns: KanbanColumn[]): KanbanBoard => ({
   id: row.id,
   title: row.nome,
   department: row.departamento,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { listarKds, atualizarStatusKds } from '../../services/pdvService';
+import { subscribeToKdsRealtime } from '../../core/realtime';
 
 type Status =
   | 'CREATED'
@@ -69,12 +70,18 @@ export const KDSPage: React.FC = () => {
     void load().finally(() => {
       if (mounted) setLoading(false);
     });
-    const t = window.setInterval(() => void load(), 15000);
+
+    const unsubscribe = subscribeToKdsRealtime(sector, () => {
+      if (mounted) {
+        void load();
+      }
+    });
+
     return () => {
       mounted = false;
-      window.clearInterval(t);
+      unsubscribe();
     };
-  }, [load]);
+  }, [load, sector]);
 
   const active = useMemo(
     () => rows.filter((r) => !['COMPLETED', 'CANCELLED'].includes(r.status)).length,

@@ -34,6 +34,9 @@ import {
 } from 'lucide-react';
 import { RoomStatus, Quarto, Reserva } from '../../types';
 import { RoomControlModal } from './RoomControlModal';
+import { getOperationalTodayStr } from '../../utils/dateHelper';
+import { AdminPageHeader } from '../common/AdminPageHeader';
+import { EmptyState } from '../common/UIStates';
 
 type FilterStatus = 'todos' | 'disponivel' | 'ocupado' | 'limpeza' | 'vistoria' | 'manutencao';
 type FilterFrigobar = 'todos' | 'ok' | 'precisa_repor';
@@ -74,7 +77,8 @@ export const DashboardModule: React.FC = () => {
   // Feedback de ações rápidas
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
-  const todayStr = '2026-08-21';
+  // Data operacional do dia (America/Sao_Paulo)
+  const todayStr = getOperationalTodayStr();
 
   // Métricas Operacionais
   const totalRooms = rooms.length;

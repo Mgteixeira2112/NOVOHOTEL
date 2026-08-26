@@ -75,6 +75,7 @@ import {
   seedAllDataToSupabase,
   SeedAllResponse
 } from '../services/supabase';
+import { subscribeToHotelRealtime } from '../core/realtime/hotelRealtimeManager';
 
 // Tipagem para os filtros de busca de disponibilidade
 interface BookingSearchFilters {
@@ -490,6 +491,107 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
     });
   }, [checkSupabaseHealth, syncFromSupabase]);
+
+  // Subscrição Realtime Centralizada para Sincronização entre Usuários/Navegadores
+  useEffect(() => {
+    const hotelId = hotelConfig?.id || 'default_hotel';
+    const unsubscribe = subscribeToHotelRealtime(hotelId, {
+      onReservationChange: (event) => {
+        if (event.eventType === 'DELETE') {
+          if (event.old?.id) {
+            setReservations((prev) => prev.filter((r) => r.id !== event.old.id));
+          }
+        } else if (event.new) {
+          const incoming = event.new as Reserva;
+          setReservations((prev) => {
+            const index = prev.findIndex((r) => r.id === incoming.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], ...incoming };
+              return updated;
+            }
+            return [incoming, ...prev];
+          });
+        }
+      },
+      onRoomChange: (event) => {
+        if (event.eventType === 'DELETE') {
+          if (event.old?.id) {
+            setRooms((prev) => prev.filter((r) => r.id !== event.old.id));
+          }
+        } else if (event.new) {
+          const incoming = event.new as Quarto;
+          setRooms((prev) => {
+            const index = prev.findIndex((r) => r.id === incoming.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], ...incoming };
+              return updated;
+            }
+            return [...prev, incoming];
+          });
+        }
+      },
+      onBlockChange: (event) => {
+        if (event.eventType === 'DELETE') {
+          if (event.old?.id) {
+            setBlocks((prev) => prev.filter((b) => b.id !== event.old.id));
+          }
+        } else if (event.new) {
+          const incoming = event.new as BloqueioQuarto;
+          setBlocks((prev) => {
+            const index = prev.findIndex((b) => b.id === incoming.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], ...incoming };
+              return updated;
+            }
+            return [...prev, incoming];
+          });
+        }
+      },
+      onGuestChange: (event) => {
+        if (event.eventType === 'DELETE') {
+          if (event.old?.id) {
+            setGuests((prev) => prev.filter((g) => g.id !== event.old.id));
+          }
+        } else if (event.new) {
+          const incoming = event.new as Hospede;
+          setGuests((prev) => {
+            const index = prev.findIndex((g) => g.id === incoming.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], ...incoming };
+              return updated;
+            }
+            return [...prev, incoming];
+          });
+        }
+      },
+      onPaymentChange: (event) => {
+        if (event.eventType === 'DELETE') {
+          if (event.old?.id) {
+            setPayments((prev) => prev.filter((p) => p.id !== event.old.id));
+          }
+        } else if (event.new) {
+          const incoming = event.new as Pagamento;
+          setPayments((prev) => {
+            const index = prev.findIndex((p) => p.id === incoming.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], ...incoming };
+              return updated;
+            }
+            return [incoming, ...prev];
+          });
+        }
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [hotelConfig?.id]);
 
   const openBookingWithRoom = (roomId?: string) => {
     setBookingSearchFilters((prev) => ({

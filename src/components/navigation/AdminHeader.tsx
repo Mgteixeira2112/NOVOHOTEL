@@ -19,6 +19,7 @@ import {
   Cloud,
   CloudAlert
 } from 'lucide-react';
+import { getOperationalTodayStr } from '../../utils/dateHelper';
 import { UserProfileModal } from '../admin/UserProfileModal';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
@@ -56,8 +57,8 @@ export const AdminHeader: React.FC = () => {
       .toUpperCase();
   };
 
-  // Cálculo de check-ins ativos e taxa de ocupação para a data de referência
-  const todayStr = '2026-08-21';
+  // Cálculo de check-ins ativos e taxa de ocupação para a data de referência operacional
+  const todayStr = getOperationalTodayStr();
   const checkinsToday = reservations.filter((r) => r.checkin === todayStr && r.status === 'confirmada').length;
   const occupiedRooms = rooms.filter((r) => r.status === 'ocupado').length;
   const totalRooms = rooms.length;
@@ -145,9 +146,9 @@ export const AdminHeader: React.FC = () => {
                   </>
                 ) : (
                   <>
-                    <span className="w-2 h-2 rounded-full bg-stone-500" />
-                    <Database className="w-3 h-3 text-stone-400" />
-                    <span className="text-stone-300 font-medium">Supabase Local Fallback</span>
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    <Database className="w-3 h-3 text-amber-400" />
+                    <span className="text-amber-300 font-medium">Modo Demo / Local</span>
                   </>
                 )}
               </button>

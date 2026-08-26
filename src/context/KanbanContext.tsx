@@ -21,6 +21,8 @@ import {
   canUserViewCard, 
   playDifferentiatedNotificationSound 
 } from '../utils/kanbanPermissions';
+import { taskRepository } from '../repositories/taskRepository';
+import { subscribeToKanbanRealtime, rowToCard } from '../services/kanbanService';
 
 interface LiveEventNotification {
   id: string;
@@ -282,7 +284,7 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Notificação de evento ao vivo (live ping)
   const [liveEvent, setLiveEvent] = useState<LiveEventNotification | null>(null);
 
-  // Sincronizar com localStorage
+  // Sincronizar com localStorage (usado estritamente como cache de interface)
   useEffect(() => {
     try {
       localStorage.setItem(LOCAL_STORAGE_BOARDS_KEY, JSON.stringify(boards));
@@ -298,6 +300,62 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       console.error(e);
     }
   }, [cards]);
+
+  // Carregamento inicial autoritativo a partir do banco de dados (Supabase)
+  const hotelId = hotelConfig?.id || 'default_hotel';
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadFromDatabase() {
+      try {
+        const [dbBoards, dbCards] = await Promise.all([
+          taskRepository.listKanbanBoards(hotelId),
+          taskRepository.listKanbanCards(hotelId),
+        ]);
+        if (!isMounted) return;
+        if (dbBoards && dbBoards.length > 0) {
+          setBoards(dbBoards);
+        }
+        if (dbCards && dbCards.length > 0) {
+          setCards(dbCards);
+        }
+      } catch (err) {
+        console.warn('Fallback para cache local do Kanban:', err);
+      }
+    }
+    loadFromDatabase();
+    return () => {
+      isMounted = false;
+    };
+  }, [hotelId]);
+
+  // Subscrição Realtime para sincronização de Cartões e Quadros entre operadores
+  useEffect(() => {
+    const unsubscribe = subscribeToKanbanRealtime(hotelId, {
+      onCardChange: (payload) => {
+        if (payload.eventType === 'DELETE') {
+          if (payload.old?.id) {
+            setCards((prev) => prev.filter((c) => c.id !== payload.old.id));
+          }
+        } else if (payload.new) {
+          const card = rowToCard(payload.new);
+          setCards((prev) => {
+            const index = prev.findIndex((c) => c.id === card.id);
+            if (index >= 0) {
+              const updated = [...prev];
+              updated[index] = { ...updated[index], ...card };
+              return updated;
+            }
+            return [card, ...prev];
+          });
+        }
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [hotelId]);
 
   const setSoundEnabled = useCallback((enabled: boolean) => {
     setSoundEnabledState(enabled);
@@ -579,11 +637,14 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         comments: [...currentCard.comments, newComment]
       };
 
+      // Persistência operacional no banco
+      taskRepository.upsertKanbanCard(updatedCard, hotelId);
+
       const newCards = [...prevCards];
       newCards[cardIndex] = updatedCard;
       return newCards;
     });
-  }, [boards, currentUser, rooms, reservations, blocks, guests, setRoomStatus, updateReservationStatus, deleteBlock, findRoomByCard, quickRestockRoom]);
+  }, [boards, currentUser, rooms, reservations, blocks, guests, setRoomStatus, updateReservationStatus, deleteBlock, findRoomByCard, quickRestockRoom, hotelId]);
 
   // Sincronização 100% Completa de Todas as Entidades do PMS para os Quadros Kanban
   const syncAllFromPMS = useCallback(() => {
@@ -943,6 +1004,9 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setCards((prev) => [newCard, ...prev]);
 
+    // Persistência operacional no banco
+    taskRepository.upsertKanbanCard(newCard, hotelId);
+
     // Disparo de Alerta Sonoro Inteligente e Diferenciado (Pessoal, Setor, Crítico ou Geral)
     const audioResult = playDifferentiatedNotificationSound(newCard, currentUser);
 
@@ -963,15 +1027,18 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCards((prev) =>
       prev.map((c) => {
         if (c.id !== cardId) return c;
-        return { ...c, ...updates };
+        const updated = { ...c, ...updates };
+        taskRepository.upsertKanbanCard(updated, hotelId);
+        return updated;
       })
     );
     setSelectedCard((prev) => (prev && prev.id === cardId ? { ...prev, ...updates } : prev));
-  }, []);
+  }, [hotelId]);
 
   const deleteCard = useCallback((cardId: string) => {
     setCards((prev) => prev.filter((c) => c.id !== cardId));
     setSelectedCard((prev) => (prev && prev.id === cardId ? null : prev));
+    taskRepository.deleteKanbanCard(cardId);
   }, []);
 
   const addCardComment = useCallback((cardId: string, content: string) => {
@@ -989,10 +1056,12 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCards((prev) =>
       prev.map((c) => {
         if (c.id !== cardId) return c;
-        return {
+        const updated = {
           ...c,
           comments: [...c.comments, comment]
         };
+        taskRepository.upsertKanbanCard(updated, hotelId);
+        return updated;
       })
     );
 
@@ -1003,7 +1072,7 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         comments: [...prev.comments, comment]
       };
     });
-  }, [currentUser]);
+  }, [currentUser, hotelId]);
 
   const toggleChecklistItem = useCallback((cardId: string, itemId: string) => {
     setCards((prev) =>
@@ -1019,7 +1088,9 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             completed_at: nextCompleted ? new Date().toISOString() : undefined
           };
         });
-        return { ...c, checklist: updatedChecklist };
+        const updated = { ...c, checklist: updatedChecklist };
+        taskRepository.upsertKanbanCard(updated, hotelId);
+        return updated;
       })
     );
 
@@ -1037,7 +1108,7 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       return { ...prev, checklist: updatedChecklist };
     });
-  }, [currentUser]);
+  }, [currentUser, hotelId]);
 
   const addChecklistItem = useCallback((cardId: string, text: string) => {
     if (!text.trim()) return;
@@ -1050,10 +1121,12 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCards((prev) =>
       prev.map((c) => {
         if (c.id !== cardId) return c;
-        return {
+        const updated = {
           ...c,
           checklist: [...c.checklist, newItem]
         };
+        taskRepository.upsertKanbanCard(updated, hotelId);
+        return updated;
       })
     );
 
@@ -1064,17 +1137,19 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         checklist: [...prev.checklist, newItem]
       };
     });
-  }, []);
+  }, [hotelId]);
 
   const assignCard = useCallback((cardId: string, assignee: KanbanCardAssignee | null) => {
     setCards((prev) =>
       prev.map((c) => {
         if (c.id !== cardId) return c;
-        return { ...c, assigned_to: assignee };
+        const updated = { ...c, assigned_to: assignee };
+        taskRepository.upsertKanbanCard(updated, hotelId);
+        return updated;
       })
     );
     setSelectedCard((prev) => (prev && prev.id === cardId ? { ...prev, assigned_to: assignee } : prev));
-  }, []);
+  }, [hotelId]);
 
   // Ação Rápida: Repor Frigobar e Concluir Cartão Diretamente
   const quickRestockFrigobarCard = useCallback((cardId: string) => {
@@ -1166,36 +1241,42 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           is_final: isFinal,
           is_in_progress: isInProgress
         };
-        return {
+        const updatedBoard = {
           ...b,
           columns: [...b.columns, newCol]
         };
+        taskRepository.upsertKanbanBoard(updatedBoard, hotelId);
+        return updatedBoard;
       })
     );
-  }, []);
+  }, [hotelId]);
 
   const updateColumn = useCallback((columnId: string, updates: Partial<KanbanColumn>) => {
     setBoards((prev) =>
       prev.map((b) => {
         const hasCol = b.columns.some((col) => col.id === columnId);
         if (!hasCol) return b;
-        return {
+        const updatedBoard = {
           ...b,
           columns: b.columns.map((col) => (col.id === columnId ? { ...col, ...updates } : col))
         };
+        taskRepository.upsertKanbanBoard(updatedBoard, hotelId);
+        return updatedBoard;
       })
     );
-  }, []);
+  }, [hotelId]);
 
   const deleteColumn = useCallback((columnId: string) => {
     setBoards((prev) =>
       prev.map((b) => {
         const hasCol = b.columns.some((col) => col.id === columnId);
         if (!hasCol) return b;
-        return {
+        const updatedBoard = {
           ...b,
           columns: b.columns.filter((col) => col.id !== columnId)
         };
+        taskRepository.upsertKanbanBoard(updatedBoard, hotelId);
+        return updatedBoard;
       })
     );
     // Move cartões da coluna excluída para a primeira coluna restante do quadro
@@ -1205,12 +1286,14 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const board = boards.find((b) => b.id === c.board_id);
         const remainingCols = board?.columns.filter((col) => col.id !== columnId) || [];
         if (remainingCols.length > 0) {
-          return { ...c, column_id: remainingCols[0].id };
+          const updated = { ...c, column_id: remainingCols[0].id };
+          taskRepository.upsertKanbanCard(updated, hotelId);
+          return updated;
         }
         return c;
       });
     });
-  }, [boards]);
+  }, [boards, hotelId]);
 
   // Gestão de Quadros (Admin / Gerente)
   const addBoard = useCallback((boardData: Omit<KanbanBoard, 'id' | 'columns'> & { columns?: KanbanColumn[] }) => {
@@ -1228,16 +1311,25 @@ export const KanbanProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setBoards((prev) => [...prev, newBoard]);
     setActiveBoardId(id);
-  }, []);
+    taskRepository.upsertKanbanBoard(newBoard, hotelId);
+  }, [hotelId]);
 
   const updateBoard = useCallback((boardId: string, updates: Partial<KanbanBoard>) => {
-    setBoards((prev) => prev.map((b) => (b.id === boardId ? { ...b, ...updates } : b)));
-  }, []);
+    setBoards((prev) =>
+      prev.map((b) => {
+        if (b.id !== boardId) return b;
+        const updated = { ...b, ...updates };
+        taskRepository.upsertKanbanBoard(updated, hotelId);
+        return updated;
+      })
+    );
+  }, [hotelId]);
 
   const deleteBoard = useCallback((boardId: string) => {
     setBoards((prev) => prev.filter((b) => b.id !== boardId));
     setCards((prev) => prev.filter((c) => c.board_id !== boardId));
     setActiveBoardId('recepcao');
+    taskRepository.deleteKanbanBoard(boardId);
   }, []);
 
   const resetToDefaults = useCallback(() => {
