@@ -53,20 +53,18 @@ export interface HotelOSTask {
 }
 
 export async function emitHotelOSEvent(event: HotelOSEvent) {
-  const row = {
-    hotel_id: event.hotel_id || null,
-    event_type: event.event_type,
-    source_module: event.source_module,
-    entity_type: event.entity_type || null,
-    entity_id: event.entity_id || null,
-    payload: event.payload || {},
-    created_by: event.created_by || null,
-    created_at: event.created_at || new Date().toISOString(),
-  };
-
-  const { data, error } = await supabase.from('hotel_os_events').insert(row).select().single();
+  if (!event.hotel_id) throw new Error('hotel_id é obrigatório para emitir um DomainEvent');
+  const { data, error } = await supabase.rpc('hotel_os_emit_event', {
+    p_hotel_id: event.hotel_id,
+    p_event_type: event.event_type,
+    p_source_module: event.source_module,
+    p_entity_type: event.entity_type || null,
+    p_entity_id: event.entity_id || null,
+    p_payload: event.payload || {},
+    p_created_by: event.created_by || null,
+  });
   if (error) throw error;
-  return data as HotelOSEvent;
+  return { ...event, id: data as string };
 }
 
 export async function createHotelOSTask(task: HotelOSTask) {
