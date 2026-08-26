@@ -2,6 +2,7 @@ import React from 'react';
 import { useHotel } from '../../context/HotelContext';
 import { AdminHeader } from '../navigation/AdminHeader';
 import { DashboardModule } from './DashboardModule';
+import { ExecutiveDashboardModule } from './ExecutiveDashboardModule';
 import { RoomsModule } from './RoomsModule';
 import { ReservationsModule } from './ReservationsModule';
 import { CheckInOutModule } from './CheckInOutModule';
@@ -16,7 +17,7 @@ import { PDVPage } from './PDVPage';
 import { KDSPage } from './KDSPage';
 import { HotelOSCommandCenter } from './HotelOSCommandCenter';
 import { useKanban } from '../../context/KanbanContext';
-import { LayoutDashboard, BedDouble, CalendarDays, LogIn, Users, DollarSign, ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard, ChefHat, Sparkles } from 'lucide-react';
+import { LayoutDashboard, BarChart3, BedDouble, CalendarDays, LogIn, Users, DollarSign, ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard, ChefHat, Sparkles } from 'lucide-react';
 import { AdminTab } from '../../types';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
@@ -31,6 +32,7 @@ export const AdminLayout: React.FC = () => {
 
   const navItems: { id: AdminTab; label: string; icon: React.FC<{ className?: string }>; badge?: number }[] = [
     { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard },
+    { id: 'management_bi', label: 'BI Gerencial', icon: BarChart3 },
     { id: 'command_center' as AdminTab, label: 'Central Hotel OS', icon: Sparkles },
     { id: 'kanban', label: 'Operação Kanban', icon: Columns3, badge: pendingKanbanCount },
     { id: 'reservations', label: 'Mapa de Reservas', icon: CalendarDays },
@@ -48,7 +50,8 @@ export const AdminLayout: React.FC = () => {
 
   const userRole = currentUser?.tipo_usuario || 'recepcionista';
   const isCommandCenter = adminActiveTab === ('command_center' as AdminTab);
-  const hasPermission = isCommandCenter ? (userRole === 'admin' || userRole === 'gerente') : hasTabAccess(userRole, adminActiveTab as AdminTab);
+  const isManagementBI = adminActiveTab === ('management_bi' as AdminTab);
+  const hasPermission = isCommandCenter ? (userRole === 'admin' || userRole === 'gerente') : isManagementBI ? ['admin','gerente','financeiro'].includes(userRole) : hasTabAccess(userRole, adminActiveTab as AdminTab);
   const currentTabConfig = navItems.find((item) => item.id === adminActiveTab);
 
   return (
@@ -60,7 +63,7 @@ export const AdminLayout: React.FC = () => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = adminActiveTab === item.id || (item.id === 'settings' && adminActiveTab === 'design');
-              const isAllowed = item.id === ('command_center' as AdminTab) ? (userRole === 'admin' || userRole === 'gerente') : hasTabAccess(userRole, item.id);
+              const isAllowed = item.id === ('command_center' as AdminTab) ? (userRole === 'admin' || userRole === 'gerente') : item.id === ('management_bi' as AdminTab) ? ['admin','gerente','financeiro'].includes(userRole) : hasTabAccess(userRole, item.id);
               return (
                 <button key={item.id} onClick={() => setAdminActiveTab(item.id)} className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer relative ${isActive ? `bg-stone-900 ${theme.textAccentClass} shadow-xs ring-1 ${theme.primaryBorder}` : isAllowed ? 'text-stone-600 hover:text-stone-950 hover:bg-stone-100/80' : 'text-stone-400 hover:text-stone-600 opacity-60'}`}>
                   <Icon className={`w-4 h-4 ${isActive ? theme.textAccentClass : isAllowed ? 'text-stone-400' : 'text-stone-300'}`} />
@@ -82,6 +85,7 @@ export const AdminLayout: React.FC = () => {
           ) : (
             <>
               {adminActiveTab === 'dashboard' && <DashboardModule />}
+              {adminActiveTab === ('management_bi' as AdminTab) && <ExecutiveDashboardModule />}
               {adminActiveTab === ('command_center' as AdminTab) && <HotelOSCommandCenter />}
               {adminActiveTab === 'kanban' && <KanbanModule />}
               {adminActiveTab === 'reservations' && <ReservationsModule />}
