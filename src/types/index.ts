@@ -20,13 +20,7 @@ export type ThemeColorPalette = 'stone' | 'amber' | 'emerald' | 'blue' | 'violet
 export type TypographyStyle = 'modern' | 'classic' | 'elegant' | 'technical';
 export type PropertyType = 'hotel' | 'pousada' | 'resort' | 'hostel' | 'motel' | 'apart-hotel';
 
-export type HotelOSEventType =
-  | 'reservation.created' | 'reservation.confirmed' | 'checkin.completed' | 'checkout.completed'
-  | 'room.status_changed' | 'housekeeping.created' | 'housekeeping.completed'
-  | 'maintenance.created' | 'maintenance.completed' | 'kitchen.order_created'
-  | 'kitchen.order_ready' | 'room_service.created' | 'stock.below_minimum'
-  | 'purchase.created' | 'payment.approved' | 'guest.feedback_received' | 'workflow.executed';
-
+export type HotelOSEventType = 'reservation.created' | 'reservation.confirmed' | 'checkin.completed' | 'checkout.completed' | 'room.status_changed' | 'housekeeping.created' | 'housekeeping.completed' | 'maintenance.created' | 'maintenance.completed' | 'kitchen.order_created' | 'kitchen.order_ready' | 'room_service.created' | 'stock.below_minimum' | 'purchase.created' | 'payment.approved' | 'guest.feedback_received' | 'workflow.executed';
 export interface HotelOSEvent { id: string; hotel_id?: string; event_type: HotelOSEventType | string; source_module: string; entity_type?: string; entity_id?: string; payload: Record<string, unknown>; created_by?: string; created_at: string; }
 export type HotelOSTaskStatus = 'pendente' | 'em_execucao' | 'aguardando' | 'concluida' | 'cancelada';
 export type HotelOSTaskPriority = 'baixa' | 'normal' | 'alta' | 'critica';
