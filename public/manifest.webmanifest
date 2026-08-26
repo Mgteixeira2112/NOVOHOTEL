@@ -1,0 +1,11 @@
+{
+  "name": "Hotel OS",
+  "short_name": "Hotel OS",
+  "description": "Sistema operacional hoteleiro",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fafaf9",
+  "theme_color": "#f59e0b",
+  "icons": []
+}
