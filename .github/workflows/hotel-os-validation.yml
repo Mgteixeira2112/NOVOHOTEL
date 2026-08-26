@@ -2,7 +2,7 @@ name: Hotel OS validation
 
 on:
   push:
-    branches: [main, plano-mestre-hotel-os]
+    branches: [main, plano-mestre-hotel-os, fase-17-publicacao]
   pull_request:
 
 jobs:
@@ -13,7 +13,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: bun install --frozen-lockfile
+      # No Bun lockfile is currently committed. Do not use --frozen-lockfile
+      # until a verified bun.lock is added and validated.
+      - run: bun install
       - run: bun run lint
       - run: bun run test
       - run: bun run build
