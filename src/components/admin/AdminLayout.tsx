@@ -14,8 +14,9 @@ import { UsersModule } from './UsersModule';
 import { KanbanModule } from './KanbanModule';
 import { PDVPage } from './PDVPage';
 import { KDSPage } from './KDSPage';
+import { HotelOSCommandCenter } from './HotelOSCommandCenter';
 import { useKanban } from '../../context/KanbanContext';
-import { LayoutDashboard, BedDouble, CalendarDays, LogIn, Users, DollarSign, ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard, ChefHat } from 'lucide-react';
+import { LayoutDashboard, BedDouble, CalendarDays, LogIn, Users, DollarSign, ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard, ChefHat, Sparkles } from 'lucide-react';
 import { AdminTab } from '../../types';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
@@ -30,6 +31,7 @@ export const AdminLayout: React.FC = () => {
 
   const navItems: { id: AdminTab; label: string; icon: React.FC<{ className?: string }>; badge?: number }[] = [
     { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard },
+    { id: 'command_center' as AdminTab, label: 'Central Hotel OS', icon: Sparkles },
     { id: 'kanban', label: 'Operação Kanban', icon: Columns3, badge: pendingKanbanCount },
     { id: 'reservations', label: 'Mapa de Reservas', icon: CalendarDays },
     { id: 'checkin_out', label: 'Desk Check-in / Out', icon: LogIn, badge: checkinsTodayCount },
@@ -45,7 +47,8 @@ export const AdminLayout: React.FC = () => {
   ];
 
   const userRole = currentUser?.tipo_usuario || 'recepcionista';
-  const hasPermission = hasTabAccess(userRole, adminActiveTab as AdminTab);
+  const isCommandCenter = adminActiveTab === ('command_center' as AdminTab);
+  const hasPermission = isCommandCenter ? (userRole === 'admin' || userRole === 'gerente') : hasTabAccess(userRole, adminActiveTab as AdminTab);
   const currentTabConfig = navItems.find((item) => item.id === adminActiveTab);
 
   return (
@@ -57,7 +60,7 @@ export const AdminLayout: React.FC = () => {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = adminActiveTab === item.id || (item.id === 'settings' && adminActiveTab === 'design');
-              const isAllowed = hasTabAccess(userRole, item.id);
+              const isAllowed = item.id === ('command_center' as AdminTab) ? (userRole === 'admin' || userRole === 'gerente') : hasTabAccess(userRole, item.id);
               return (
                 <button key={item.id} onClick={() => setAdminActiveTab(item.id)} className={`px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition cursor-pointer relative ${isActive ? `bg-stone-900 ${theme.textAccentClass} shadow-xs ring-1 ${theme.primaryBorder}` : isAllowed ? 'text-stone-600 hover:text-stone-950 hover:bg-stone-100/80' : 'text-stone-400 hover:text-stone-600 opacity-60'}`}>
                   <Icon className={`w-4 h-4 ${isActive ? theme.textAccentClass : isAllowed ? 'text-stone-400' : 'text-stone-300'}`} />
@@ -79,6 +82,7 @@ export const AdminLayout: React.FC = () => {
           ) : (
             <>
               {adminActiveTab === 'dashboard' && <DashboardModule />}
+              {adminActiveTab === ('command_center' as AdminTab) && <HotelOSCommandCenter />}
               {adminActiveTab === 'kanban' && <KanbanModule />}
               {adminActiveTab === 'reservations' && <ReservationsModule />}
               {adminActiveTab === 'checkin_out' && <CheckInOutModule />}
