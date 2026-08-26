@@ -1,0 +1,71 @@
+-- FASE 8 — TASK central, housekeeping, manutenção, checklist e Kanban.
+create extension if not exists pgcrypto;
+
+create table if not exists public.hotel_os_tasks(
+ id uuid primary key default gen_random_uuid(), hotel_id uuid not null references public.hoteis(id) on delete cascade,
+ type text not null check(type in ('ROOM_CLEANING','ROOM_INSPECTION','MAINTENANCE','MINIBAR','LAUNDRY','DELIVERY','RESTOCK','GENERAL')),
+ title text not null, description text, status text not null default 'PENDING' check(status in ('PENDING','IN_PROGRESS','WAITING','COMPLETED','CANCELLED','REOPENED')),
+ priority text not null default 'NORMAL' check(priority in ('LOW','NORMAL','HIGH','URGENT')),
+ room_id text, area_id uuid, asset_id uuid, assigned_to uuid, created_by uuid, source text not null default 'MANUAL' check(source in ('CHECKOUT','RESERVATION','FRONT_DESK','HOUSEKEEPING','GUEST_REQUEST','MAINTENANCE_REQUEST','SYSTEM','MANUAL')),
+ due_at timestamptz, acknowledged_at timestamptz, started_at timestamptz, completed_at timestamptz, created_at timestamptz not null default now(), updated_at timestamptz not null default now(), metadata jsonb not null default '{}'::jsonb
+);
+create index if not exists idx_tasks_hotel_board on public.hotel_os_tasks(hotel_id,type,status,priority,created_at desc);
+create index if not exists idx_tasks_assignee on public.hotel_os_tasks(hotel_id,assigned_to,status);
+
+create table if not exists public.hotel_os_room_operational_status(
+ hotel_id uuid not null references public.hoteis(id) on delete cascade, room_id text not null,
+ status text not null default 'CLEAN' check(status in ('CLEAN','DIRTY','CLEANING','INSPECTION','REWORK')), updated_at timestamptz not null default now(), primary key(hotel_id,room_id)
+);
+
+create table if not exists public.hotel_os_checklist_templates(id uuid primary key default gen_random_uuid(),hotel_id uuid not null references public.hoteis(id) on delete cascade,name text not null,task_type text not null,active boolean not null default true,created_at timestamptz not null default now());
+create table if not exists public.hotel_os_checklist_template_items(id uuid primary key default gen_random_uuid(),template_id uuid not null references public.hotel_os_checklist_templates(id) on delete cascade,label text not null,required boolean not null default true,sort_order integer not null default 0);
+create table if not exists public.hotel_os_task_checklist_items(id uuid primary key default gen_random_uuid(),task_id uuid not null references public.hotel_os_tasks(id) on delete cascade,template_item_id uuid references public.hotel_os_checklist_template_items(id) on delete set null,label text not null,required boolean not null default true,completed boolean not null default false,completed_by uuid,completed_at timestamptz,notes text);
+
+create table if not exists public.hotel_os_assets(id uuid primary key default gen_random_uuid(),hotel_id uuid not null references public.hoteis(id) on delete cascade,room_id text,name text not null,category text,serial_number text,installed_at date,status text not null default 'ACTIVE' check(status in ('ACTIVE','INACTIVE','OUT_OF_SERVICE','RETIRED')),created_at timestamptz not null default now(),unique(hotel_id,serial_number));
+create table if not exists public.hotel_os_maintenance_requests(id uuid primary key default gen_random_uuid(),hotel_id uuid not null references public.hoteis(id) on delete cascade,task_id uuid not null unique references public.hotel_os_tasks(id) on delete cascade,room_id text,asset_id uuid references public.hotel_os_assets(id),category text not null check(category in ('ELECTRICAL','PLUMBING','HVAC','CARPENTRY','ELECTRONICS','PAINTING','STRUCTURAL','OTHER')),description text not null,priority text not null default 'NORMAL',status text not null default 'OPEN' check(status in ('OPEN','TRIAGE','ASSIGNED','IN_PROGRESS','WAITING_PARTS','COMPLETED','VALIDATED')),created_by uuid,assigned_to uuid,created_at timestamptz not null default now(),updated_at timestamptz not null default now());
+
+create table if not exists public.hotel_os_boards(id uuid primary key default gen_random_uuid(),hotel_id uuid not null references public.hoteis(id) on delete cascade,name text not null,task_type text,active boolean not null default true,unique(hotel_id,name));
+create table if not exists public.hotel_os_board_columns(id uuid primary key default gen_random_uuid(),board_id uuid not null references public.hotel_os_boards(id) on delete cascade,name text not null,status text not null,sort_order integer not null default 0,unique(board_id,status));
+
+create or replace function public.hotel_os_transition_task(p_task_id uuid,p_status text,p_reason text default null) returns uuid language plpgsql security definer set search_path=public as $$
+declare t record; v_allowed boolean:=false;
+begin select * into t from public.hotel_os_tasks where id=p_task_id for update; if not found then raise exception 'TASK_NOT_FOUND'; end if;
+ perform public.hotel_os_require_permission(t.hotel_id,'task.update');
+ v_allowed := (t.status='PENDING' and p_status in ('IN_PROGRESS','CANCELLED')) or (t.status='IN_PROGRESS' and p_status in ('WAITING','COMPLETED','CANCELLED')) or (t.status='WAITING' and p_status in ('IN_PROGRESS','CANCELLED')) or (t.status='COMPLETED' and p_status='REOPENED') or (t.status='REOPENED' and p_status in ('IN_PROGRESS','CANCELLED'));
+ if not v_allowed then raise exception 'INVALID_TASK_TRANSITION:%->%',t.status,p_status; end if;
+ update public.hotel_os_tasks set status=p_status,acknowledged_at=case when p_status='IN_PROGRESS' then coalesce(acknowledged_at,now()) else acknowledged_at end,started_at=case when p_status='IN_PROGRESS' then coalesce(started_at,now()) else started_at end,completed_at=case when p_status='COMPLETED' then now() else completed_at end,updated_at=now(),metadata=metadata||case when p_reason is null then '{}'::jsonb else jsonb_build_object('last_reason',p_reason) end where id=t.id;
+ if t.type='ROOM_CLEANING' then update public.hotel_os_room_operational_status set status=case when p_status='IN_PROGRESS' then 'CLEANING' when p_status='COMPLETED' then 'INSPECTION' when p_status='REOPENED' then 'REWORK' else status end,updated_at=now() where hotel_id=t.hotel_id and room_id=t.room_id; end if;
+ begin perform public.hotel_os_emit_event(t.hotel_id,'task.status_changed','TASK','OperationalTask',t.id,jsonb_build_object('from',t.status,'to',p_status),auth.uid()); exception when undefined_function then null; end;
+ return t.id;
+end; $$;
+
+create or replace function public.hotel_os_create_checkout_cleaning_task() returns trigger language plpgsql security definer set search_path=public as $$
+declare v_task uuid;
+begin if new.status='CHECKED_OUT' and old.status<>'CHECKED_OUT' then
+ insert into public.hotel_os_room_operational_status(hotel_id,room_id,status) values(new.hotel_id,new.room_id,'DIRTY') on conflict(hotel_id,room_id) do update set status='DIRTY',updated_at=now();
+ insert into public.hotel_os_tasks(hotel_id,type,title,room_id,source,priority,created_by) values(new.hotel_id,'ROOM_CLEANING','Limpeza do quarto '||new.room_id,new.room_id,'CHECKOUT','HIGH',auth.uid()) returning id into v_task;
+ begin perform public.hotel_os_emit_event(new.hotel_id,'task.created','TASK','OperationalTask',v_task,jsonb_build_object('type','ROOM_CLEANING','room_id',new.room_id),auth.uid()); exception when undefined_function then null; end;
+ end if; return new; end; $$;
+drop trigger if exists trg_checkout_cleaning_task on public.hotel_os_stays;
+create trigger trg_checkout_cleaning_task after update of status on public.hotel_os_stays for each row execute function public.hotel_os_create_checkout_cleaning_task();
+
+create or replace function public.hotel_os_complete_room_inspection(p_task_id uuid,p_approved boolean,p_reason text default null) returns uuid language plpgsql security definer set search_path=public as $$
+declare t record; cleaning uuid;
+begin select * into t from public.hotel_os_tasks where id=p_task_id for update; if not found or t.type<>'ROOM_INSPECTION' then raise exception 'INSPECTION_NOT_FOUND'; end if;
+ perform public.hotel_os_require_permission(t.hotel_id,case when p_approved then 'task.approve' else 'task.reject' end);
+ if p_approved then perform public.hotel_os_transition_task(t.id,'COMPLETED',null); update public.hotel_os_room_operational_status set status='CLEAN',updated_at=now() where hotel_id=t.hotel_id and room_id=t.room_id;
+ else if coalesce(nullif(trim(p_reason),''),'')='' then raise exception 'REJECTION_REASON_REQUIRED'; end if; perform public.hotel_os_transition_task(t.id,'COMPLETED',p_reason); insert into public.hotel_os_tasks(hotel_id,type,title,description,status,priority,room_id,source,assigned_to,created_by) values(t.hotel_id,'ROOM_CLEANING','Retrabalho do quarto '||t.room_id,p_reason,'REOPENED',t.priority,t.room_id,'HOUSEKEEPING',t.assigned_to,auth.uid()) returning id into cleaning; update public.hotel_os_room_operational_status set status='REWORK',updated_at=now() where hotel_id=t.hotel_id and room_id=t.room_id; end if; return t.id; end; $$;
+
+insert into public.hotel_permissions(key,description) values
+('task.view.own','Visualizar próprias tarefas'),('task.view','Visualizar tarefas'),('task.view_all','Visualizar todas tarefas'),('task.create','Criar tarefa'),('task.update','Atualizar tarefa'),('task.assign','Atribuir tarefa'),('task.reassign','Reatribuir tarefa'),('task.approve','Aprovar tarefa'),('task.reject','Reprovar tarefa'),('task.configure','Configurar Kanban'),('checklist.execute','Executar checklist'),('maintenance.view','Visualizar manutenção'),('maintenance.start','Iniciar manutenção'),('maintenance.complete','Concluir manutenção'),('sla.view','Visualizar SLA') on conflict(key) do nothing;
+
+alter table public.hotel_os_tasks enable row level security; alter table public.hotel_os_room_operational_status enable row level security; alter table public.hotel_os_checklist_templates enable row level security; alter table public.hotel_os_checklist_template_items enable row level security; alter table public.hotel_os_task_checklist_items enable row level security; alter table public.hotel_os_assets enable row level security; alter table public.hotel_os_maintenance_requests enable row level security; alter table public.hotel_os_boards enable row level security; alter table public.hotel_os_board_columns enable row level security;
+create policy tasks_hotel_access on public.hotel_os_tasks for all to authenticated using(public.usuario_pode_hotel(hotel_id)) with check(public.usuario_pode_hotel(hotel_id));
+create policy room_ops_hotel_access on public.hotel_os_room_operational_status for all to authenticated using(public.usuario_pode_hotel(hotel_id)) with check(public.usuario_pode_hotel(hotel_id));
+create policy checklist_template_hotel_access on public.hotel_os_checklist_templates for all to authenticated using(public.usuario_pode_hotel(hotel_id)) with check(public.usuario_pode_hotel(hotel_id));
+create policy assets_hotel_access on public.hotel_os_assets for all to authenticated using(public.usuario_pode_hotel(hotel_id)) with check(public.usuario_pode_hotel(hotel_id));
+create policy maintenance_hotel_access on public.hotel_os_maintenance_requests for all to authenticated using(public.usuario_pode_hotel(hotel_id)) with check(public.usuario_pode_hotel(hotel_id));
+create policy boards_hotel_access on public.hotel_os_boards for all to authenticated using(public.usuario_pode_hotel(hotel_id)) with check(public.usuario_pode_hotel(hotel_id));
+create policy checklist_item_rel_access on public.hotel_os_checklist_template_items for all to authenticated using(exists(select 1 from public.hotel_os_checklist_templates t where t.id=template_id and public.usuario_pode_hotel(t.hotel_id))) with check(exists(select 1 from public.hotel_os_checklist_templates t where t.id=template_id and public.usuario_pode_hotel(t.hotel_id)));
+create policy task_checklist_rel_access on public.hotel_os_task_checklist_items for all to authenticated using(exists(select 1 from public.hotel_os_tasks t where t.id=task_id and public.usuario_pode_hotel(t.hotel_id))) with check(exists(select 1 from public.hotel_os_tasks t where t.id=task_id and public.usuario_pode_hotel(t.hotel_id)));
+create policy board_column_rel_access on public.hotel_os_board_columns for all to authenticated using(exists(select 1 from public.hotel_os_boards b where b.id=board_id and public.usuario_pode_hotel(b.hotel_id))) with check(exists(select 1 from public.hotel_os_boards b where b.id=board_id and public.usuario_pode_hotel(b.hotel_id)));
