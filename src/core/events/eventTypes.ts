@@ -1,0 +1,47 @@
+export const HOTEL_OS_EVENT_TYPES = {
+  RESERVATION_CREATED: 'RESERVATION_CREATED',
+  RESERVATION_CANCELLED: 'RESERVATION_CANCELLED',
+  GUEST_CHECKED_IN: 'GUEST_CHECKED_IN',
+  GUEST_CHECKED_OUT: 'GUEST_CHECKED_OUT',
+  ORDER_CREATED: 'ORDER_CREATED',
+  ORDER_CONFIRMED: 'ORDER_CONFIRMED',
+  ORDER_PREPARING: 'ORDER_PREPARING',
+  ORDER_READY: 'ORDER_READY',
+  ORDER_DELIVERED: 'ORDER_DELIVERED',
+  ROOM_DIRTY: 'ROOM_DIRTY',
+  ROOM_CLEANING: 'ROOM_CLEANING',
+  ROOM_CLEAN: 'ROOM_CLEAN',
+  ROOM_INSPECTED: 'ROOM_INSPECTED',
+  MAINTENANCE_CREATED: 'MAINTENANCE_CREATED',
+  MAINTENANCE_STARTED: 'MAINTENANCE_STARTED',
+  MAINTENANCE_COMPLETED: 'MAINTENANCE_COMPLETED',
+  MINIBAR_ITEM_ADDED: 'MINIBAR_ITEM_ADDED',
+  MINIBAR_REVIEW_REQUIRED: 'MINIBAR_REVIEW_REQUIRED',
+  PAYMENT_RECEIVED: 'PAYMENT_RECEIVED',
+  PAYMENT_FAILED: 'PAYMENT_FAILED',
+  PAYMENT_REFUNDED: 'PAYMENT_REFUNDED',
+  LOW_STOCK: 'LOW_STOCK',
+  OUT_OF_STOCK: 'OUT_OF_STOCK',
+  LOGIN_FAILED: 'LOGIN_FAILED',
+} as const;
+
+export type HotelOsEventType = (typeof HOTEL_OS_EVENT_TYPES)[keyof typeof HOTEL_OS_EVENT_TYPES];
+
+export const HOTEL_OS_NOTIFICATION_CHANNELS = ['IN_APP', 'REALTIME', 'PUSH', 'EMAIL', 'SMS', 'WHATSAPP'] as const;
+export type HotelOsNotificationChannel = (typeof HOTEL_OS_NOTIFICATION_CHANNELS)[number];
+
+export const HOTEL_OS_NOTIFICATION_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT', 'CRITICAL'] as const;
+export type HotelOsNotificationPriority = (typeof HOTEL_OS_NOTIFICATION_PRIORITIES)[number];
+
+export interface HotelOsEvent<TPayload = Record<string, unknown>> {
+  id: string;
+  eventType: HotelOsEventType | string;
+  organizationId: string | null;
+  hotelId: string | null;
+  actorUserId: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  payload: TPayload;
+  correlationId: string | null;
+  createdAt: string;
+}
