@@ -3,6 +3,7 @@ import { useHotel } from '../../context/HotelContext';
 import { AdminHeader } from '../navigation/AdminHeader';
 import { DashboardModule } from './DashboardModule';
 import { ExecutiveDashboardModule } from './ExecutiveDashboardModule';
+import { DashboardAlertsWidget } from './DashboardAlertsWidget';
 import { RoomsModule } from './RoomsModule';
 import { ReservationsModule } from './ReservationsModule';
 import { CheckInOutModule } from './CheckInOutModule';
@@ -85,7 +86,7 @@ export const AdminLayout: React.FC = () => {
           ) : (
             <>
               {adminActiveTab === 'dashboard' && <DashboardModule />}
-              {adminActiveTab === ('management_bi' as AdminTab) && <ExecutiveDashboardModule />}
+              {adminActiveTab === ('management_bi' as AdminTab) && <><ExecutiveDashboardModule /><DashboardAlertsWidget /></>}
               {adminActiveTab === ('command_center' as AdminTab) && <HotelOSCommandCenter />}
               {adminActiveTab === 'kanban' && <KanbanModule />}
               {adminActiveTab === 'reservations' && <ReservationsModule />}
