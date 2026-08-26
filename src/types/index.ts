@@ -353,7 +353,6 @@ export type AdminTab =
   | 'dashboard'
   | 'management_bi'
   | 'command_center'
-  | 'production_audit'
   | 'kanban'
   | 'reservations'
   | 'checkin_out'

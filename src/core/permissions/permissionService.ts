@@ -4,12 +4,17 @@ import { PERMISSIONS, type PermissionKey } from './permissionKeys';
 export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   admin: Object.values(PERMISSIONS),
   gerente: [
+    PERMISSIONS.adminManage,
+    PERMISSIONS.roomsView,
+    PERMISSIONS.roomsEdit,
     PERMISSIONS.reservationsView,
     PERMISSIONS.reservationsCreate,
     PERMISSIONS.reservationsEdit,
     PERMISSIONS.reservationsCancel,
     PERMISSIONS.reservationsCheckin,
     PERMISSIONS.reservationsCheckout,
+    PERMISSIONS.kanbanKitchen,
+    PERMISSIONS.kanbanHousekeeping,
     PERMISSIONS.posView,
     PERMISSIONS.posCreateOrder,
     PERMISSIONS.posEditOrder,
@@ -36,12 +41,14 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     PERMISSIONS.tabletServiceRequest,
   ],
   recepcionista: [
+    PERMISSIONS.roomsView,
     PERMISSIONS.reservationsView,
     PERMISSIONS.reservationsCreate,
     PERMISSIONS.reservationsEdit,
     PERMISSIONS.reservationsCancel,
     PERMISSIONS.reservationsCheckin,
     PERMISSIONS.reservationsCheckout,
+    PERMISSIONS.kanbanHousekeeping,
     PERMISSIONS.posView,
     PERMISSIONS.housekeepingView,
     PERMISSIONS.tabletMenuView,
@@ -50,6 +57,8 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     PERMISSIONS.tabletServiceRequest,
   ],
   governanca: [
+    PERMISSIONS.roomsView,
+    PERMISSIONS.kanbanHousekeeping,
     PERMISSIONS.housekeepingView,
     PERMISSIONS.housekeepingAssign,
     PERMISSIONS.housekeepingStart,
@@ -76,6 +85,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     PERMISSIONS.posRefund,
   ],
   cozinha_only: [
+    PERMISSIONS.kanbanKitchen,
     PERMISSIONS.posView,
   ],
   tablet_quarto: [
@@ -90,7 +100,6 @@ const TAB_ROLE_ALLOWLIST: Record<AdminTab, UserRole[]> = {
   dashboard: ['admin', 'gerente', 'recepcionista', 'financeiro', 'governanca'],
   management_bi: ['admin', 'gerente', 'financeiro'],
   command_center: ['admin', 'gerente'],
-  production_audit: ['admin', 'gerente'],
   kanban: ['admin', 'gerente', 'recepcionista', 'governanca'],
   reservations: ['admin', 'gerente', 'recepcionista', 'financeiro'],
   checkin_out: ['admin', 'gerente', 'recepcionista'],
@@ -110,6 +119,11 @@ export function hasRolePermission(role: UserRole, permission: PermissionKey | st
   if (role === 'admin') return true;
   const list = ROLE_DEFAULT_PERMISSIONS[role] || [];
   return list.includes(permission as PermissionKey);
+}
+
+export function can(permission: PermissionKey | string, role: UserRole, matrix?: RBACMatrixConfig): boolean {
+  if (role === 'admin') return true;
+  return hasRolePermission(role, permission);
 }
 
 export function canAccessTab(matrix: RBACMatrixConfig | undefined, role: UserRole, tab: AdminTab): boolean {
