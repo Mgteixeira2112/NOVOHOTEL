@@ -1,74 +1,84 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../lib/supabase';
-import { atualizarStatusKds } from '../../services/pdvService';
+import { listarKds, atualizarStatusKds } from '../../services/pdvService';
 
-type Status = 'novo' | 'em_preparo' | 'pronto' | 'entregue';
-type Order = { id: string; pedidoId: string; destino: string; origem: 'Balcão' | 'Quarto' | 'Tablet'; itens: string[]; criadoEm: string; status: Status };
-type KdsRow = { pedido_id: string; status: Status; recebido_em: string; pedido: { id: string; numero: number; origem: 'balcao' | 'quarto' | 'tablet'; quarto_id: string | null; pdv_pedido_itens: Array<{ quantidade: number; produto: { nome: string } | null }> | null } | null };
+type Status = 'CREATED' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'DELIVERING' | 'DELIVERED' | 'COMPLETED' | 'CANCELLED';
+type KdsRow = {
+  id: string;
+  order_id: string;
+  sector: 'COZINHA' | 'BAR' | 'CAFETERIA' | 'OUTROS';
+  status: Status;
+  priority: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  sla_minutes: number | null;
+  created_at: string;
+  ready_at: string | null;
+  pedido?: { numero: number; origem_canonica: string; quarto_id: string | null } | null;
+  item?: { quantidade: number; produto?: { nome: string } | null } | null;
+};
 
-const columns: { status: Status; title: string }[] = [
-  { status: 'novo', title: 'Novos' },
-  { status: 'em_preparo', title: 'Em preparo' },
-  { status: 'pronto', title: 'Prontos' },
-  { status: 'entregue', title: 'Entregues' },
+const columns: Array<{ status: Status; title: string; action?: Status }> = [
+  { status: 'CREATED', title: 'Novos', action: 'CONFIRMED' },
+  { status: 'PREPARING', title: 'Em preparo', action: 'READY' },
+  { status: 'READY', title: 'Prontos', action: 'DELIVERED' },
+  { status: 'DELIVERED', title: 'Entregues', action: 'COMPLETED' },
 ];
-const nextStatus: Record<Status, Status | null> = { novo: 'em_preparo', em_preparo: 'pronto', pronto: 'entregue', entregue: null };
-const actionLabel: Record<Status, string> = { novo: 'Preparar', em_preparo: 'Marcar pronto', pronto: 'Entregar', entregue: 'Concluído' };
-const originLabel = (origin: KdsRow['pedido']['origem']): Order['origem'] => origin === 'balcao' ? 'Balcão' : origin === 'quarto' ? 'Quarto' : 'Tablet';
-const elapsed = (iso: string) => { const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000)); return minutes === 0 ? 'Agora' : `${minutes} min`; };
+
+const elapsed = (iso: string) => {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  return minutes === 0 ? 'Agora' : `${minutes} min`;
+};
 
 export const KDSPage: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [som, setSom] = useState(true);
+  const [rows, setRows] = useState<KdsRow[]>([]);
+  const [sector, setSector] = useState('COZINHA');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadOrders = useCallback(async () => {
-    const { data, error: queryError } = await supabase
-      .from('kds_fila')
-      .select('pedido_id,status,recebido_em,pedido:pdv_pedidos(id,numero,origem,quarto_id,pdv_pedido_itens(quantidade,produto:pdv_produtos(nome)))')
-      .order('recebido_em', { ascending: true });
-    if (queryError) { setError(`Não foi possível carregar a cozinha: ${queryError.message}`); return; }
-    const mapped = ((data ?? []) as unknown as KdsRow[]).flatMap(row => row.pedido ? [{
-      id: `#${row.pedido.numero}`,
-      pedidoId: row.pedido.id,
-      destino: row.pedido.origem === 'balcao' ? 'Balcão' : row.pedido.quarto_id ? `Quarto ${row.pedido.quarto_id}` : 'Quarto não informado',
-      origem: originLabel(row.pedido.origem),
-      itens: (row.pedido.pdv_pedido_itens ?? []).map(item => `${item.quantidade}x ${item.produto?.nome ?? 'Produto'}`),
-      criadoEm: elapsed(row.recebido_em),
-      status: row.status,
-    }] : []);
-    setOrders(mapped);
-    setError(null);
-  }, []);
+  const load = useCallback(async () => {
+    try {
+      setRows((await listarKds(sector)) as KdsRow[]);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível carregar o KDS.');
+    }
+  }, [sector]);
 
   useEffect(() => {
     let mounted = true;
-    loadOrders().finally(() => { if (mounted) setLoading(false); });
-    const channel = supabase.channel('kds-pedidos-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'kds_fila' }, () => { void loadOrders(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pdv_pedidos' }, () => { void loadOrders(); })
-      .subscribe();
-    return () => { mounted = false; void supabase.removeChannel(channel); };
-  }, [loadOrders]);
+    setLoading(true);
+    void load().finally(() => { if (mounted) setLoading(false); });
+    const timer = window.setInterval(() => { void load(); }, 15000);
+    return () => { mounted = false; window.clearInterval(timer); };
+  }, [load]);
 
-  const active = useMemo(() => orders.filter(o => o.status !== 'entregue').length, [orders]);
+  const active = useMemo(() => rows.filter(r => !['COMPLETED', 'CANCELLED'].includes(r.status)).length, [rows]);
 
-  const advance = async (order: Order) => {
-    const next = nextStatus[order.status];
+  const advance = async (row: KdsRow, next?: Status) => {
     if (!next) return;
     try {
       setError(null);
-      await atualizarStatusKds(order.pedidoId, next);
-      await loadOrders();
+      await atualizarStatusKds(row.id, next);
+      await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível atualizar o pedido.');
+      setError(err instanceof Error ? err.message : 'Não foi possível atualizar o item.');
     }
   };
 
-  return <div className="min-h-full bg-stone-950 p-4 text-white md:p-6"><div className="mx-auto max-w-[1600px]">
-    <header className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">Hotel OS</p><h1 className="text-2xl font-bold">KDS • Cozinha</h1></div><div className="flex items-center gap-3"><span className="rounded-full bg-stone-800 px-3 py-2 text-sm">{active} pedidos ativos</span><button onClick={() => setSom(v => !v)} className="rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold">Som: {som ? 'Ligado' : 'Desligado'}</button></div></header>
-    {error && <div className="mb-4 rounded-xl border border-red-800 bg-red-950 p-3 text-sm text-red-200">{error}</div>}
-    {loading ? <div className="py-20 text-center text-stone-400">Carregando pedidos...</div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{columns.map(column => { const columnOrders = orders.filter(order => order.status === column.status); return <section key={column.status} className="min-h-[70vh] rounded-2xl bg-stone-900 p-3"><div className="mb-3 flex items-center justify-between border-b border-stone-800 pb-3"><h2 className="font-bold">{column.title}</h2><span className="rounded-full bg-stone-800 px-2 py-1 text-xs">{columnOrders.length}</span></div><div className="space-y-3">{columnOrders.map(order => <article key={order.id} className="rounded-2xl bg-white p-4 text-stone-900 shadow-lg"><div className="flex items-start justify-between gap-3"><div><div className="text-lg font-black">{order.id}</div><div className="font-bold">{order.destino}</div></div><span className="rounded-lg bg-stone-100 px-2 py-1 text-xs font-bold">{order.origem}</span></div><ul className="my-4 space-y-2 border-y border-stone-100 py-3 text-sm font-semibold">{order.itens.map((item, index) => <li key={`${item}-${index}`}>• {item}</li>)}</ul><div className="mb-3 text-xs text-stone-500">Recebido há {order.criadoEm}</div>{nextStatus[order.status] && <button onClick={() => void advance(order)} className="w-full rounded-xl bg-stone-900 px-4 py-3 font-bold text-white">{actionLabel[order.status]}</button>}</article>)}{columnOrders.length === 0 && <div className="rounded-xl border border-dashed border-stone-700 p-6 text-center text-sm text-stone-500">Nenhum pedido nesta etapa.</div>}</div></section>; })}</div>}
-  </div></div>;
+  return (
+    <div className="min-h-full bg-stone-950 p-4 text-white md:p-6">
+      <div className="mx-auto max-w-[1600px]">
+        <header className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">Hotel OS</p><h1 className="text-2xl font-bold">KDS</h1></div>
+          <div className="flex items-center gap-2"><select value={sector} onChange={e => setSector(e.target.value)} className="rounded-xl bg-stone-800 px-3 py-2 text-sm"><option value="COZINHA">Cozinha</option><option value="BAR">Bar</option><option value="CAFETERIA">Cafeteria</option><option value="OUTROS">Outros</option></select><span className="rounded-full bg-stone-800 px-3 py-2 text-sm">{active} itens ativos</span></div>
+        </header>
+        {error && <div className="mb-4 rounded-xl border border-red-800 bg-red-950 p-3 text-sm text-red-200">{error}</div>}
+        {loading ? <div className="py-20 text-center text-stone-400">Carregando cozinha...</div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{columns.map(column => {
+          const items = rows.filter(r => r.status === column.status);
+          return <section key={column.status} className="min-h-[60vh] rounded-2xl bg-stone-900 p-3"><div className="mb-3 flex items-center justify-between border-b border-stone-800 pb-3"><h2 className="font-bold">{column.title}</h2><span className="rounded-full bg-stone-800 px-2 py-1 text-xs">{items.length}</span></div><div className="space-y-3">{items.map(row => {
+            const late = row.sla_minutes !== null && Date.now() - new Date(row.created_at).getTime() > row.sla_minutes * 60000 && !['READY','DELIVERED','COMPLETED','CANCELLED'].includes(row.status);
+            return <article key={row.id} className="rounded-2xl bg-white p-4 text-stone-900 shadow-lg"><div className="flex items-start justify-between gap-3"><div><div className="text-lg font-black">#{row.pedido?.numero ?? row.order_id.slice(0, 8)}</div><div className="font-bold">{row.pedido?.quarto_id ? `Quarto ${row.pedido.quarto_id}` : 'Balcão'}</div></div><span className={`rounded-lg px-2 py-1 text-xs font-bold ${late ? 'bg-red-100 text-red-700' : 'bg-stone-100'}`}>{late ? 'ATRASADO' : row.priority}</span></div><div className="my-4 border-y border-stone-100 py-3 text-sm font-semibold">{row.item?.quantidade ?? 0}x {row.item?.produto?.nome ?? 'Produto'}</div><div className="mb-3 text-xs text-stone-500">Recebido há {elapsed(row.created_at)}</div>{column.action && <button onClick={() => void advance(row, column.action)} className="w-full rounded-xl bg-stone-900 px-4 py-3 font-bold text-white">{column.action === 'CONFIRMED' ? 'Aceitar' : column.action === 'PREPARING' ? 'Preparar' : column.action === 'READY' ? 'Marcar pronto' : column.action === 'DELIVERED' ? 'Entregar' : 'Concluir'}</button>}</article>;
+          })}</div></section>;
+        })}</div>}
+      </div>
+    </div>
+  );
 };
