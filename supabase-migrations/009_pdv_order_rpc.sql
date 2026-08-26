@@ -1,5 +1,11 @@
 -- HOTEL OS — PDV: criação idempotente de pedidos.
--- O servidor recalcula o total a partir do catálogo; o frontend não é autoridade de preço.
+-- Evolui o schema consolidado e faz o servidor ser a autoridade de preço/total.
+
+ALTER TABLE public.pdv_pedidos ADD COLUMN IF NOT EXISTS total NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (total >= 0);
+ALTER TABLE public.pdv_pedidos ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pdv_pedidos_hotel_idempotency
+  ON public.pdv_pedidos(hotel_id, idempotency_key)
+  WHERE idempotency_key IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION public.criar_pedido_pdv(
   p_hotel_id UUID, p_quarto_id TEXT, p_origem TEXT, p_itens JSONB,
@@ -14,15 +20,14 @@ BEGIN
   IF p_origem NOT IN ('pdv','tablet_quarto','recepcao','cozinha','outro') THEN RAISE EXCEPTION 'Origem de pedido inválida'; END IF;
   IF p_itens IS NULL OR jsonb_typeof(p_itens) <> 'array' OR jsonb_array_length(p_itens) = 0 THEN RAISE EXCEPTION 'O pedido precisa conter itens'; END IF;
 
-  -- A chave é opcional; quando usada, requer índice UNIQUE (hotel_id,idempotency_key).
   IF p_idempotency_key IS NOT NULL THEN
     SELECT id INTO v_pedido_id FROM public.pdv_pedidos
     WHERE hotel_id = p_hotel_id AND idempotency_key = p_idempotency_key;
     IF FOUND THEN RETURN v_pedido_id; END IF;
   END IF;
 
-  INSERT INTO public.pdv_pedidos (hotel_id, quarto_id, origem, observacoes, status, criado_por)
-  VALUES (p_hotel_id, p_quarto_id, p_origem, p_observacao, 'recebido', auth.uid())
+  INSERT INTO public.pdv_pedidos (hotel_id, quarto_id, origem, observacoes, status, criado_por, total, idempotency_key)
+  VALUES (p_hotel_id, p_quarto_id, p_origem, p_observacao, 'recebido', auth.uid(), 0, p_idempotency_key)
   RETURNING id INTO v_pedido_id;
 
   FOR v_item IN SELECT * FROM jsonb_array_elements(p_itens) LOOP
@@ -36,9 +41,16 @@ BEGIN
     v_total := v_total + (v_produto.preco * v_quantidade);
   END LOOP;
 
-  -- O schema atual não possui total/idempotency_key/updated_at em pdv_pedidos.
-  -- O total deve ser obtido pela soma dos itens até a evolução do schema.
+  UPDATE public.pdv_pedidos SET total = v_total, atualizado_em = NOW() WHERE id = v_pedido_id;
   RETURN v_pedido_id;
+EXCEPTION
+  WHEN unique_violation THEN
+    IF p_idempotency_key IS NOT NULL THEN
+      SELECT id INTO v_pedido_id FROM public.pdv_pedidos
+      WHERE hotel_id = p_hotel_id AND idempotency_key = p_idempotency_key;
+      IF FOUND THEN RETURN v_pedido_id; END IF;
+    END IF;
+    RAISE;
 END;
 $$;
 
