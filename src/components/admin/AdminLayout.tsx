@@ -13,11 +13,9 @@ import { SettingsModule } from './SettingsModule';
 import { UsersModule } from './UsersModule';
 import { KanbanModule } from './KanbanModule';
 import { PDVPage } from './PDVPage';
+import { KDSPage } from './KDSPage';
 import { useKanban } from '../../context/KanbanContext';
-import { 
-  LayoutDashboard, BedDouble, CalendarDays, LogIn, Users, DollarSign,
-  ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard
-} from 'lucide-react';
+import { LayoutDashboard, BedDouble, CalendarDays, LogIn, Users, DollarSign, ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard, ChefHat } from 'lucide-react';
 import { AdminTab } from '../../types';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
@@ -42,6 +40,7 @@ export const AdminLayout: React.FC = () => {
     { id: 'automation', label: 'Automações & Fechaduras', icon: Bot },
     { id: 'users', label: 'Equipe & Acessos', icon: UserCheck, badge: activeUsersCount },
     { id: 'pdv', label: 'PDV & Caixa', icon: CreditCard },
+    { id: 'kds', label: 'KDS • Cozinha', icon: ChefHat },
     { id: 'settings', label: 'Personalização & Configurações', icon: Palette },
   ];
 
@@ -90,6 +89,7 @@ export const AdminLayout: React.FC = () => {
               {adminActiveTab === 'automation' && <AutomationModule />}
               {adminActiveTab === 'users' && <UsersModule />}
               {adminActiveTab === 'pdv' && <PDVPage />}
+              {adminActiveTab === 'kds' && <KDSPage />}
               {(adminActiveTab === 'settings' || adminActiveTab === 'design') && <SettingsModule />}
             </>
           )}
