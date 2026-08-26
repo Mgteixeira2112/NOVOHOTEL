@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
@@ -19,7 +19,18 @@ function walk(dir, predicate = () => true, out = []) {
 }
 
 const sourceFiles = walk('src', file => /\.(ts|tsx|js|jsx)$/.test(file));
-const migrationFiles = walk('supabase/migrations', file => file.endsWith('.sql'));
+const migrationDir = existsSync(join(root, 'supabase/migrations'))
+  ? 'supabase/migrations'
+  : existsSync(join(root, 'supabase-migrations'))
+    ? 'supabase-migrations'
+    : null;
+const migrationFiles = migrationDir
+  ? walk(migrationDir, file => file.endsWith('.sql'))
+  : [];
+
+if (!migrationDir) {
+  failures.push('migrations: no supported migration directory found (expected supabase/migrations or supabase-migrations)');
+}
 
 const forbiddenSourcePatterns = [
   [/import\.meta\.env\.[A-Z0-9_]*(SERVICE_ROLE|PRIVATE_KEY|SECRET_KEY)/i, 'private/service-role credential referenced in client source'],
@@ -80,6 +91,7 @@ if (!/server_mfa_required/.test(securityHelper)) {
 
 console.log('HOTEL OS — Phase 17 production audit');
 console.log(`Source files scanned: ${sourceFiles.length}`);
+console.log(`Migration directory: ${migrationDir ?? 'not found'}`);
 console.log(`Migration files scanned: ${migrationFiles.length}`);
 
 if (failures.length) {
