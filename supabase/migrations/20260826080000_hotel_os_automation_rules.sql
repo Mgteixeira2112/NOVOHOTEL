@@ -1,5 +1,9 @@
 -- Hotel OS automation rules.
--- Each operational event can automatically create the next work item.
+-- Each operational event automatically creates the next work item.
+
+alter table if exists public.hotel_os_tasks add column if not exists description text;
+alter table if exists public.hotel_os_tasks add column if not exists room_id text;
+alter table if exists public.hotel_os_tasks add column if not exists reservation_id text;
 
 create or replace function public.hotel_os_route_event()
 returns trigger
@@ -91,7 +95,6 @@ create trigger trg_hotel_os_route_event
 after insert on public.hotel_os_events
 for each row execute function public.hotel_os_route_event();
 
--- Seed the core workflows when the table is available.
 insert into public.hotel_os_workflows (id, name, active, trigger_type, trigger_config, action_config)
 values
   ('wf_checkout_housekeeping', 'Checkout → Governança', true, 'checkout.completed', '{}', '{"action":"create_task","department":"governanca","priority":"high"}'),
