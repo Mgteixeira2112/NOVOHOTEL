@@ -6,11 +6,11 @@ export const reservationService = {
     return reservationsRepository.list();
   },
 
-  async saveReservation(reservation: Reserva): Promise<Reserva> {
+  async saveReservation(reservation: Reserva): Promise<boolean> {
     return reservationsRepository.save(reservation);
   },
 
-  async deleteReservation(id: string): Promise<void> {
+  async deleteReservation(id: string): Promise<boolean> {
     return reservationsRepository.remove(id);
   },
 };
