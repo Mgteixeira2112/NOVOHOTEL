@@ -6,18 +6,22 @@
 - Fundação multi-hotel/organização adicionada.
 - Estrutura de camas por quarto adicionada.
 - Índices de hotel/reserva/quarto adicionados.
-- Modelo inicial de PDV criado.
-- Modelo inicial de tablet/dispositivo/sessão criado.
-- Busca de disponibilidade por período, capacidade e tipo de cama criada.
+- Modelo consolidado de PDV criado.
+- Modelo consolidado de tablet/dispositivo/sessão criado.
+- Busca de disponibilidade por período, capacidade, bloqueios, conflitos e tipo de cama criada na migration do domínio de reservas/PDV.
+- Fundação de Supabase Auth/RBAC adicionada.
+- Adapter de autenticação criado para novos fluxos.
 - Critérios de Go-Live documentados.
+- Migration duplicada de busca de disponibilidade removida para evitar conflito de assinatura SQL.
 
 ## Em andamento / obrigatório antes do Go-Live
 
-- Migração completa para Supabase Auth.
-- RBAC server-side.
-- RLS definitivo por organização/hotel.
-- Migração segura dos usuários existentes.
+- Migrar a UI de login para o Auth Adapter.
+- Mapear usuários existentes para `auth_user_id`.
+- RBAC server-side completo.
+- RLS definitivo por organização/hotel em todas as entidades.
 - Remoção das políticas permissivas legadas após validação.
+- Remoção segura da dependência de senha local.
 - Integração das telas existentes com os novos modelos.
 - Transação/concorrência para confirmação de reservas.
 - Fluxo operacional completo do PDV.
@@ -30,4 +34,4 @@
 
 ## Regra
 
-Não marcar a fase como concluída somente porque a tabela ou tela existe. A fase exige integração funcional, segurança e teste.
+Não marcar a fase como concluída somente porque a tabela, função ou tela existe. A fase exige implementação, integração funcional, autorização, tratamento de erros e teste.
