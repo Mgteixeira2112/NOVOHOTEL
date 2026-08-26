@@ -1,55 +1,59 @@
-import { supabase } from '../lib/supabase';
+import { pdvRepository, PdvProductRecord } from '../repositories/pdvRepository';
 
-export type PdvProduct = {
-  id: string;
-  nome: string;
-  categoria: string;
-  preco: number;
-  estoque_atual: number;
-  estoque_minimo: number;
-  ativo: boolean;
-};
+export type PdvProduct = PdvProductRecord;
 
 export type CreatePdvOrderInput = {
   hotelId: string;
-  origem: 'balcao' | 'quarto' | 'tablet';
+  origem: 'POS' | 'ROOM_SERVICE' | 'TABLET' | 'QR' | 'OTHER' | 'balcao' | 'quarto' | 'tablet';
   quartoId?: string | null;
-  idempotencyKey: string;
+  deviceId?: string | null;
+  idempotencyKey?: string;
   criadoPor?: string | null;
-  itens: Array<{ produto_id: string; quantidade: number; observacao?: string }>;
+  priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'URGENT';
+  chargeToRoom?: boolean;
+  itens: Array<{ produto_id: string; quantidade: number; desconto?: number; observacao?: string }>;
+};
+
+const canonicalSource = (source: CreatePdvOrderInput['origem']) => {
+  if (source === 'balcao') return 'POS';
+  if (source === 'quarto') return 'ROOM_SERVICE';
+  if (source === 'tablet') return 'TABLET';
+  return source;
 };
 
 export async function listarProdutosPdv(): Promise<PdvProduct[]> {
-  const { data, error } = await supabase
-    .from('pdv_produtos')
-    .select('id,nome,categoria,preco,estoque_atual,estoque_minimo,ativo')
-    .eq('ativo', true)
-    .order('categoria')
-    .order('nome');
-
-  if (error) throw new Error(`Não foi possível carregar os produtos: ${error.message}`);
-  return (data ?? []) as PdvProduct[];
+  return pdvRepository.listProducts();
 }
 
 export async function criarPedidoPdv(input: CreatePdvOrderInput): Promise<string> {
-  const { data, error } = await supabase.rpc('criar_pedido_pdv', {
-    p_hotel_id: input.hotelId,
-    p_origem: input.origem,
-    p_quarto_id: input.quartoId ?? null,
-    p_idempotency_key: input.idempotencyKey,
-    p_itens: input.itens,
-    p_criado_por: input.criadoPor ?? null,
+  return pdvRepository.createOrder({
+    hotelId: input.hotelId,
+    source: canonicalSource(input.origem),
+    roomId: input.quartoId,
+    deviceId: input.deviceId,
+    priority: input.priority,
+    chargeToRoom: input.chargeToRoom ?? canonicalSource(input.origem) !== 'POS',
+    idempotencyKey: input.idempotencyKey,
+    items: input.itens,
   });
-
-  if (error) throw new Error(`Não foi possível enviar o pedido: ${error.message}`);
-  if (!data) throw new Error('O Supabase não retornou o identificador do pedido.');
-  return String(data);
 }
 
-export async function atualizarStatusKds(pedidoId: string, status: 'novo' | 'em_preparo' | 'pronto' | 'entregue' | 'cancelado') {
-  const { error } = await supabase.rpc('atualizar_status_kds', {
-    p_pedido_id: pedidoId,
-    p_status: status,
-  });
-  if (error) throw new Error(`Não foi possível atualizar o KDS: ${error.message}`);
+export async function finalizarPedidoPdv(orderId: string, paymentMethod?: string | null, cashSessionId?: string | null) {
+  return pdvRepository.finalizeOrder(orderId, paymentMethod, cashSessionId);
+}
+
+export async function atualizarStatusKds(pedidoId: string, status: string) {
+  return pdvRepository.updateKdsItem(pedidoId, status);
+}
+
+export async function listarKds(sector?: string) {
+  return pdvRepository.listKds(sector);
+}
+
+export async function abrirCaixa(cashRegisterId: string, openingAmount: number) {
+  return pdvRepository.openCash(cashRegisterId, openingAmount);
+}
+
+export async function fecharCaixa(sessionId: string, actualCash: number) {
+  return pdvRepository.closeCash(sessionId, actualCash);
 }
