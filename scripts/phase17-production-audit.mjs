@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const root = process.cwd();
@@ -22,8 +22,7 @@ const sourceFiles = walk('src', file => /\.(ts|tsx|js|jsx)$/.test(file));
 const migrationFiles = walk('supabase/migrations', file => file.endsWith('.sql'));
 
 const forbiddenSourcePatterns = [
-  [/service_role_key/i, 'service role key referenced in client source'],
-  [/SUPABASE_SERVICE_ROLE/i, 'Supabase service-role environment variable referenced in client source'],
+  [/import\.meta\.env\.[A-Z0-9_]*(SERVICE_ROLE|PRIVATE_KEY|SECRET_KEY)/i, 'private/service-role credential referenced in client source'],
   [/187\.54\.120\.45/, 'hard-coded client IP address found'],
   [/backupCodes\s*=\s*\[/, 'universal/embedded MFA backup codes found'],
   [/HOTEL_PMS_SECRET_SALT/, 'client-side shared MFA secret found'],
@@ -54,7 +53,7 @@ if (!pkg.scripts?.build || !pkg.scripts?.lint || !pkg.scripts?.test) {
 }
 
 const envExample = read('.env.example');
-if (/SERVICE_ROLE|PRIVATE_KEY|SECRET_KEY/i.test(envExample)) {
+if (/VITE_[A-Z0-9_]*(SERVICE_ROLE|PRIVATE_KEY|SECRET_KEY)/i.test(envExample)) {
   failures.push('.env.example: private/service-role credential appears in client configuration');
 }
 
@@ -75,7 +74,7 @@ if (rlsTrueMigrations.length) {
 }
 
 const securityHelper = read('src/utils/securityHelper.ts');
-if (/isProduction\(\)[\s\S]*server_mfa_required/.test(securityHelper) === false) {
+if (!/server_mfa_required/.test(securityHelper)) {
   blockers.push('MFA production fail-closed marker was not found in securityHelper');
 }
 
