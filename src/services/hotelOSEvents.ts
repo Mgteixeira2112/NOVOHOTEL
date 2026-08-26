@@ -6,6 +6,13 @@ export type HotelOSEventType =
   | 'reservation.cancelled'
   | 'checkin.completed'
   | 'checkout.completed'
+  | 'stay.checked_in'
+  | 'stay.checked_out'
+  | 'order.created'
+  | 'order.completed'
+  | 'task.created'
+  | 'task.completed'
+  | 'payment.created'
   | 'room.status_changed'
   | 'housekeeping.task_created'
   | 'housekeeping.completed'
@@ -13,47 +20,47 @@ export type HotelOSEventType =
   | 'maintenance.completed'
   | 'kitchen.order_created'
   | 'kitchen.order_ready'
-  | 'room_service.order_created'
-  | 'stock.low'
-  | 'payment.approved'
-  | 'payment.failed'
+  | 'room_service.created'
+  | 'stock.below_minimum'
   | 'guest.feedback_received';
 
 export interface HotelOSEvent {
   id?: string;
-  hotel_id?: string;
+  hotel_id?: string | null;
   event_type: HotelOSEventType | string;
-  aggregate_type: string;
-  aggregate_id: string;
+  source_module: string;
+  entity_type?: string | null;
+  entity_id?: string | null;
   payload: Record<string, unknown>;
-  source?: string;
+  created_by?: string | null;
   created_at?: string;
 }
 
 export interface HotelOSTask {
   id?: string;
-  hotel_id?: string;
+  hotel_id?: string | null;
   title: string;
+  description?: string | null;
   department: string;
-  status?: 'pending' | 'in_progress' | 'blocked' | 'done' | 'cancelled';
-  priority?: 'low' | 'normal' | 'high' | 'critical';
-  assignee_id?: string | null;
+  status?: 'pendente' | 'em_execucao' | 'aguardando' | 'concluida' | 'cancelada';
+  priority?: 'baixa' | 'normal' | 'alta' | 'critica';
+  room_id?: string | null;
+  reservation_id?: string | null;
+  assigned_to?: string | null;
   source_event_id?: string | null;
   due_at?: string | null;
   metadata?: Record<string, unknown>;
 }
 
-const id = (prefix: string) => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
 export async function emitHotelOSEvent(event: HotelOSEvent) {
   const row = {
-    id: event.id || id('evt'),
     hotel_id: event.hotel_id || null,
     event_type: event.event_type,
-    aggregate_type: event.aggregate_type,
-    aggregate_id: event.aggregate_id,
+    source_module: event.source_module,
+    entity_type: event.entity_type || null,
+    entity_id: event.entity_id || null,
     payload: event.payload || {},
-    source: event.source || 'hotel-os',
+    created_by: event.created_by || null,
     created_at: event.created_at || new Date().toISOString(),
   };
 
@@ -64,13 +71,15 @@ export async function emitHotelOSEvent(event: HotelOSEvent) {
 
 export async function createHotelOSTask(task: HotelOSTask) {
   const row = {
-    id: task.id || id('task'),
     hotel_id: task.hotel_id || null,
     title: task.title,
+    description: task.description || null,
     department: task.department,
-    status: task.status || 'pending',
+    status: task.status || 'pendente',
     priority: task.priority || 'normal',
-    assignee_id: task.assignee_id || null,
+    room_id: task.room_id || null,
+    reservation_id: task.reservation_id || null,
+    assigned_to: task.assigned_to || null,
     source_event_id: task.source_event_id || null,
     due_at: task.due_at || null,
     metadata: task.metadata || {},
