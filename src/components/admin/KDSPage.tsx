@@ -1,16 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { atualizarStatusKds } from '../../services/pdvService';
 
 type Status = 'novo' | 'em_preparo' | 'pronto' | 'entregue';
-type Order = { id: string; destino: string; origem: 'Balcão' | 'Quarto'; itens: string[]; criadoEm: string; status: Status };
+type Order = { id: string; destino: string; origem: 'Balcão' | 'Quarto' | 'Tablet'; itens: string[]; criadoEm: string; status: Status };
+type KdsRow = { pedido_id: string; status: Status; recebido_em: string; pedido: { numero: number; origem: 'balcao' | 'quarto' | 'tablet'; quarto_id: string | null; pdv_pedido_itens: Array<{ quantidade: number; produto: { nome: string } | null }> | null } | null };
 
-const INITIAL: Order[] = [
-  { id: '#102', destino: 'Quarto 203', origem: 'Quarto', itens: ['2x Hambúrguer', '2x Refrigerante'], criadoEm: 'Agora', status: 'novo' },
-  { id: '#098', destino: 'Quarto 105', origem: 'Quarto', itens: ['1x Pizza individual', '1x Refrigerante'], criadoEm: '3 min', status: 'em_preparo' },
-  { id: '#095', destino: 'Balcão', origem: 'Balcão', itens: ['2x Sucos'], criadoEm: '5 min', status: 'pronto' },
-];
-
-const nextStatus: Record<Status, Status | null> = { novo: 'em_preparo', em_preparo: 'pronto', pronto: 'entregue', entregue: null };
-const actionLabel: Record<Status, string> = { novo: 'Preparar', em_preparo: 'Marcar pronto', pronto: 'Entregar', entregue: 'Concluído' };
 const columns: { status: Status; title: string }[] = [
   { status: 'novo', title: 'Novos' },
   { status: 'em_preparo', title: 'Em preparo' },
@@ -18,54 +13,108 @@ const columns: { status: Status; title: string }[] = [
   { status: 'entregue', title: 'Entregues' },
 ];
 
+const nextStatus: Record<Status, Status | null> = { novo: 'em_preparo', em_preparo: 'pronto', pronto: 'entregue', entregue: null };
+const actionLabel: Record<Status, string> = { novo: 'Preparar', em_preparo: 'Marcar pronto', pronto: 'Entregar', entregue: 'Concluído' };
+
+const originLabel = (origin: KdsRow['pedido']['origem']): Order['origem'] => origin === 'balcao' ? 'Balcão' : origin === 'quarto' ? 'Quarto' : 'Tablet';
+
+const elapsed = (iso: string) => {
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  return minutes === 0 ? 'Agora' : `${minutes} min`;
+};
+
 export const KDSPage: React.FC = () => {
-  const [orders, setOrders] = useState(INITIAL);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [som, setSom] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadOrders = useCallback(async () => {
+    const { data, error: queryError } = await supabase
+      .from('kds_fila')
+      .select('pedido_id,status,recebido_em,pedido:pdv_pedidos(numero,origem,quarto_id,pdv_pedido_itens(quantidade,produto:pdv_produtos(nome)))')
+      .order('recebido_em', { ascending: true });
+
+    if (queryError) {
+      setError(`Não foi possível carregar a cozinha: ${queryError.message}`);
+      return;
+    }
+
+    const mapped = ((data ?? []) as unknown as KdsRow[]).flatMap(row => {
+      if (!row.pedido) return [];
+      return [{
+        id: `#${row.pedido.numero}`,
+        destino: row.pedido.origem === 'balcao' ? 'Balcão' : row.pedido.quarto_id ? `Quarto ${row.pedido.quarto_id}` : 'Quarto não informado',
+        origem: originLabel(row.pedido.origem),
+        itens: (row.pedido.pdv_pedido_itens ?? []).map(item => `${item.quantidade}x ${item.produto?.nome ?? 'Produto'}`),
+        criadoEm: elapsed(row.recebido_em),
+        status: row.status,
+      }];
+    });
+    setOrders(mapped);
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    loadOrders().finally(() => { if (mounted) setLoading(false); });
+    const channel = supabase
+      .channel('kds-pedidos-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kds_fila' }, () => { loadOrders(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pdv_pedidos' }, () => { loadOrders(); })
+      .subscribe();
+    return () => { mounted = false; void supabase.removeChannel(channel); };
+  }, [loadOrders]);
+
   const active = useMemo(() => orders.filter(o => o.status !== 'entregue').length, [orders]);
 
-  const advance = (id: string) => setOrders(current => current.map(order => {
-    if (order.id !== id) return order;
-    const status = nextStatus[order.status];
-    return status ? { ...order, status } : order;
-  }));
+  const advance = async (displayId: string, status: Status) => {
+    const order = orders.find(item => item.id === displayId);
+    const next = nextStatus[status];
+    if (!order || !next) return;
+    try {
+      setError(null);
+      const result = await supabase.from('kds_fila').select('pedido_id').eq('pedido_id', order.id.replace('#', '')).maybeSingle();
+      if (result.error) throw result.error;
+      if (!result.data?.pedido_id) {
+        // The display id is the public order number, so resolve the UUID from the order number.
+        const resolved = await supabase.from('pdv_pedidos').select('id').eq('numero', Number(displayId.replace('#', ''))).single();
+        if (resolved.error) throw resolved.error;
+        await atualizarStatusKds(resolved.data.id, next);
+      } else {
+        await atualizarStatusKds(result.data.pedido_id, next);
+      }
+      await loadOrders();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível atualizar o pedido.');
+    }
+  };
 
   return (
     <div className="min-h-full bg-stone-950 p-4 text-white md:p-6">
       <div className="mx-auto max-w-[1600px]">
         <header className="mb-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">Hotel OS</p>
-            <h1 className="text-2xl font-bold">KDS • Cozinha</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="rounded-full bg-stone-800 px-3 py-2 text-sm">{active} pedidos ativos</span>
-            <button onClick={() => setSom(v => !v)} className="rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold">Som: {som ? 'Ligado' : 'Desligado'}</button>
-          </div>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.2em] text-stone-400">Hotel OS</p><h1 className="text-2xl font-bold">KDS • Cozinha</h1></div>
+          <div className="flex items-center gap-3"><span className="rounded-full bg-stone-800 px-3 py-2 text-sm">{active} pedidos ativos</span><button onClick={() => setSom(v => !v)} className="rounded-xl bg-stone-800 px-3 py-2 text-sm font-semibold">Som: {som ? 'Ligado' : 'Desligado'}</button></div>
         </header>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {error && <div className="mb-4 rounded-xl border border-red-800 bg-red-950 p-3 text-sm text-red-200">{error}</div>}
+        {loading ? <div className="py-20 text-center text-stone-400">Carregando pedidos...</div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {columns.map(column => {
             const columnOrders = orders.filter(order => order.status === column.status);
             return <section key={column.status} className="min-h-[70vh] rounded-2xl bg-stone-900 p-3">
-              <div className="mb-3 flex items-center justify-between border-b border-stone-800 pb-3">
-                <h2 className="font-bold">{column.title}</h2>
-                <span className="rounded-full bg-stone-800 px-2 py-1 text-xs">{columnOrders.length}</span>
-              </div>
+              <div className="mb-3 flex items-center justify-between border-b border-stone-800 pb-3"><h2 className="font-bold">{column.title}</h2><span className="rounded-full bg-stone-800 px-2 py-1 text-xs">{columnOrders.length}</span></div>
               <div className="space-y-3">
                 {columnOrders.map(order => <article key={order.id} className="rounded-2xl bg-white p-4 text-stone-900 shadow-lg">
-                  <div className="flex items-start justify-between gap-3">
-                    <div><div className="text-lg font-black">{order.id}</div><div className="font-bold">{order.destino}</div></div>
-                    <span className="rounded-lg bg-stone-100 px-2 py-1 text-xs font-bold">{order.origem}</span>
-                  </div>
-                  <ul className="my-4 space-y-2 border-y border-stone-100 py-3 text-sm font-semibold">{order.itens.map(item => <li key={item}>• {item}</li>)}</ul>
+                  <div className="flex items-start justify-between gap-3"><div><div className="text-lg font-black">{order.id}</div><div className="font-bold">{order.destino}</div></div><span className="rounded-lg bg-stone-100 px-2 py-1 text-xs font-bold">{order.origem}</span></div>
+                  <ul className="my-4 space-y-2 border-y border-stone-100 py-3 text-sm font-semibold">{order.itens.map((item, index) => <li key={`${item}-${index}`}>• {item}</li>)}</ul>
                   <div className="mb-3 text-xs text-stone-500">Recebido há {order.criadoEm}</div>
-                  {nextStatus[order.status] && <button onClick={() => advance(order.id)} className="w-full rounded-xl bg-stone-900 px-4 py-3 font-bold text-white">{actionLabel[order.status]}</button>}
+                  {nextStatus[order.status] && <button onClick={() => advance(order.id, order.status)} className="w-full rounded-xl bg-stone-900 px-4 py-3 font-bold text-white">{actionLabel[order.status]}</button>}
                 </article>)}
                 {columnOrders.length === 0 && <div className="rounded-xl border border-dashed border-stone-700 p-6 text-center text-sm text-stone-500">Nenhum pedido nesta etapa.</div>}
               </div>
             </section>;
           })}
-        </div>
+        </div>}
       </div>
     </div>
   );
