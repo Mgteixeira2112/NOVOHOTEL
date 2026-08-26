@@ -1,77 +1,15 @@
 import { supabase } from '../lib/supabase';
 
-export type PdvProductRecord = {
-  id: string;
-  nome: string;
-  categoria: string;
-  preco: number;
-  estoque_atual: number;
-  estoque_minimo: number;
-  ativo: boolean;
-  status: 'ACTIVE' | 'INACTIVE' | 'OUT_OF_STOCK';
-  setor_preparacao: 'COZINHA' | 'BAR' | 'CAFETERIA' | 'OUTROS';
-  imagem_url: string | null;
-};
+export type PdvProductRecord = { id:string; nome:string; categoria:string; preco:number; estoque_atual:number; estoque_minimo:number; ativo:boolean; status:'ACTIVE'|'INACTIVE'|'OUT_OF_STOCK'; setor_preparacao:'COZINHA'|'BAR'|'CAFETERIA'|'OUTROS'; imagem_url:string|null };
 
 export const pdvRepository = {
-  async listProducts() {
-    const { data, error } = await supabase.from('pdv_produtos')
-      .select('id,nome,categoria,preco,estoque_atual,estoque_minimo,ativo,status,setor_preparacao,imagem_url')
-      .eq('ativo', true).neq('status', 'INACTIVE').order('categoria').order('nome');
-    if (error) throw error;
-    return (data ?? []) as PdvProductRecord[];
-  },
-
-  async createOrder(input: { hotelId: string; source: string; roomId?: string | null; deviceId?: string | null; priority?: string; chargeToRoom?: boolean; idempotencyKey?: string; items: Array<{ produto_id: string; quantidade: number; desconto?: number; observacao?: string }> }) {
-    const { data, error } = await supabase.rpc('hotel_os_create_order', {
-      p_hotel_id: input.hotelId,
-      p_source: input.source,
-      p_room_id: input.roomId ?? null,
-      p_device_id: input.deviceId ?? null,
-      p_priority: input.priority ?? 'NORMAL',
-      p_items: input.items,
-      p_charge_to_room: input.chargeToRoom ?? false,
-      p_idempotency_key: input.idempotencyKey ?? null,
-    });
-    if (error) throw error;
-    return String(data);
-  },
-
-  async finalizeOrder(orderId: string, paymentMethod?: string | null, cashSessionId?: string | null) {
-    const { data, error } = await supabase.rpc('hotel_os_finalize_order', {
-      p_order_id: orderId,
-      p_payment_method: paymentMethod ?? null,
-      p_cash_session_id: cashSessionId ?? null,
-    });
-    if (error) throw error;
-    return String(data);
-  },
-
-  async listKds(sector?: string) {
-    let query = supabase.from('pdv_kds_items')
-      .select('id,order_id,order_item_id,sector,status,priority,sla_minutes,created_at,accepted_at,started_at,ready_at,delivered_at,pedido:pdv_pedidos(numero,origem_canonica,quarto_id),item:pdv_itens_pedido(quantidade,produto:pdv_produtos(nome))')
-      .order('created_at', { ascending: true });
-    if (sector) query = query.eq('sector', sector);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data ?? [];
-  },
-
-  async updateKdsItem(id: string, status: string) {
-    const { data, error } = await supabase.rpc('hotel_os_update_kds_item', { p_kds_item_id: id, p_status: status });
-    if (error) throw error;
-    return String(data);
-  },
-
-  async openCash(cashRegisterId: string, openingAmount: number) {
-    const { data, error } = await supabase.rpc('hotel_os_open_cash', { p_cash_register_id: cashRegisterId, p_opening_amount: openingAmount });
-    if (error) throw error;
-    return String(data);
-  },
-
-  async closeCash(sessionId: string, actualCash: number) {
-    const { data, error } = await supabase.rpc('hotel_os_close_cash', { p_cash_session_id: sessionId, p_actual_cash: actualCash });
-    if (error) throw error;
-    return String(data);
-  },
+  async listProducts(){ const {data,error}=await supabase.from('pdv_produtos').select('id,nome,categoria,preco,estoque_atual,estoque_minimo,ativo,status,setor_preparacao,imagem_url').eq('ativo',true).neq('status','INACTIVE').order('categoria').order('nome'); if(error) throw error; return (data??[]) as PdvProductRecord[]; },
+  async listCashRegisters(hotelId:string){ const {data,error}=await supabase.from('pdv_cash_registers').select('id,name,code,active').eq('hotel_id',hotelId).eq('active',true).order('code'); if(error) throw error; return data??[]; },
+  async listOpenCashSessions(hotelId:string){ const {data,error}=await supabase.from('pdv_cash_sessions').select('id,cash_register_id,operator_id,opened_at,opening_amount,status').eq('hotel_id',hotelId).eq('status','OPEN').order('opened_at',{ascending:false}); if(error) throw error; return data??[]; },
+  async createOrder(input:{hotelId:string;source:string;roomId?:string|null;deviceId?:string|null;priority?:string;chargeToRoom?:boolean;idempotencyKey?:string;items:Array<{produto_id:string;quantidade:number;desconto?:number;observacao?:string}>}){ const {data,error}=await supabase.rpc('hotel_os_create_order',{p_hotel_id:input.hotelId,p_source:input.source,p_room_id:input.roomId??null,p_device_id:input.deviceId??null,p_priority:input.priority??'NORMAL',p_items:input.items,p_charge_to_room:input.chargeToRoom??false,p_idempotency_key:input.idempotencyKey??null}); if(error) throw error; return String(data); },
+  async finalizeOrder(orderId:string,paymentMethod?:string|null,cashSessionId?:string|null){ const {data,error}=await supabase.rpc('hotel_os_finalize_order',{p_order_id:orderId,p_payment_method:paymentMethod??null,p_cash_session_id:cashSessionId??null}); if(error) throw error; return String(data); },
+  async listKds(sector?:string){ let query=supabase.from('pdv_kds_items').select('id,order_id,order_item_id,sector,status,priority,sla_minutes,created_at,accepted_at,started_at,ready_at,delivered_at,pedido:pdv_pedidos(numero,origem_canonica,quarto_id),item:pdv_itens_pedido(quantidade,produto:pdv_produtos(nome))').order('created_at',{ascending:true}); if(sector) query=query.eq('sector',sector); const {data,error}=await query; if(error) throw error; return data??[]; },
+  async updateKdsItem(id:string,status:string){ const {data,error}=await supabase.rpc('hotel_os_update_kds_item',{p_kds_item_id:id,p_status:status}); if(error) throw error; return String(data); },
+  async openCash(cashRegisterId:string,openingAmount:number){ const {data,error}=await supabase.rpc('hotel_os_open_cash',{p_cash_register_id:cashRegisterId,p_opening_amount:openingAmount}); if(error) throw error; return String(data); },
+  async closeCash(sessionId:string,actualCash:number){ const {data,error}=await supabase.rpc('hotel_os_close_cash',{p_cash_session_id:sessionId,p_actual_cash:actualCash}); if(error) throw error; return String(data); },
 };
