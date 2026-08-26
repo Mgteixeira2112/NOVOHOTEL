@@ -36,16 +36,18 @@ export const tenantRepository = {
   async listHotels(hotelIds: string[]): Promise<HotelTenant[]> {
     if (hotelIds.length === 0) return [];
 
+    // Use * because the legacy hotel table has evolved across migrations.
+    // Tenant-specific fields are normalized below without assuming old names.
     const { data, error } = await supabase
       .from('hoteis')
-      .select('id,organization_id,nome,name,legal_name,document,email,phone,timezone,currency,locale,status,branding,settings')
+      .select('*')
       .in('id', hotelIds);
 
     if (error) throw error;
 
     return (data ?? []).map((hotel: any) => ({
       ...hotel,
-      name: hotel.name ?? hotel.nome,
+      name: hotel.name ?? hotel.nome ?? hotel.title ?? hotel.id,
       timezone: hotel.timezone ?? 'America/Sao_Paulo',
       currency: hotel.currency ?? 'BRL',
       locale: hotel.locale ?? 'pt-BR',
