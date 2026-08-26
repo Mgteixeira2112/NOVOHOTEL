@@ -131,7 +131,7 @@ export interface BloqueioQuarto {
   ativo: boolean;
 }
 
-export type AdminTab = 'dashboard' | 'kanban' | 'reservations' | 'checkin_out' | 'rooms' | 'guests' | 'financial' | 'frigobar' | 'automation' | 'users' | 'settings' | 'design';
+export type AdminTab = 'dashboard' | 'kanban' | 'reservations' | 'checkin_out' | 'rooms' | 'guests' | 'financial' | 'frigobar' | 'automation' | 'users' | 'pdv' | 'settings' | 'design';
 
 export type ThemeColorPalette = 'stone' | 'amber' | 'emerald' | 'blue' | 'violet' | 'rose' | 'slate';
 export type TypographyStyle = 'modern' | 'classic' | 'elegant' | 'technical';
