@@ -15,7 +15,7 @@ export interface Reserva { id: string; hospede_id: string; quarto_id: string; da
 export interface Pagamento { id: string; reserva_id: string; valor: number; metodo: 'pix' | 'cartao_credito' | 'cartao_debito' | 'dinheiro' | 'transferencia'; status: 'pendente' | 'aprovado' | 'recusado' | 'estornado'; data_pagamento?: string; transacao_id?: string; observacoes?: string; }
 export interface BloqueioQuarto { id: string; quarto_id: string; motivo: string; data_inicio: string; data_fim: string; tipo: 'manutencao' | 'bloqueio' | 'evento'; ativo: boolean; }
 
-export type AdminTab = 'dashboard' | 'command_center' | 'kanban' | 'reservations' | 'checkin_out' | 'rooms' | 'guests' | 'financial' | 'frigobar' | 'automation' | 'users' | 'pdv' | 'kds' | 'settings' | 'design';
+export type AdminTab = 'dashboard' | 'management_bi' | 'command_center' | 'kanban' | 'reservations' | 'checkin_out' | 'rooms' | 'guests' | 'financial' | 'frigobar' | 'automation' | 'users' | 'pdv' | 'kds' | 'settings' | 'design';
 export type ThemeColorPalette = 'stone' | 'amber' | 'emerald' | 'blue' | 'violet' | 'rose' | 'slate';
 export type TypographyStyle = 'modern' | 'classic' | 'elegant' | 'technical';
 export type PropertyType = 'hotel' | 'pousada' | 'resort' | 'hostel' | 'motel' | 'apart-hotel';
