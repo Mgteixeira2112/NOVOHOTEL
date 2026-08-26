@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../services/supabase';
 import type { BedMatch, BookingMode, AvailabilityResult } from '../domain/hotelOsCore';
 
 export interface AvailabilitySearch {
@@ -46,7 +46,7 @@ export const availabilityRepository = {
       p_reservation_id: input.reservationId ?? null,
     });
     if (error) throw error;
-    return (data ?? []).map((row) => ({
+    return (data ?? []).map((row: any) => ({
       roomTypeId: row.room_type_id,
       roomTypeName: row.room_type_name,
       roomId: row.room_id,
