@@ -2,15 +2,15 @@ import { fetchReservationsFromSupabase, upsertReservationToSupabase, deleteReser
 import type { Reserva } from '../types';
 
 export const reservationsRepository = {
-  list(): Promise<Reserva[]> {
-    return fetchReservationsFromSupabase();
+  async list(): Promise<Reserva[]> {
+    return (await fetchReservationsFromSupabase()) ?? [];
   },
 
-  save(reservation: Reserva): Promise<Reserva> {
+  async save(reservation: Reserva): Promise<boolean> {
     return upsertReservationToSupabase(reservation);
   },
 
-  remove(id: string): Promise<void> {
+  async remove(id: string): Promise<boolean> {
     return deleteReservationFromSupabase(id);
   },
 };
