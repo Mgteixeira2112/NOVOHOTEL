@@ -5,6 +5,9 @@ export interface DashboardMetrics {
   period: { start: string; end: string; days: number };
   currency: string;
   occupancy: number;
+  available_room_nights: number;
+  occupied_room_nights: number;
+  sold_room_nights: number;
   adr: number;
   revpar: number;
   total_revenue: number;
