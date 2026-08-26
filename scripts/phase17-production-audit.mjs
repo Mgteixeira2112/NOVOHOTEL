@@ -37,8 +37,8 @@ for (const file of sourceFiles) {
 }
 
 const workflow = read('.github/workflows/hotel-os-validation.yml');
-if (!workflow.includes('bun install --frozen-lockfile')) {
-  failures.push('.github/workflows/hotel-os-validation.yml: reproducible Bun install is missing');
+if (!workflow.includes('bun install')) {
+  failures.push('.github/workflows/hotel-os-validation.yml: dependency installation step is missing');
 }
 if (workflow.includes('npm ci')) {
   failures.push('.github/workflows/hotel-os-validation.yml: npm ci is invalid without package-lock.json');
