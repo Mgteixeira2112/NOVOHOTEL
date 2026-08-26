@@ -294,7 +294,8 @@ export function getStoredSupabaseUrl(): string {
     const saved = localStorage.getItem('hotel_supabase_url');
     if (saved && saved.trim()) return saved.trim();
   }
-  const raw = import.meta.env.VITE_SUPABASE_URL || DEFAULT_URL;
+  const envUrl = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env.VITE_SUPABASE_URL : undefined;
+  const raw = envUrl || DEFAULT_URL;
   return raw.replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '').trim();
 }
 
@@ -303,7 +304,8 @@ export function getStoredSupabaseKey(): string {
     const saved = localStorage.getItem('hotel_supabase_key');
     if (saved && saved.trim()) return saved.trim();
   }
-  return (import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_KEY).trim();
+  const envKey = typeof import.meta !== 'undefined' && import.meta?.env ? import.meta.env.VITE_SUPABASE_ANON_KEY : undefined;
+  return (envKey || DEFAULT_KEY).trim();
 }
 
 export let SUPABASE_URL = getStoredSupabaseUrl();

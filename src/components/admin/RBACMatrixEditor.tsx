@@ -66,6 +66,24 @@ const ROLE_INFO: Record<UserRole, { label: string; badgeColor: string; headerCol
     badgeColor: 'bg-cyan-100 text-cyan-900 border-cyan-300',
     headerColor: 'text-cyan-400',
     description: 'Fluxo de caixa, conciliação PIX, faturamento, DRE e custos'
+  },
+  pdv_only: {
+    label: 'Ponto de Venda (PDV)',
+    badgeColor: 'bg-amber-100 text-amber-900 border-amber-300',
+    headerColor: 'text-amber-400',
+    description: 'Acesso operacional a vendas balcão e comandas'
+  },
+  cozinha_only: {
+    label: 'Cozinha (KDS)',
+    badgeColor: 'bg-red-100 text-red-900 border-red-300',
+    headerColor: 'text-red-400',
+    description: 'Visualização e despacho de pedidos da cozinha'
+  },
+  tablet_quarto: {
+    label: 'Tablet Quarto',
+    badgeColor: 'bg-indigo-100 text-indigo-900 border-indigo-300',
+    headerColor: 'text-indigo-400',
+    description: 'Terminal de autoatendimento e room service para o hóspede'
   }
 };
 

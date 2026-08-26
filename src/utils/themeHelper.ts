@@ -367,10 +367,15 @@ export function getTheme(palette?: ThemeColorPalette): ThemeStyles {
 export function getFontFamilyClass(font?: TypographyStyle): string {
   switch (font) {
     case 'modern_sans':
+    case 'modern':
       return 'font-sans';
     case 'editorial':
+    case 'classic':
       return 'font-serif';
+    case 'technical':
+      return 'font-mono';
     case 'serif_luxury':
+    case 'elegant':
     default:
       return 'font-serif-luxury';
   }

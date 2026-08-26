@@ -46,10 +46,13 @@ export function isRoomAvailable(
     if (res.quarto_id !== quartoId) return false;
     if (ignoreReservationId && res.id === ignoreReservationId) return false;
     if (res.status === 'cancelada' || res.status === 'checkout_concluido') {
-      // Reservas canceladas não bloqueiam datas futuras
-      if (res.status === 'cancelada') return false;
+      return false;
     }
-    return datesOverlap(checkIn, checkOut, res.checkin, res.checkout);
+    const resCheckIn = res.checkin || res.data_checkin;
+    const resCheckOut = res.checkout || res.data_checkout;
+    if (!resCheckIn || !resCheckOut) return false;
+
+    return datesOverlap(checkIn, checkOut, resCheckIn, resCheckOut);
   });
 
   if (conflictingReservation) return false;
@@ -110,7 +113,7 @@ export function searchAvailableRooms(
     }
   }
 
-  return results.sort((a, b) => a.valorTotal - b.valorTotal);
+  return results.sort((a, b) => (a.valorTotal || 0) - (b.valorTotal || 0));
 }
 
 // Gera código alfanumérico único para a reserva (ex: GH-84920)

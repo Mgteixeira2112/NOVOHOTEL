@@ -82,7 +82,7 @@ export const ExecutiveDashboardModule: React.FC = () => {
 
   useEffect(() => { void load(); }, [selectedHotel, range.start, range.end, hotelIds.join(',')]);
 
-  const visible = Object.values(metrics);
+  const visible: DashboardMetrics[] = Object.values(metrics);
   const aggregate = useMemo<DashboardMetrics | null>(() => {
     if (!visible.length) return null;
     const sum = (key: keyof DashboardMetrics) => visible.reduce((acc, item) => acc + (typeof item[key] === 'number' ? Number(item[key]) : 0), 0);

@@ -2,7 +2,37 @@ import { supabase } from '../../services/supabase';
 import { redact } from './redaction';
 import { createRequestContext, type RequestContext } from './requestContext';
 
-export type AuditAction = 'CREATE'|'READ'|'UPDATE'|'DELETE'|'LOGIN'|'LOGOUT'|'LOGIN_FAILED'|'PASSWORD_RESET'|'MFA'|'SESSION_EXPIRED'|'APPROVE'|'REJECT'|'VOID'|'REFUND'|'CANCEL'|'PAY'|'RECEIVE'|'CLOSE'|'OPEN'|'EXPORT'|'IMPORT';
+export type AuditAction =
+  | 'CREATE'
+  | 'READ'
+  | 'UPDATE'
+  | 'DELETE'
+  | 'LOGIN'
+  | 'LOGOUT'
+  | 'LOGIN_FAILED'
+  | 'PASSWORD_RESET'
+  | 'MFA'
+  | 'SESSION_EXPIRED'
+  | 'APPROVE'
+  | 'REJECT'
+  | 'VOID'
+  | 'REFUND'
+  | 'CANCEL'
+  | 'PAY'
+  | 'RECEIVE'
+  | 'CLOSE'
+  | 'OPEN'
+  | 'EXPORT'
+  | 'IMPORT'
+  | 'login'
+  | 'logout'
+  | 'login_failed'
+  | 'permission_denied'
+  | 'role_changed'
+  | 'membership_changed'
+  | 'device_registered'
+  | 'device_revoked'
+  | 'session_revoked';
 
 export async function recordAudit(input: {
   action: AuditAction;
@@ -18,7 +48,7 @@ export async function recordAudit(input: {
 }) {
   const context = input.context ?? createRequestContext(undefined, input.deviceId ?? undefined);
   const { data, error } = await supabase.rpc('hotel_os_audit_secure', {
-    p_action: input.action,
+    p_action: input.action.toUpperCase(),
     p_hotel_id: input.hotelId ?? null,
     p_entity_type: input.entityType ?? null,
     p_entity_id: input.entityId ?? null,
@@ -30,6 +60,20 @@ export async function recordAudit(input: {
     p_ip_address: input.ipAddress ?? null,
     p_user_agent: input.userAgent ?? null,
   });
-  if (error) throw error;
+  if (error) {
+    // Fallback to hotel_os_audit if hotel_os_audit_secure is not available
+    const { data: fbData, error: fbError } = await supabase.rpc('hotel_os_audit', {
+      p_event_type: input.action,
+      p_hotel_id: input.hotelId ?? null,
+      p_entity_type: input.entityType ?? null,
+      p_entity_id: input.entityId ?? null,
+      p_metadata: {
+        ...redact(input.afterData ?? {}),
+        request_id: context.requestId,
+      },
+    });
+    if (fbError) throw fbError;
+    return String(fbData);
+  }
   return String(data);
 }

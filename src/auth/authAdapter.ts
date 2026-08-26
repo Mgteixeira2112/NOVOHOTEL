@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export type AuthUser = {
   id: string;
@@ -36,11 +36,11 @@ export const authAdapter = {
   async getSession(): Promise<AuthSession | null> {
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
-    if (!data.session || !data.user) return null;
+    if (!data.session || !data.session.user) return null;
 
     return {
       access_token: data.session.access_token,
-      user: { id: data.user.id, email: data.user.email ?? undefined },
+      user: { id: data.session.user.id, email: data.session.user.email ?? undefined },
     };
   },
 

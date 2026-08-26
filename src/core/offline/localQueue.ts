@@ -8,13 +8,27 @@ export type QueueableOperation = {
 const KEY = 'hotel-os:offline-queue:v1';
 const FORBIDDEN = /payment|pagamento|card|cart[aã]o|refund|estorno|financial|financeiro/i;
 
+let memoryQueue: QueueableOperation[] = [];
+
 function read(): QueueableOperation[] {
-  if (typeof localStorage === 'undefined') return [];
-  try { return JSON.parse(localStorage.getItem(KEY) ?? '[]') as QueueableOperation[]; } catch { return []; }
+  if (typeof localStorage === 'undefined') return memoryQueue;
+  try {
+    return JSON.parse(localStorage.getItem(KEY) ?? '[]') as QueueableOperation[];
+  } catch {
+    return [];
+  }
 }
 
 function write(items: QueueableOperation[]) {
-  if (typeof localStorage !== 'undefined') localStorage.setItem(KEY, JSON.stringify(items));
+  if (typeof localStorage === 'undefined') {
+    memoryQueue = items;
+    return;
+  }
+  try {
+    localStorage.setItem(KEY, JSON.stringify(items));
+  } catch {
+    memoryQueue = items;
+  }
 }
 
 export const localQueue = {
@@ -28,6 +42,10 @@ export const localQueue = {
     return item.id;
   },
   list: read,
-  remove(id: string) { write(read().filter(item => item.id !== id)); },
-  clear() { write([]); },
+  remove(id: string) {
+    write(read().filter((item) => item.id !== id));
+  },
+  clear() {
+    write([]);
+  },
 };

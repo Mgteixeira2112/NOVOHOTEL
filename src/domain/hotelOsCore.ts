@@ -24,13 +24,163 @@ export const CASH_SESSION_STATUSES = ['open', 'closed', 'cancelled'] as const;
 export type CashSessionStatus = typeof CASH_SESSION_STATUSES[number];
 export const TRANSACTION_TYPES = ['payment', 'refund', 'charge', 'adjustment'] as const;
 export type TransactionType = typeof TRANSACTION_TYPES[number];
-export const DOMAIN_EVENTS = ['reservation.created','reservation.cancelled','stay.checked_in','stay.checked_out','order.created','order.completed','task.created','task.completed','payment.created'] as const;
+export const DOMAIN_EVENTS = [
+  'reservation.created',
+  'reservation.cancelled',
+  'stay.checked_in',
+  'stay.checked_out',
+  'order.created',
+  'order.completed',
+  'task.created',
+  'task.completed',
+  'payment.created',
+] as const;
 export type DomainEventName = typeof DOMAIN_EVENTS[number];
 
-export interface RoomBed { id: string; roomId: string; bedTypeId: string; quantity: number; note?: string | null; }
-export interface Stay { id: string; hotelId: string; reservationId: string; roomId: string; status: StayStatus; checkedInAt?: string | null; checkedOutAt?: string | null; }
-export interface Folio { id: string; hotelId: string; stayId: string; status: FolioStatus; currency: string; }
-export interface OrderDomainRef { id: string; hotelId: string; stayId?: string | null; roomId?: string | null; deviceId?: string | null; userId?: string | null; origin: OrderOrigin; status: string; }
+export interface RoomBed {
+  id: string;
+  roomId: string;
+  bedTypeId: string;
+  quantity: number;
+  note?: string | null;
+}
+
+export interface BedType {
+  id: string;
+  code: string;
+  name: string;
+  capacity: number;
+  active: boolean;
+}
+
+export interface RoomType {
+  id: string;
+  hotelId: string;
+  name: string;
+  capacity: number;
+  basePrice: number;
+}
+
+export interface Guest {
+  id: string;
+  hotelId: string;
+  name: string;
+  document?: string | null;
+  email?: string | null;
+  phone?: string | null;
+}
+
+export interface ReservationDomain {
+  id: string;
+  hotelId: string;
+  guestId: string;
+  roomId?: string | null;
+  checkInDate: string;
+  checkOutDate: string;
+  status: ReservationStatus;
+  totalAmount: number;
+}
+
+export interface Stay {
+  id: string;
+  hotelId: string;
+  reservationId: string;
+  roomId: string;
+  status: StayStatus;
+  checkedInAt?: string | null;
+  checkedOutAt?: string | null;
+}
+
+export interface Folio {
+  id: string;
+  hotelId: string;
+  stayId: string;
+  status: FolioStatus;
+  currency: string;
+}
+
+export interface FolioItem {
+  id: string;
+  hotelId: string;
+  folioId: string;
+  itemType: 'room' | 'tax' | 'order' | 'minibar' | 'adjustment' | 'payment' | 'refund' | 'other';
+  description: string;
+  quantity: number;
+  unitAmount: number;
+}
+
+export interface OrderDomainRef {
+  id: string;
+  hotelId: string;
+  stayId?: string | null;
+  roomId?: string | null;
+  deviceId?: string | null;
+  userId?: string | null;
+  origin: OrderOrigin;
+  status: string;
+}
+
+export interface InventoryMovement {
+  id: string;
+  hotelId: string;
+  productId: string;
+  movementType: InventoryMovementType;
+  quantity: number;
+  unitCost: number;
+  previousBalance: number;
+  newBalance: number;
+  createdAt: string;
+}
+
+export interface OperationalTask {
+  id: string;
+  hotelId: string;
+  department: OperationalTaskType;
+  title: string;
+  status: string;
+  assignedTo?: string | null;
+  roomId?: string | null;
+}
+
+export interface CashRegister {
+  id: string;
+  hotelId: string;
+  name: string;
+  active: boolean;
+}
+
+export interface CashSession {
+  id: string;
+  hotelId: string;
+  cashRegisterId: string;
+  status: CashSessionStatus;
+  openedAt: string;
+  closedAt?: string | null;
+}
+
+export interface TransactionDomain {
+  id: string;
+  hotelId: string;
+  type: TransactionType;
+  amount: number;
+  folioId?: string | null;
+  orderId?: string | null;
+  cashSessionId?: string | null;
+  paymentId?: string | null;
+  refundId?: string | null;
+}
+
+export interface AuditLogEntry {
+  id: string;
+  hotelId?: string | null;
+  actorId?: string | null;
+  action: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  oldData?: Record<string, unknown> | null;
+  newData?: Record<string, unknown> | null;
+  createdAt: string;
+}
 
 export interface AvailabilityResult {
   roomTypeId: string;
@@ -45,4 +195,22 @@ export interface AvailabilityResult {
   bedMatch: BedMatch;
   price: Record<string, unknown> | null;
   rankingScore: number;
+}
+
+export function detectReservationConflict(
+  existingIntervals: Array<{ checkIn: string; checkOut: string; status: ReservationStatus }>,
+  newInterval: { checkIn: string; checkOut: string }
+): boolean {
+  const newStart = new Date(newInterval.checkIn).getTime();
+  const newEnd = new Date(newInterval.checkOut).getTime();
+
+  if (newEnd <= newStart) return true; // Invalid range counts as conflict
+
+  return existingIntervals.some((existing) => {
+    if (existing.status === 'cancelada') return false;
+    const existStart = new Date(existing.checkIn).getTime();
+    const existEnd = new Date(existing.checkOut).getTime();
+    // Overlap condition: startA < endB && endA > startB
+    return newStart < existEnd && newEnd > existStart;
+  });
 }

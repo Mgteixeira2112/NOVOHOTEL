@@ -800,14 +800,14 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (res.id !== reservationId) return res;
         const currentItens = res.consumo_itens || [];
         const updatedItens = [...currentItens, newExtra];
-        const addedValue = consumo.quantidade * consumo.valor_unitario;
+        const addedValue = (consumo.quantidade || 1) * (consumo.valor_unitario || 0);
         const currentConsumo = res.valor_consumo || 0;
         const newConsumo = currentConsumo + addedValue;
         const updated: Reserva = {
           ...res,
           consumo_itens: updatedItens,
           valor_consumo: newConsumo,
-          valor_total: res.valor_diarias + res.valor_taxas + newConsumo,
+          valor_total: (res.valor_diarias || 0) + (res.valor_taxas || 0) + newConsumo,
         };
         upsertReservationToSupabase(updated).catch(() => {});
         return updated;

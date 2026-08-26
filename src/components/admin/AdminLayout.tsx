@@ -17,8 +17,9 @@ import { KanbanModule } from './KanbanModule';
 import { PDVPage } from './PDVPage';
 import { KDSPage } from './KDSPage';
 import { HotelOSCommandCenter } from './HotelOSCommandCenter';
+import { ProductionAuditModule } from './ProductionAuditModule';
 import { useKanban } from '../../context/KanbanContext';
-import { LayoutDashboard, BarChart3, BedDouble, CalendarDays, LogIn, Users, DollarSign, ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard, ChefHat, Sparkles } from 'lucide-react';
+import { LayoutDashboard, BarChart3, BedDouble, CalendarDays, LogIn, Users, DollarSign, ShoppingBag, Bot, Palette, UserCheck, ShieldAlert, Lock, ArrowRight, Columns3, CreditCard, ChefHat, Sparkles, ShieldCheck } from 'lucide-react';
 import { AdminTab } from '../../types';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
 
@@ -35,6 +36,7 @@ export const AdminLayout: React.FC = () => {
     { id: 'dashboard', label: 'Dashboard Geral', icon: LayoutDashboard },
     { id: 'management_bi', label: 'BI Gerencial', icon: BarChart3 },
     { id: 'command_center' as AdminTab, label: 'Central Hotel OS', icon: Sparkles },
+    { id: 'production_audit' as AdminTab, label: 'Auditoria & 17 Passos', icon: ShieldCheck },
     { id: 'kanban', label: 'Operação Kanban', icon: Columns3, badge: pendingKanbanCount },
     { id: 'reservations', label: 'Mapa de Reservas', icon: CalendarDays },
     { id: 'checkin_out', label: 'Desk Check-in / Out', icon: LogIn, badge: checkinsTodayCount },
@@ -51,8 +53,9 @@ export const AdminLayout: React.FC = () => {
 
   const userRole = currentUser?.tipo_usuario || 'recepcionista';
   const isCommandCenter = adminActiveTab === ('command_center' as AdminTab);
+  const isProductionAudit = adminActiveTab === ('production_audit' as AdminTab);
   const isManagementBI = adminActiveTab === ('management_bi' as AdminTab);
-  const hasPermission = isCommandCenter ? (userRole === 'admin' || userRole === 'gerente') : isManagementBI ? ['admin','gerente','financeiro'].includes(userRole) : hasTabAccess(userRole, adminActiveTab as AdminTab);
+  const hasPermission = (isCommandCenter || isProductionAudit) ? (userRole === 'admin' || userRole === 'gerente') : isManagementBI ? ['admin','gerente','financeiro'].includes(userRole) : hasTabAccess(userRole, adminActiveTab as AdminTab);
   const currentTabConfig = navItems.find((item) => item.id === adminActiveTab);
 
   return (
@@ -88,6 +91,7 @@ export const AdminLayout: React.FC = () => {
               {adminActiveTab === 'dashboard' && <DashboardModule />}
               {adminActiveTab === ('management_bi' as AdminTab) && <><ExecutiveDashboardModule /><DashboardAlertsWidget /></>}
               {adminActiveTab === ('command_center' as AdminTab) && <HotelOSCommandCenter />}
+              {adminActiveTab === ('production_audit' as AdminTab) && <ProductionAuditModule />}
               {adminActiveTab === 'kanban' && <KanbanModule />}
               {adminActiveTab === 'reservations' && <ReservationsModule />}
               {adminActiveTab === 'checkin_out' && <CheckInOutModule />}

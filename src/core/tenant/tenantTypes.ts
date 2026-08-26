@@ -1,3 +1,5 @@
+import type { UserRole } from '../../types';
+
 export type OrganizationStatus = 'ACTIVE' | 'SUSPENDED' | 'ARCHIVED' | 'DEACTIVATED';
 
 export type HotelStatus = OrganizationStatus;
@@ -8,7 +10,8 @@ export type TenantRole =
   | 'HOTEL_ADMIN'
   | 'MANAGER'
   | 'OPERATOR'
-  | 'VIEWER';
+  | 'VIEWER'
+  | UserRole;
 
 export interface Organization {
   id: string;
@@ -43,6 +46,8 @@ export interface HotelMembership {
   hotel_id: string;
   role: TenantRole;
   active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface TenantContext {
