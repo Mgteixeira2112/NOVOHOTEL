@@ -15,108 +15,56 @@
 }
 
 @layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-  }
-
-  h1, h2, h3, .font-serif-luxury {
-    font-family: 'Playfair Display', Georgia, serif;
-  }
-
-  .font-display-hotel {
-    font-family: 'Cinzel', 'Playfair Display', Georgia, serif;
-  }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; min-width: 320px; }
+  h1, h2, h3, .font-serif-luxury { font-family: 'Playfair Display', Georgia, serif; }
+  .font-display-hotel { font-family: 'Cinzel', 'Playfair Display', Georgia, serif; }
+  button, [role="button"], input, select, textarea { touch-action: manipulation; }
 }
 
-/* Dynamic Theme Utility Classes */
-.theme-btn-primary {
-  background-color: var(--theme-primary);
-  color: #0c0a09;
-  font-weight: 700;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.theme-btn-primary:hover {
-  background-color: var(--theme-primary-hover);
+.theme-btn-primary { background-color: var(--theme-primary); color: #0c0a09; font-weight: 700; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+.theme-btn-primary:hover { background-color: var(--theme-primary-hover); }
+.theme-text-accent { color: var(--theme-primary-text); }
+.theme-border-accent { border-color: var(--theme-primary); }
+.theme-bg-subtle { background-color: var(--theme-badge-bg); }
+.theme-ring-focus:focus { outline: none; box-shadow: 0 0 0 2px var(--theme-primary-ring); }
+
+/* Phase 16 responsive/touch primitives. Context modules can compose these classes. */
+.touch-target { min-width: 44px; min-height: 44px; }
+.touch-toolbar { overflow-x: auto; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.operational-kanban { overscroll-behavior: contain; }
+.operational-kanban > * { min-width: min(82vw, 320px); }
+.pos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+@media (min-width: 640px) { .pos-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .pos-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (min-width: 1280px) { .pos-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+@media (max-width: 767px) {
+  .mobile-stack { display: flex; flex-direction: column; }
+  .mobile-full { width: 100%; }
+  .mobile-scroll-x { overflow-x: auto; }
+  .mobile-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
 
-.theme-text-accent {
-  color: var(--theme-primary-text);
+@media (pointer: coarse) {
+  button, [role="button"] { min-height: 44px; }
+  input, select, textarea { min-height: 44px; }
 }
 
-.theme-border-accent {
-  border-color: var(--theme-primary);
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
 }
 
-.theme-bg-subtle {
-  background-color: var(--theme-badge-bg);
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-.theme-ring-focus:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--theme-primary-ring);
-}
-
-/* Custom scrollbars for clean UI */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-}
-::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-}
-
-/* Print and PDF Optimization Rules */
 @media print {
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  body * {
-    visibility: hidden;
-  }
-
-  #printable-bill,
-  #printable-bill *,
-  #printable-receipt,
-  #printable-receipt *,
-  #printable-calendar-report,
-  #printable-calendar-report * {
-    visibility: visible;
-  }
-
-  #printable-bill,
-  #printable-receipt,
-  #printable-calendar-report {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 8mm !important;
-    background: #ffffff !important;
-    color: #1c1917 !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-
-  @page {
-    size: auto;
-    margin: 6mm;
-  }
+  body { background: #ffffff !important; color: #000000 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  body * { visibility: hidden; }
+  #printable-bill, #printable-bill *, #printable-receipt, #printable-receipt *, #printable-calendar-report, #printable-calendar-report * { visibility: visible; }
+  #printable-bill, #printable-receipt, #printable-calendar-report { position: absolute; left: 0; top: 0; width: 100% !important; max-width: 100% !important; margin: 0 !important; padding: 8mm !important; background: #ffffff !important; color: #1c1917 !important; box-shadow: none !important; border: none !important; }
+  .no-print { display: none !important; }
+  @page { size: auto; margin: 6mm; }
 }
-

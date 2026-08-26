@@ -1,0 +1,22 @@
+name: Hotel OS validation
+
+on:
+  push:
+    branches: [main, plano-mestre-hotel-os, fase-17-publicacao]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      # No Bun lockfile is currently committed. Do not use --frozen-lockfile
+      # until a verified bun.lock is added and validated.
+      - run: bun install
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+      - run: bun run audit:production

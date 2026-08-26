@@ -17,52 +17,24 @@ import { BookingModal } from './components/booking/BookingModal';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminLogin } from './components/auth/AdminLogin';
 import { SecurityVerificationModal } from './components/security/SecurityVerificationModal';
+import { ConnectionStatus } from './components/device/ConnectionStatus';
 
-// Componente principal de renderização condicional (Landing Page vs Painel PMS Logado / Login)
 const MainContent: React.FC = () => {
   const { currentView, isAuthenticated } = useHotel();
-
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 selection:bg-amber-500 selection:text-stone-950 font-sans">
       {currentView === 'landing' ? (
         <div className="flex flex-col min-h-screen relative">
-          <Navbar />
-          <main className="flex-1">
-            <HeroSection />
-            <RoomsShowcase />
-            <AmenitiesSection />
-            <AboutSection />
-            <LocationSection />
-            <TestimonialsSection />
-            <FaqSection />
-            <ContactSection />
-          </main>
-          <Footer />
-          <FloatingWhatsapp />
+          <Navbar /><main className="flex-1"><HeroSection /><RoomsShowcase /><AmenitiesSection /><AboutSection /><LocationSection /><TestimonialsSection /><FaqSection /><ContactSection /></main><Footer /><FloatingWhatsapp />
         </div>
-      ) : !isAuthenticated ? (
-        <AdminLogin />
-      ) : (
-        <AdminLayout />
-      )}
-
-      {/* Modal global do motor de reservas em tempo real com assistente passo a passo */}
+      ) : !isAuthenticated ? <AdminLogin /> : <AdminLayout />}
       <BookingModal />
-
-      {/* Modal global de confirmação com Senha + 2FA para operações administrativas */}
       <SecurityVerificationModal />
+      <ConnectionStatus />
     </div>
   );
 };
 
 export default function App() {
-  return (
-    <HotelProvider>
-      <FrigobarProvider>
-        <KanbanProvider>
-          <MainContent />
-        </KanbanProvider>
-      </FrigobarProvider>
-    </HotelProvider>
-  );
+  return <HotelProvider><FrigobarProvider><KanbanProvider><MainContent /></KanbanProvider></FrigobarProvider></HotelProvider>;
 }
