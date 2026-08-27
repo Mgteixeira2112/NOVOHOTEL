@@ -1,39 +1,7 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { KanbanBoard, KanbanCard, KanbanColumn } from '../../types/kanban';
-import { 
-  mapDatabaseCardToKanbanCard, 
-  mapDatabaseBoardToKanbanBoard, 
-  mapDatabaseColumnToKanbanColumn 
-} from './kanbanMapper';
-
-// Deduplicador de eventos com cache LRU para evitar reprocessamento em rajadas de rede
-class KanbanEventDeduplicator {
-  private seenEvents = new Set<string>();
-  private maxItems = 600;
-
-  isDuplicate(eventKey: string): boolean {
-    if (this.seenEvents.has(eventKey)) {
-      return true;
-    }
-    if (this.seenEvents.size >= this.maxItems) {
-      const iterator = this.seenEvents.values();
-      for (let i = 0; i < 150; i++) {
-        const next = iterator.next();
-        if (next.done) break;
-        this.seenEvents.delete(next.value);
-      }
-    }
-    this.seenEvents.add(eventKey);
-    return false;
-  }
-
-  clear() {
-    this.seenEvents.clear();
-  }
-}
-
-const eventDeduplicator = new KanbanEventDeduplicator();
+import { mapDatabaseCardToKanbanCard, mapDatabaseBoardToKanbanBoard, mapDatabaseColumnToKanbanColumn } from './kanbanMapper';
 
 export type KanbanRealtimeStatus = 'CONNECTING' | 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR';
 
@@ -41,26 +9,44 @@ export interface KanbanRealtimeHandlers {
   onCardInsert?: (card: KanbanCard) => void;
   onCardUpdate?: (card: KanbanCard) => void;
   onCardDelete?: (cardId: string) => void;
-  
   onBoardInsert?: (board: KanbanBoard) => void;
   onBoardUpdate?: (board: KanbanBoard) => void;
   onBoardDelete?: (boardId: string) => void;
-
   onColumnInsert?: (column: KanbanColumn) => void;
   onColumnUpdate?: (column: KanbanColumn) => void;
   onColumnDelete?: (columnId: string) => void;
-
   onStatusChange?: (status: KanbanRealtimeStatus) => void;
 }
 
 /**
- * Cria a subscrição Realtime centralizada para o módulo Kanban e Operações de um Hotel específico.
- * Garante filtragem estrita por hotel_id, parsing seguro via Mapper e isolamento de eventos.
+ * Mantém a última versão recebida por entidade dentro desta conexão.
+ * Realtime pode entregar eventos repetidos/atrasados; nunca devemos aplicar
+ * uma versão anterior sobre uma alteração mais nova.
  */
-export function subscribeToKanbanRealtime(
-  hotelId: string,
-  handlers: KanbanRealtimeHandlers
-): () => void {
+const latestCardVersionByChannel = new Map<string, Map<string, number>>();
+
+function getRecordVersion(record: any, payload: any): number {
+  const value = record?.updated_at ?? payload?.commit_timestamp;
+  const parsed = value ? Date.parse(String(value)) : NaN;
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function acceptCardVersion(channelName: string, cardId: string, version: number): boolean {
+  let versions = latestCardVersionByChannel.get(channelName);
+  if (!versions) {
+    versions = new Map<string, number>();
+    latestCardVersionByChannel.set(channelName, versions);
+  }
+  const previous = versions.get(cardId);
+  if (previous !== undefined && version < previous) {
+    console.warn(`[REALTIME STALE EVENT IGNORED] card=${cardId} version=${version} previous=${previous}`);
+    return false;
+  }
+  versions.set(cardId, Math.max(previous ?? 0, version));
+  return true;
+}
+
+export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealtimeHandlers): () => void {
   if (!hotelId) {
     console.warn('[KANBAN REALTIME] hotelId não informado. Ignorando subscrição.');
     return () => {};
@@ -68,156 +54,75 @@ export function subscribeToKanbanRealtime(
 
   const channelName = `hotel-kanban-sync:${hotelId}`;
   handlers.onStatusChange?.('CONNECTING');
-
   const channel: RealtimeChannel = supabase.channel(channelName);
 
-  // 1. Ouvir alterações em kanban_cards (filtrado por hotel_id)
-  channel.on(
-    'postgres_changes',
-    {
-      event: '*',
-      schema: 'public',
-      table: 'kanban_cards',
-      filter: `hotel_id=eq.${hotelId}`,
-    },
-    (payload: any) => {
-      const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
-      const recordId = payload.new?.id || payload.old?.id;
-      const timestamp = payload.commit_timestamp || payload.new?.updated_at || Date.now();
-      const eventKey = `cards:${eventType}:${recordId}:${timestamp}`;
+  channel.on('postgres_changes', {
+    event: '*', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}`,
+  }, (payload: any) => {
+    const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
+    const recordId = String(payload.new?.id || payload.old?.id || '');
+    if (!recordId) return;
+    const record = payload.new || payload.old;
+    const version = getRecordVersion(record, payload);
 
-      if (eventDeduplicator.isDuplicate(eventKey)) {
-        return;
-      }
+    // DELETE não possui updated_at confiável; aplica-se normalmente.
+    if (eventType !== 'DELETE' && !acceptCardVersion(channelName, recordId, version)) return;
 
-      console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, recordId);
+    console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, recordId);
+    if (eventType === 'DELETE') {
+      handlers.onCardDelete?.(recordId);
+      return;
+    }
+    if (!payload.new) return;
+    try {
+      const card = mapDatabaseCardToKanbanCard(payload.new);
+      if (eventType === 'INSERT') handlers.onCardInsert?.(card);
+      else handlers.onCardUpdate?.(card);
+    } catch (err) {
+      console.error(`[REALTIME MAP ERROR] Erro ao mapear ${eventType} de card:`, err);
+    }
+  });
 
-      if (eventType === 'DELETE') {
-        const deletedId = payload.old?.id || recordId;
-        if (deletedId && handlers.onCardDelete) {
-          console.info(`[DELETE CARD RECEIVED] id: ${deletedId}`);
-          handlers.onCardDelete(String(deletedId));
-        }
-      } else if (eventType === 'INSERT') {
-        if (payload.new && handlers.onCardInsert) {
-          try {
-            const card = mapDatabaseCardToKanbanCard(payload.new);
-            console.info(`[INSERT CARD RECEIVED] id: ${card.id} ("${card.title}")`);
-            handlers.onCardInsert(card);
-          } catch (err) {
-            console.error('[REALTIME MAP ERROR] Erro ao mapear INSERT de card:', err);
-          }
-        }
-      } else if (eventType === 'UPDATE') {
-        if (payload.new && handlers.onCardUpdate) {
-          try {
-            const card = mapDatabaseCardToKanbanCard(payload.new);
-            console.info(`[UPDATE CARD RECEIVED] id: ${card.id} ("${card.title}")`);
-            handlers.onCardUpdate(card);
-          } catch (err) {
-            console.error('[REALTIME MAP ERROR] Erro ao mapear UPDATE de card:', err);
-          }
-        }
+  channel.on('postgres_changes', {
+    event: '*', schema: 'public', table: 'kanban_boards', filter: `hotel_id=eq.${hotelId}`,
+  }, (payload: any) => {
+    const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
+    const recordId = String(payload.new?.id || payload.old?.id || '');
+    if (!recordId) return;
+    console.info(`[REALTIME EVENT RECEIVED] kanban_boards -> ${eventType}:`, recordId);
+    if (eventType === 'DELETE') handlers.onBoardDelete?.(recordId);
+    else if (payload.new) {
+      try {
+        const board = mapDatabaseBoardToKanbanBoard(payload.new, []);
+        if (eventType === 'INSERT') handlers.onBoardInsert?.(board);
+        else handlers.onBoardUpdate?.(board);
+      } catch (err) {
+        console.error(`[REALTIME MAP ERROR] Erro ao mapear ${eventType} de board:`, err);
       }
     }
-  );
+  });
 
-  // 2. Ouvir alterações em kanban_boards (filtrado por hotel_id)
-  channel.on(
-    'postgres_changes',
-    {
-      event: '*',
-      schema: 'public',
-      table: 'kanban_boards',
-      filter: `hotel_id=eq.${hotelId}`,
-    },
-    (payload: any) => {
-      const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
-      const recordId = payload.new?.id || payload.old?.id;
-      const timestamp = payload.commit_timestamp || payload.new?.atualizado_em || Date.now();
-      const eventKey = `boards:${eventType}:${recordId}:${timestamp}`;
-
-      if (eventDeduplicator.isDuplicate(eventKey)) {
-        return;
-      }
-
-      console.info(`[REALTIME EVENT RECEIVED] kanban_boards -> ${eventType}:`, recordId);
-
-      if (eventType === 'DELETE') {
-        const deletedId = payload.old?.id || recordId;
-        if (deletedId && handlers.onBoardDelete) {
-          handlers.onBoardDelete(String(deletedId));
-        }
-      } else if (eventType === 'INSERT') {
-        if (payload.new && handlers.onBoardInsert) {
-          try {
-            const board = mapDatabaseBoardToKanbanBoard(payload.new, []);
-            handlers.onBoardInsert(board);
-          } catch (err) {
-            console.error('[REALTIME MAP ERROR] Erro ao mapear INSERT de board:', err);
-          }
-        }
-      } else if (eventType === 'UPDATE') {
-        if (payload.new && handlers.onBoardUpdate) {
-          try {
-            const board = mapDatabaseBoardToKanbanBoard(payload.new, []);
-            handlers.onBoardUpdate(board);
-          } catch (err) {
-            console.error('[REALTIME MAP ERROR] Erro ao mapear UPDATE de board:', err);
-          }
-        }
+  // Colunas são relacionadas a boards; não existe hotel_id garantido nesta tabela.
+  // O isolamento é feito pelo board_id no consumidor. Não adicionar filtro inexistente.
+  channel.on('postgres_changes', {
+    event: '*', schema: 'public', table: 'kanban_columns',
+  }, (payload: any) => {
+    const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
+    const recordId = String(payload.new?.id || payload.old?.id || '');
+    if (!recordId) return;
+    console.info(`[REALTIME EVENT RECEIVED] kanban_columns -> ${eventType}:`, recordId);
+    if (eventType === 'DELETE') handlers.onColumnDelete?.(recordId);
+    else if (payload.new) {
+      try {
+        const column = mapDatabaseColumnToKanbanColumn(payload.new);
+        if (eventType === 'INSERT') handlers.onColumnInsert?.(column);
+        else handlers.onColumnUpdate?.(column);
+      } catch (err) {
+        console.error(`[REALTIME MAP ERROR] Erro ao mapear ${eventType} de coluna:`, err);
       }
     }
-  );
+  });
 
-  // 3. Ouvir alterações em kanban_columns
-  channel.on(
-    'postgres_changes',
-    {
-      event: '*',
-      schema: 'public',
-      table: 'kanban_columns',
-    },
-    (payload: any) => {
-      const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
-      const recordId = payload.new?.id || payload.old?.id;
-      const timestamp = payload.commit_timestamp || payload.new?.atualizado_em || Date.now();
-      const eventKey = `columns:${eventType}:${recordId}:${timestamp}`;
-
-      if (eventDeduplicator.isDuplicate(eventKey)) {
-        return;
-      }
-
-      console.info(`[REALTIME EVENT RECEIVED] kanban_columns -> ${eventType}:`, recordId);
-
-      if (eventType === 'DELETE') {
-        const deletedId = payload.old?.id || recordId;
-        if (deletedId && handlers.onColumnDelete) {
-          handlers.onColumnDelete(String(deletedId));
-        }
-      } else if (eventType === 'INSERT') {
-        if (payload.new && handlers.onColumnInsert) {
-          try {
-            const column = mapDatabaseColumnToKanbanColumn(payload.new);
-            handlers.onColumnInsert(column);
-          } catch (err) {
-            console.error('[REALTIME MAP ERROR] Erro ao mapear INSERT de coluna:', err);
-          }
-        }
-      } else if (eventType === 'UPDATE') {
-        if (payload.new && handlers.onColumnUpdate) {
-          try {
-            const column = mapDatabaseColumnToKanbanColumn(payload.new);
-            handlers.onColumnUpdate(column);
-          } catch (err) {
-            console.error('[REALTIME MAP ERROR] Erro ao mapear UPDATE de coluna:', err);
-          }
-        }
-      }
-    }
-  );
-
-  // Iniciar subscrição com acompanhamento de status
   channel.subscribe((status, err) => {
     console.info(`[KANBAN REALTIME STATUS] ${status} for channel ${channelName}`, err || '');
     if (status === 'SUBSCRIBED') {
@@ -237,6 +142,7 @@ export function subscribeToKanbanRealtime(
 
   return () => {
     console.info(`[KANBAN REALTIME CLEANUP] Removendo canal ${channelName}`);
+    latestCardVersionByChannel.delete(channelName);
     void supabase.removeChannel(channel);
   };
 }
