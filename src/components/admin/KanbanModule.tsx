@@ -1,25 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { 
-  AlertCircle, 
-  Check, 
-  Clock3, 
-  GripVertical, 
-  LayoutDashboard, 
-  Plus, 
-  RefreshCw, 
-  Wifi, 
-  WifiOff, 
-  X,
-  DoorClosed,
-  User as UserIcon,
-  Wrench,
-  Sparkles,
+import {
+  AlertCircle,
+  Archive,
   BellRing,
-  UtensilsCrossed,
   Building2,
-  Trash2,
+  Check,
   CheckCircle2,
-  Tag
+  Clock3,
+  DoorClosed,
+  GripVertical,
+  LayoutDashboard,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Tag,
+  Trash2,
+  User as UserIcon,
+  UtensilsCrossed,
+  Wifi,
+  WifiOff,
+  Wrench,
+  X,
 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Board, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
@@ -59,17 +61,13 @@ export const KanbanModule: React.FC = () => {
   const [error, setError] = useState('');
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  // Visibilidade seletiva por usuário e setor. Nunca restringe a visão enquanto
-  // a infraestrutura/atribuição não estiver confirmada pelo banco.
   const [userSectorIds, setUserSectorIds] = useState<OperationalSectorId[]>([]);
   const [visibilityStatus, setVisibilityStatus] = useState<'loading' | 'active' | 'fallback'>('loading');
   const [visibilityMessage, setVisibilityMessage] = useState('');
 
-  // Modal de Criação / Edição de Card
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<KanbanV2Card | null>(null);
-  
-  // Campos do formulário
+
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [formPriority, setFormPriority] = useState('normal');
@@ -78,7 +76,6 @@ export const KanbanModule: React.FC = () => {
   const [formRoomNumber, setFormRoomNumber] = useState('');
   const [formColumnId, setFormColumnId] = useState('');
 
-  // Filtros rápidos
   const [filterUser, setFilterUser] = useState<string>('todos');
   const [filterRoom, setFilterRoom] = useState<string>('todos');
 
@@ -214,7 +211,7 @@ export const KanbanModule: React.FC = () => {
   const canDeleteModalCard = editingCard
     ? canPerformKanbanAction(actionAccessContext, 'delete', editingCard)
     : false;
-  
+
   const boardCards = useMemo(() => {
     return accessCards
       .filter(c => c.board_id === activeBoardId)
@@ -239,7 +236,6 @@ export const KanbanModule: React.FC = () => {
       .sort((a, b) => a.ordem - b.ordem);
   }, [accessCards, activeBoardId, filterUser, filterRoom]);
 
-  // Abertura do Modal para Novo Card
   const handleOpenCreateModal = (targetColId?: string) => {
     if (!canCreateInActiveBoard) {
       setError('Seu perfil não possui permissão para criar tarefas neste setor.');
@@ -256,7 +252,6 @@ export const KanbanModule: React.FC = () => {
     setModalOpen(true);
   };
 
-  // Abertura do Modal para Edição de Card existente
   const handleOpenEditModal = (card: KanbanV2Card) => {
     if (!canPerformKanbanAction(actionAccessContext, 'edit', card)) {
       setError('Você pode visualizar esta tarefa, mas não possui permissão para editá-la.');
@@ -274,7 +269,6 @@ export const KanbanModule: React.FC = () => {
     setModalOpen(true);
   };
 
-  // Salvar Card (Criação ou Edição)
   const handleSaveCard = async () => {
     if (!formTitle.trim() || saving) return;
 
@@ -315,7 +309,6 @@ export const KanbanModule: React.FC = () => {
           ? formDepartment
           : (editingCard.departamento || activeBoard?.departamento || 'operacao');
 
-        // Atualização de card existente via camada aditiva de governança/auditoria.
         let persisted = await kanbanCardGovernance.updateCard(editingCard, {
           titulo: formTitle.trim(),
           descricao: formDescription.trim() || null,
@@ -327,7 +320,6 @@ export const KanbanModule: React.FC = () => {
           column_id: effectiveColumnId,
         }, { userId: currentUser?.id });
 
-        // Mantém a lógica já estabilizada de movimentação/status de quarto.
         if (editingCard.column_id !== effectiveColumnId) {
           persisted = await kanbanCardGovernance.moveCard(editingCard, effectiveColumnId, { userId: currentUser?.id });
         }
@@ -342,7 +334,6 @@ export const KanbanModule: React.FC = () => {
           throw new Error('Seu perfil não possui permissão para criar tarefas neste setor.');
         }
 
-        // Criação continua usando o motor estável; a camada de governança só anexa auditoria.
         const newCard = await kanbanCardGovernance.createCard({
           hotelId: KANBAN_TENANT_ID,
           boardId: activeBoardId,
@@ -373,10 +364,9 @@ export const KanbanModule: React.FC = () => {
     }
   };
 
-  // Exclusão lógica: apenas gestão pode arquivar; o card permanece auditável no banco.
-  const handleDeleteCard = async (card: KanbanV2Card) => {
+  const handleArchiveCard = async (card: KanbanV2Card) => {
     if (!canPerformKanbanAction(actionAccessContext, 'delete', card)) {
-      setError('Somente administração e gerência podem excluir tarefas do Kanban.');
+      setError('Seu perfil não possui permissão para arquivar esta tarefa.');
       return;
     }
     if (!confirm('Deseja arquivar esta tarefa? Ela deixará o quadro ativo, mas permanecerá disponível para auditoria e restauração.')) return;
@@ -394,7 +384,29 @@ export const KanbanModule: React.FC = () => {
     }
   };
 
-  // Mover Card via Drag & Drop
+  const handlePermanentDeleteCard = async (card: KanbanV2Card) => {
+    if (!hasFullKanbanVisibility || !canPerformKanbanAction(actionAccessContext, 'delete', card)) {
+      setError('A exclusão permanente é restrita à administração e gerência.');
+      return;
+    }
+    if (!confirm(`Excluir permanentemente o card "${card.titulo}"? Esta ação não poderá ser desfeita.`)) return;
+    if (!confirm('Confirma a exclusão DEFINITIVA? Para manter histórico, prefira Arquivar.')) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      await kanbanV2.deleteCard(card.id);
+      setCards(prev => prev.filter(c => c.id !== card.id));
+      setModalOpen(false);
+      setEditingCard(null);
+      window.setTimeout(() => { void load(); }, 700);
+    } catch (e: any) {
+      setError(e?.message || 'Falha ao excluir definitivamente o card.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const moveCard = async (card: KanbanV2Card | undefined, targetColumnId: string) => {
     if (!card || card.column_id === targetColumnId || saving) return;
     if (!canPerformKanbanAction(actionAccessContext, 'move', card)) {
@@ -421,8 +433,6 @@ export const KanbanModule: React.FC = () => {
   return (
     <div className="min-h-full bg-slate-50 -m-4 sm:-m-6 p-4 sm:p-6 space-y-5">
       <div className="max-w-[1800px] mx-auto space-y-5">
-        
-        {/* CABEÇALHO OPERACIONAL */}
         <header className="rounded-3xl bg-white border border-slate-200 shadow-xs p-5 sm:p-6">
           <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
             <div>
@@ -431,12 +441,8 @@ export const KanbanModule: React.FC = () => {
                   <LayoutDashboard className="w-5 h-5" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-black text-slate-950 tracking-tight">
-                    Kanbans Operacionais
-                  </h1>
-                  <p className="text-xs text-slate-500">
-                    Gestão visual de tarefas por Setor, Responsável e Acomodação
-                  </p>
+                  <h1 className="text-2xl font-black text-slate-950 tracking-tight">Kanbans Operacionais</h1>
+                  <p className="text-xs text-slate-500">Gestão visual de tarefas por Setor, Responsável e Acomodação</p>
                 </div>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                   status === 'SUBSCRIBED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -463,61 +469,36 @@ export const KanbanModule: React.FC = () => {
               </div>
             </div>
 
-            {/* AÇÕES PRINCIPAIS & FILTROS DISCRETOS */}
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* FILTRO POR RESPONSÁVEL */}
               <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs">
                 <UserIcon className="w-3.5 h-3.5 text-slate-500" />
-                <select 
-                  value={filterUser} 
-                  onChange={(e) => setFilterUser(e.target.value)}
-                  className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
-                >
+                <select value={filterUser} onChange={(e) => setFilterUser(e.target.value)} className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer">
                   <option value="todos">Todos os Responsáveis</option>
                   <option value="sem_responsavel">Sem Responsável</option>
-                  {users.filter(u => u.ativo).map(u => (
-                    <option key={u.id} value={u.id}>{u.nome}</option>
-                  ))}
+                  {users.filter(u => u.ativo).map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                 </select>
               </div>
 
-              {/* FILTRO POR QUARTO */}
               <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200 text-xs">
                 <DoorClosed className="w-3.5 h-3.5 text-slate-500" />
-                <select 
-                  value={filterRoom} 
-                  onChange={(e) => setFilterRoom(e.target.value)}
-                  className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer"
-                >
+                <select value={filterRoom} onChange={(e) => setFilterRoom(e.target.value)} className="bg-transparent font-bold text-slate-700 outline-none cursor-pointer">
                   <option value="todos">Todas as Acomodações</option>
                   <option value="sem_quarto">Sem Quarto Vinculado</option>
-                  {rooms.map(r => (
-                    <option key={r.id} value={r.numero}>Quarto {r.numero}</option>
-                  ))}
+                  {rooms.map(r => <option key={r.id} value={r.numero}>Quarto {r.numero}</option>)}
                 </select>
               </div>
 
-              <button 
-                onClick={() => void load()} 
-                className="h-10 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 font-bold text-xs flex items-center gap-1.5 text-slate-700 transition active:scale-95 shadow-xs"
-                title="Recarregar dados"
-              >
+              <button onClick={() => void load()} className="h-10 px-3.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 font-bold text-xs flex items-center gap-1.5 text-slate-700 transition active:scale-95 shadow-xs" title="Recarregar dados">
                 <RefreshCw className="w-3.5 h-3.5" /> Atualizar
               </button>
 
-              <button 
-                onClick={() => handleOpenCreateModal()} 
-                disabled={!activeBoardId || !boardColumns.length || saving || !canCreateInActiveBoard} 
-                className="h-10 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 disabled:opacity-40"
-                title={canCreateInActiveBoard ? 'Criar nova tarefa' : 'Sem permissão para criar neste setor'}
-              >
+              <button onClick={() => handleOpenCreateModal()} disabled={!activeBoardId || !boardColumns.length || saving || !canCreateInActiveBoard} className="h-10 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 disabled:opacity-40" title={canCreateInActiveBoard ? 'Criar nova tarefa' : 'Sem permissão para criar neste setor'}>
                 <Plus className="w-4 h-4" /> Novo Card
               </button>
             </div>
           </div>
         </header>
 
-        {/* FEEDBACK DE ERRO */}
         {error && (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 text-rose-800 p-4 flex items-start gap-3 shadow-xs">
             <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
@@ -533,7 +514,6 @@ export const KanbanModule: React.FC = () => {
           </div>
         )}
 
-        {/* ABAS DOS QUADROS OPERACIONAIS (SETORES) */}
         {visibleBoards.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {visibleBoards.map(board => {
@@ -541,75 +521,41 @@ export const KanbanModule: React.FC = () => {
               const DeptIcon = deptMeta.icon;
               const isActive = activeBoardId === board.id;
               const boardCount = accessCards.filter(c => c.board_id === board.id).length;
-
               return (
-                <button 
-                  key={board.id} 
-                  onClick={() => setActiveBoardId(board.id)} 
-                  className={`shrink-0 px-4 py-2.5 rounded-2xl border font-bold text-xs flex items-center gap-2 transition active:scale-95 shadow-xs ${
-                    isActive 
-                      ? 'bg-slate-950 text-white border-slate-950 shadow-md' 
-                      : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                  }`}
-                >
+                <button key={board.id} onClick={() => setActiveBoardId(board.id)} className={`shrink-0 px-4 py-2.5 rounded-2xl border font-bold text-xs flex items-center gap-2 transition active:scale-95 shadow-xs ${isActive ? 'bg-slate-950 text-white border-slate-950 shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300 hover:bg-slate-50'}`}>
                   <DeptIcon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-slate-500'}`} />
                   <span>{board.nome}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                    isActive ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {boardCount}
-                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${isActive ? 'bg-slate-800 text-amber-300' : 'bg-slate-100 text-slate-600'}`}>{boardCount}</span>
                 </button>
               );
             })}
           </div>
         )}
 
-        {/* GRID DE COLUNAS DO KANBAN */}
         {loading ? (
-          <div className="rounded-3xl bg-white border border-slate-200 p-12 text-center text-slate-500 font-medium shadow-xs">
-            Carregando quadros operacionais em tempo real…
-          </div>
+          <div className="rounded-3xl bg-white border border-slate-200 p-12 text-center text-slate-500 font-medium shadow-xs">Carregando quadros operacionais em tempo real…</div>
         ) : boardColumns.length === 0 ? (
           <div className="rounded-3xl bg-white border border-dashed border-slate-300 p-12 text-center shadow-xs">
             <h2 className="font-black text-slate-900 text-base">Nenhum quadro configurado</h2>
             <p className="text-xs text-slate-500 mt-1">Não há colunas ativas para o quadro selecionado.</p>
           </div>
         ) : (
-          <main 
-            className="grid gap-4 overflow-x-auto pb-4 items-start" 
-            style={{ gridTemplateColumns: `repeat(${Math.max(boardColumns.length, 1)}, minmax(300px, 1fr))` }}
-          >
+          <main className="grid gap-4 overflow-x-auto pb-4 items-start" style={{ gridTemplateColumns: `repeat(${Math.max(boardColumns.length, 1)}, minmax(300px, 1fr))` }}>
             {boardColumns.map(column => {
               const columnCards = boardCards.filter(card => card.column_id === column.id);
-
               return (
-                <section 
-                  key={column.id} 
-                  onDragOver={e => { if (baseCapabilities.move) e.preventDefault(); }} 
-                  onDrop={() => void moveCard(boardCards.find(c => c.id === draggingId), column.id)} 
-                  className="min-h-[560px] rounded-3xl bg-slate-100/70 border border-slate-200 p-3.5 flex flex-col justify-between shadow-2xs"
-                >
+                <section key={column.id} onDragOver={e => { if (baseCapabilities.move) e.preventDefault(); }} onDrop={() => void moveCard(boardCards.find(c => c.id === draggingId), column.id)} className="min-h-[560px] rounded-3xl bg-slate-100/70 border border-slate-200 p-3.5 flex flex-col justify-between shadow-2xs">
                   <div>
-                    {/* CABEÇALHO DA COLUNA */}
                     <div className="flex items-center justify-between px-2 pb-3">
                       <div>
                         <h2 className="font-black text-slate-900 text-sm">{column.nome}</h2>
-                        <p className="text-[11px] text-slate-400 font-medium">
-                          {columnCards.length} {columnCards.length === 1 ? 'item' : 'itens'}
-                        </p>
+                        <p className="text-[11px] text-slate-400 font-medium">{columnCards.length} {columnCards.length === 1 ? 'item' : 'itens'}</p>
                       </div>
-                      <button
-                        onClick={() => handleOpenCreateModal(column.id)}
-                        disabled={!canCreateInActiveBoard}
-                        className="w-7 h-7 rounded-xl bg-white hover:bg-slate-200 border border-slate-200 grid place-items-center text-slate-700 transition disabled:opacity-35 disabled:cursor-not-allowed"
-                        title={canCreateInActiveBoard ? 'Adicionar card nesta coluna' : 'Sem permissão para criar neste setor'}
-                      >
+                      <button onClick={() => handleOpenCreateModal(column.id)} disabled={!canCreateInActiveBoard} className="w-7 h-7 rounded-xl bg-white hover:bg-slate-200 border border-slate-200 grid place-items-center text-slate-700 transition disabled:opacity-35 disabled:cursor-not-allowed" title={canCreateInActiveBoard ? 'Adicionar card nesta coluna' : 'Sem permissão para criar neste setor'}>
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* LISTA DE CARDS DA COLUNA */}
                     <div className="space-y-2.5">
                       {columnCards.map(card => {
                         const deptMeta = getDepartmentMeta(card.departamento);
@@ -617,97 +563,73 @@ export const KanbanModule: React.FC = () => {
                         const assignedName = assigned?.name || (users.find(u => u.id === assigned?.id)?.nome) || null;
                         const canMoveThisCard = canPerformKanbanAction(actionAccessContext, 'move', card);
                         const canEditThisCard = canPerformKanbanAction(actionAccessContext, 'edit', card);
+                        const canArchiveThisCard = canPerformKanbanAction(actionAccessContext, 'delete', card);
+                        const canPermanentlyDeleteThisCard = hasFullKanbanVisibility && canArchiveThisCard;
 
                         return (
-                          <article 
-                            key={card.id} 
+                          <article
+                            key={card.id}
                             draggable={canMoveThisCard}
-                            onDragStart={() => { if (canMoveThisCard) setDraggingId(card.id); }} 
-                            onDragEnd={() => setDraggingId(null)} 
+                            onDragStart={() => { if (canMoveThisCard) setDraggingId(card.id); }}
+                            onDragEnd={() => setDraggingId(null)}
                             onClick={() => handleOpenEditModal(card)}
-                            className={`group rounded-2xl border bg-white p-3.5 hover:shadow-md transition duration-150 relative space-y-2.5 ${
-                              draggingId === card.id ? 'opacity-40 scale-95' : 'border-slate-200 hover:border-slate-300'
-                            } ${canMoveThisCard ? 'cursor-grab active:cursor-grabbing' : canEditThisCard ? 'cursor-pointer' : 'cursor-default'}`}
+                            className={`group rounded-2xl border bg-white p-3.5 hover:shadow-md transition duration-150 relative space-y-2.5 ${draggingId === card.id ? 'opacity-40 scale-95' : 'border-slate-200 hover:border-slate-300'} ${canMoveThisCard ? 'cursor-grab active:cursor-grabbing' : canEditThisCard ? 'cursor-pointer' : 'cursor-default'}`}
                           >
-                            {/* TOPO: TÍTULO, GRIP E PRIORIDADE */}
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-start gap-1.5 min-w-0">
                                 <GripVertical className={`w-3.5 h-3.5 mt-1 shrink-0 ${canMoveThisCard ? 'text-slate-300 group-hover:text-slate-500' : 'text-slate-200'}`} />
-                                <h3 className="font-bold text-xs text-slate-900 leading-snug break-words">
-                                  {card.titulo}
-                                </h3>
+                                <h3 className="font-bold text-xs text-slate-900 leading-snug break-words">{card.titulo}</h3>
                               </div>
-                              <span className={`shrink-0 text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${
-                                card.prioridade === 'critica' 
-                                  ? 'bg-rose-100 text-rose-700 border border-rose-200' 
-                                  : card.prioridade === 'atencao' 
-                                  ? 'bg-amber-100 text-amber-700 border border-amber-200' 
-                                  : 'bg-slate-100 text-slate-600 border border-slate-200'
-                              }`}>
-                                {card.prioridade}
-                              </span>
+                              <span className={`shrink-0 text-[9px] uppercase font-black px-2 py-0.5 rounded-full ${card.prioridade === 'critica' ? 'bg-rose-100 text-rose-700 border border-rose-200' : card.prioridade === 'atencao' ? 'bg-amber-100 text-amber-700 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>{card.prioridade}</span>
                             </div>
 
-                            {/* DESCRIÇÃO SE EXISTIR */}
-                            {card.descricao && (
-                              <p className="text-[11px] text-slate-500 line-clamp-2 pl-5">
-                                {card.descricao}
-                              </p>
-                            )}
+                            {card.descricao && <p className="text-[11px] text-slate-500 line-clamp-2 pl-5">{card.descricao}</p>}
 
-                            {/* LINHA DE METADADOS: SETOR, QUARTO E RESPONSÁVEL */}
                             <div className="pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[10px]">
-                              
-                              {/* BADGE DE SETOR */}
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold border ${deptMeta.badgeBg} ${deptMeta.text} ${deptMeta.border}`}>
                                 <deptMeta.icon className="w-2.5 h-2.5" />
                                 <span>{deptMeta.label}</span>
                               </span>
-
-                              {/* BADGE DE QUARTO (SE VINCULADO) */}
                               {card.room_number && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-extrabold bg-stone-900 text-amber-400 shadow-2xs">
-                                  <DoorClosed className="w-2.5 h-2.5" />
-                                  <span>Quarto {card.room_number}</span>
+                                  <DoorClosed className="w-2.5 h-2.5" /><span>Quarto {card.room_number}</span>
                                 </span>
                               )}
-
-                              {/* BADGE DE USUÁRIO / RESPONSÁVEL */}
-                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold ${
-                                assignedName 
-                                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
-                                  : 'bg-slate-50 text-slate-400 border border-dashed border-slate-200'
-                              }`}>
-                                <UserIcon className="w-2.5 h-2.5" />
-                                <span>{assignedName ? assignedName.split(' ')[0] : 'Sem responsável'}</span>
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-semibold ${assignedName ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-50 text-slate-400 border border-dashed border-slate-200'}`}>
+                                <UserIcon className="w-2.5 h-2.5" /><span>{assignedName ? assignedName.split(' ')[0] : 'Sem responsável'}</span>
                               </span>
                             </div>
 
-                            {/* RODAPÉ DO CARD: HORÁRIO DE CRIAÇÃO */}
+                            {(canEditThisCard || canArchiveThisCard || canPermanentlyDeleteThisCard) && (
+                              <div className="pt-2 border-t border-slate-100 flex items-center gap-1.5 flex-wrap" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+                                {canEditThisCard && (
+                                  <button type="button" onClick={e => { e.stopPropagation(); handleOpenEditModal(card); }} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[10px] font-black text-blue-700 hover:bg-blue-100 disabled:opacity-40" title="Editar este card">
+                                    <Pencil className="w-3 h-3" /> Editar
+                                  </button>
+                                )}
+                                {canArchiveThisCard && (
+                                  <button type="button" onClick={e => { e.stopPropagation(); void handleArchiveCard(card); }} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-black text-amber-800 hover:bg-amber-100 disabled:opacity-40" title="Arquivar mantendo histórico e possibilidade de restauração">
+                                    <Archive className="w-3 h-3" /> Arquivar
+                                  </button>
+                                )}
+                                {canPermanentlyDeleteThisCard && (
+                                  <button type="button" onClick={e => { e.stopPropagation(); void handlePermanentDeleteCard(card); }} disabled={saving} className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[10px] font-black text-rose-700 hover:bg-rose-100 disabled:opacity-40" title="Excluir permanentemente — ação irreversível">
+                                    <Trash2 className="w-3 h-3" /> Excluir
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
                             <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-                              <span className="flex items-center gap-1">
-                                <Clock3 className="w-3 h-3" />
-                                {new Date(card.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              {card.completed_at && (
-                                <span className="text-emerald-600 font-bold flex items-center gap-0.5">
-                                  <CheckCircle2 className="w-3 h-3" /> Concluído
-                                </span>
-                              )}
+                              <span className="flex items-center gap-1"><Clock3 className="w-3 h-3" />{new Date(card.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                              {card.completed_at && <span className="text-emerald-600 font-bold flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" /> Concluído</span>}
                             </div>
                           </article>
                         );
                       })}
 
                       {columnCards.length === 0 && (
-                        <div 
-                          onClick={() => { if (canCreateInActiveBoard) handleOpenCreateModal(column.id); }}
-                          className={`h-32 rounded-2xl border-2 border-dashed grid place-items-center text-xs transition ${
-                            canCreateInActiveBoard
-                              ? 'border-slate-200 hover:border-slate-300 hover:bg-white/50 text-slate-400 cursor-pointer'
-                              : 'border-slate-200 text-slate-300 cursor-default'
-                          }`}
-                        >
+                        <div onClick={() => { if (canCreateInActiveBoard) handleOpenCreateModal(column.id); }} className={`h-32 rounded-2xl border-2 border-dashed grid place-items-center text-xs transition ${canCreateInActiveBoard ? 'border-slate-200 hover:border-slate-300 hover:bg-white/50 text-slate-400 cursor-pointer' : 'border-slate-200 text-slate-300 cursor-default'}`}>
                           {canCreateInActiveBoard ? '+ Arraste ou clique para adicionar' : 'Sem permissão para criar neste setor'}
                         </div>
                       )}
@@ -720,190 +642,87 @@ export const KanbanModule: React.FC = () => {
         )}
       </div>
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE CARD OPERACIONAL */}
       {modalOpen && (
-        <div 
-          className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs p-4 grid place-items-center animate-in fade-in" 
-          onMouseDown={() => !saving && setModalOpen(false)}
-        >
-          <div 
-            className="w-full max-w-lg rounded-3xl bg-white shadow-2xl p-6 space-y-4 border border-slate-200" 
-            onMouseDown={e => e.stopPropagation()}
-          >
-            {/* TOPO DO MODAL */}
+        <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs p-4 grid place-items-center animate-in fade-in" onMouseDown={() => !saving && setModalOpen(false)}>
+          <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl p-6 space-y-4 border border-slate-200" onMouseDown={e => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h2 className="text-lg font-black text-slate-950">
-                  {editingCard ? 'Editar Tarefa Operacional' : 'Nova Tarefa Operacional'}
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Vinculada a Setor, Responsável e Acomodação
-                </p>
+                <h2 className="text-lg font-black text-slate-950">{editingCard ? 'Editar Tarefa Operacional' : 'Nova Tarefa Operacional'}</h2>
+                <p className="text-xs text-slate-500">Vinculada a Setor, Responsável e Acomodação</p>
               </div>
-              <button 
-                onClick={() => !saving && setModalOpen(false)} 
-                className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => !saving && setModalOpen(false)} className="p-2 rounded-xl hover:bg-slate-100 text-slate-500"><X className="w-5 h-5" /></button>
             </div>
 
-            {/* FORMULÁRIO */}
             <div className="space-y-3.5 max-h-[70vh] overflow-y-auto pr-1">
-              
-              {/* TÍTULO */}
               <div>
-                <label className="block text-xs font-black text-slate-700 mb-1">
-                  Título da Tarefa *
-                </label>
-                <input 
-                  autoFocus 
-                  value={formTitle} 
-                  onChange={e => setFormTitle(e.target.value)} 
-                  disabled={!canEditModalCard}
-                  className="w-full h-11 px-3.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-slate-900/10 text-sm font-medium disabled:bg-slate-50 disabled:text-slate-500" 
-                  placeholder="Ex.: Higienizar banheiro e repor toalhas" 
-                />
+                <label className="block text-xs font-black text-slate-700 mb-1">Título da Tarefa *</label>
+                <input autoFocus value={formTitle} onChange={e => setFormTitle(e.target.value)} disabled={!canEditModalCard} className="w-full h-11 px-3.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-slate-900/10 text-sm font-medium disabled:bg-slate-50 disabled:text-slate-500" placeholder="Ex.: Higienizar banheiro e repor toalhas" />
               </div>
 
-              {/* DESCRIÇÃO */}
               <div>
-                <label className="block text-xs font-black text-slate-700 mb-1">
-                  Descrição e Observações
-                </label>
-                <textarea 
-                  value={formDescription} 
-                  onChange={e => setFormDescription(e.target.value)} 
-                  disabled={!canEditModalCard}
-                  className="w-full min-h-20 p-3 rounded-xl border border-slate-200 outline-none resize-none text-xs font-medium disabled:bg-slate-50 disabled:text-slate-500" 
-                  placeholder="Detalhes específicos da execução…" 
-                />
+                <label className="block text-xs font-black text-slate-700 mb-1">Descrição e Observações</label>
+                <textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} disabled={!canEditModalCard} className="w-full min-h-20 p-3 rounded-xl border border-slate-200 outline-none resize-none text-xs font-medium disabled:bg-slate-50 disabled:text-slate-500" placeholder="Detalhes específicos da execução…" />
               </div>
 
-              {/* LINHA: SETOR & PRIORIDADE */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1">
-                    <Tag className="w-3.5 h-3.5 text-slate-500" /> Setor / Departamento *
-                  </label>
-                  <select 
-                    value={formDepartment} 
-                    onChange={e => setFormDepartment(e.target.value)} 
-                    disabled={!canEditModalCard || !hasFullKanbanVisibility}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
-                  >
-                    {DEPARTMENTS.map(d => (
-                      <option key={d.id} value={d.id}>{d.label}</option>
-                    ))}
+                  <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1"><Tag className="w-3.5 h-3.5 text-slate-500" /> Setor / Departamento *</label>
+                  <select value={formDepartment} onChange={e => setFormDepartment(e.target.value)} disabled={!canEditModalCard || !hasFullKanbanVisibility} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500">
+                    {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1">
-                    Prioridade
-                  </label>
-                  <select 
-                    value={formPriority} 
-                    onChange={e => setFormPriority(e.target.value)} 
-                    disabled={!canEditModalCard}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
-                  >
-                    <option value="normal">Normal</option>
-                    <option value="atencao">Atenção</option>
-                    <option value="critica">Crítica (Urgente)</option>
+                  <label className="block text-xs font-black text-slate-700 mb-1">Prioridade</label>
+                  <select value={formPriority} onChange={e => setFormPriority(e.target.value)} disabled={!canEditModalCard} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500">
+                    <option value="normal">Normal</option><option value="atencao">Atenção</option><option value="critica">Crítica (Urgente)</option>
                   </select>
                 </div>
               </div>
 
-              {/* LINHA: USUÁRIO RESPONSÁVEL & QUARTO */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1">
-                    <UserIcon className="w-3.5 h-3.5 text-slate-500" /> Usuário Responsável
-                  </label>
-                  <select 
-                    value={formUserId} 
-                    onChange={e => setFormUserId(e.target.value)} 
-                    disabled={!canAssignModalCard}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
-                    title={canAssignModalCard ? 'Alterar responsável' : 'Atribuição de responsável é restrita à gestão'}
-                  >
+                  <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1"><UserIcon className="w-3.5 h-3.5 text-slate-500" /> Usuário Responsável</label>
+                  <select value={formUserId} onChange={e => setFormUserId(e.target.value)} disabled={!canAssignModalCard} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500" title={canAssignModalCard ? 'Alterar responsável' : 'Atribuição de responsável é restrita à gestão'}>
                     <option value="">-- Não atribuído --</option>
-                    {users.filter(u => u.ativo).map(u => (
-                      <option key={u.id} value={u.id}>{u.nome} ({u.tipo_usuario})</option>
-                    ))}
+                    {users.filter(u => u.ativo).map(u => <option key={u.id} value={u.id}>{u.nome} ({u.tipo_usuario})</option>)}
                   </select>
                 </div>
-
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1">
-                    <DoorClosed className="w-3.5 h-3.5 text-slate-500" /> Quarto (Acomodação)
-                  </label>
-                  <select 
-                    value={formRoomNumber} 
-                    onChange={e => setFormRoomNumber(e.target.value)} 
-                    disabled={!canEditModalCard}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
-                  >
+                  <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1"><DoorClosed className="w-3.5 h-3.5 text-slate-500" /> Quarto (Acomodação)</label>
+                  <select value={formRoomNumber} onChange={e => setFormRoomNumber(e.target.value)} disabled={!canEditModalCard} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500">
                     <option value="">-- Nenhum / Geral --</option>
-                    {rooms.map(r => (
-                      <option key={r.id} value={r.numero}>Quarto {r.numero} ({r.nome})</option>
-                    ))}
+                    {rooms.map(r => <option key={r.id} value={r.numero}>Quarto {r.numero} ({r.nome})</option>)}
                   </select>
                 </div>
               </div>
 
-              {/* SELEÇÃO DE COLUNA (STATUS) */}
               {boardColumns.length > 0 && (
                 <div>
-                  <label className="block text-xs font-black text-slate-700 mb-1">
-                    Coluna (Status no Quadro)
-                  </label>
-                  <select 
-                    value={formColumnId} 
-                    onChange={e => setFormColumnId(e.target.value)} 
-                    disabled={!canMoveModalCard}
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
-                    title={canMoveModalCard ? 'Alterar status da tarefa' : 'Sem permissão para alterar o status'}
-                  >
-                    {boardColumns.map(col => (
-                      <option key={col.id} value={col.id}>{col.nome}</option>
-                    ))}
+                  <label className="block text-xs font-black text-slate-700 mb-1">Coluna (Status no Quadro)</label>
+                  <select value={formColumnId} onChange={e => setFormColumnId(e.target.value)} disabled={!canMoveModalCard} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500" title={canMoveModalCard ? 'Alterar status da tarefa' : 'Sem permissão para alterar o status'}>
+                    {boardColumns.map(col => <option key={col.id} value={col.id}>{col.nome}</option>)}
                   </select>
                 </div>
               )}
             </div>
 
-            {/* BOTÕES DE AÇÃO */}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
               {editingCard && canDeleteModalCard ? (
-                <button
-                  type="button"
-                  onClick={() => void handleDeleteCard(editingCard)}
-                  disabled={saving}
-                  className="px-3.5 py-2.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5 transition"
-                >
-                  <Trash2 className="w-4 h-4" /> Arquivar
-                </button>
-              ) : (
-                <div />
-              )}
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => void handleArchiveCard(editingCard)} disabled={saving} className="px-3.5 py-2.5 rounded-xl border border-amber-200 text-amber-800 hover:bg-amber-50 text-xs font-bold flex items-center gap-1.5 transition">
+                    <Archive className="w-4 h-4" /> Arquivar
+                  </button>
+                  {hasFullKanbanVisibility && (
+                    <button type="button" onClick={() => void handlePermanentDeleteCard(editingCard)} disabled={saving} className="px-3.5 py-2.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5 transition">
+                      <Trash2 className="w-4 h-4" /> Excluir
+                    </button>
+                  )}
+                </div>
+              ) : <div />}
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  disabled={saving}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  disabled={saving || !formTitle.trim() || !canEditModalCard}
-                  onClick={() => void handleSaveCard()}
-                  className="px-5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white text-xs font-black disabled:opacity-40 flex items-center gap-2 shadow-sm transition"
-                >
+                <button type="button" onClick={() => setModalOpen(false)} disabled={saving} className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition">Cancelar</button>
+                <button type="button" disabled={saving || !formTitle.trim() || !canEditModalCard} onClick={() => void handleSaveCard()} className="px-5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white text-xs font-black disabled:opacity-40 flex items-center gap-2 shadow-sm transition">
                   {saving ? 'Salvando…' : <><Check className="w-4 h-4" /> Salvar Card</>}
                 </button>
               </div>
