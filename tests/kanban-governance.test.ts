@@ -9,7 +9,7 @@ const workspace = readFileSync('src/components/admin/KanbanWorkspaceModule.tsx',
 
 test('governança delega criação, edição e movimento ao motor estável', () => {
   assert.ok(source.includes('await kanbanV2.createCard(input)'));
-  assert.ok(source.includes('await kanbanV2.updateCard(currentCard.id, updates)'));
+  assert.match(source, /await kanbanV2\.updateCard\(currentCard\.id,\s*(?:updates|governedUpdates)\)/);
   assert.ok(source.includes('await kanbanV2.moveCard(KANBAN_TENANT_ID, currentCard.id, targetColumnId)'));
 });
 
