@@ -14,11 +14,21 @@ export interface UserOperationalSectorAssignment {
   principalSectorId: OperationalSectorId | null;
 }
 
+export interface UserOperationalSectorState {
+  assignment: UserOperationalSectorAssignment;
+  available: boolean;
+  error?: string;
+}
+
 export function operationalSectorRowId(
   sectorId: OperationalSectorId,
   hotelId = DEFAULT_OPERATIONAL_HOTEL_ID,
 ): string {
   return `${hotelId}:${sectorId}`;
+}
+
+function emptyAssignment(userId: string, hotelId: string): UserOperationalSectorAssignment {
+  return { userId, hotelId, sectorIds: [], principalSectorId: null };
 }
 
 function sectorCodeFromRowId(value: unknown): unknown {
@@ -52,13 +62,12 @@ export async function fetchOperationalSectors(hotelId = DEFAULT_OPERATIONAL_HOTE
   return [...OPERATIONAL_SECTORS];
 }
 
-export async function fetchUserOperationalSectors(
+export async function fetchUserOperationalSectorsState(
   userId: string,
   hotelId = DEFAULT_OPERATIONAL_HOTEL_ID,
-): Promise<UserOperationalSectorAssignment> {
-  if (!userId) {
-    return { userId: '', hotelId, sectorIds: [], principalSectorId: null };
-  }
+): Promise<UserOperationalSectorState> {
+  const fallback = emptyAssignment(userId, hotelId);
+  if (!userId) return { assignment: fallback, available: false, error: 'Usuário inválido.' };
 
   try {
     const { data, error } = await supabase
@@ -67,7 +76,11 @@ export async function fetchUserOperationalSectors(
       .eq('hotel_id', hotelId)
       .eq('usuario_id', userId);
 
-    if (!error && Array.isArray(data)) {
+    if (error) {
+      return { assignment: fallback, available: false, error: error.message };
+    }
+
+    if (Array.isArray(data)) {
       const sectorIds = normalizeOperationalSectorIds(
         data.map(row => sectorCodeFromRowId(row.sector_id)),
       );
@@ -75,11 +88,28 @@ export async function fetchUserOperationalSectors(
         sectorCodeFromRowId(data.find(row => row.principal)?.sector_id),
       ])[0] || null;
 
-      return { userId, hotelId, sectorIds, principalSectorId };
+      return {
+        assignment: { userId, hotelId, sectorIds, principalSectorId },
+        available: true,
+      };
     }
-  } catch {}
+  } catch (error: any) {
+    return {
+      assignment: fallback,
+      available: false,
+      error: String(error?.message || error || 'Falha ao consultar setores do usuário.'),
+    };
+  }
 
-  return { userId, hotelId, sectorIds: [], principalSectorId: null };
+  return { assignment: fallback, available: false, error: 'Resposta inválida ao consultar setores.' };
+}
+
+export async function fetchUserOperationalSectors(
+  userId: string,
+  hotelId = DEFAULT_OPERATIONAL_HOTEL_ID,
+): Promise<UserOperationalSectorAssignment> {
+  const state = await fetchUserOperationalSectorsState(userId, hotelId);
+  return state.assignment;
 }
 
 export async function saveUserOperationalSectors(input: {
