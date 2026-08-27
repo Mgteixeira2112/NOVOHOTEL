@@ -18,7 +18,7 @@ export interface KanbanRealtimeHandlers {
   onStatusChange?: (status: KanbanRealtimeStatus) => void;
 }
 
-const latestCardVersionByChannel = new Map<string, Map<string, number>>();
+const latestCardVersionByHotel = new Map<string, Map<string, number>>();
 
 function getRecordVersion(record: any, payload?: any): number {
   const value = record?.updated_at ?? payload?.sentAt ?? payload?.commit_timestamp;
@@ -26,15 +26,15 @@ function getRecordVersion(record: any, payload?: any): number {
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
 
-function acceptCardVersion(channelName: string, cardId: string, version: number): boolean {
-  let versions = latestCardVersionByChannel.get(channelName);
+function acceptCardVersion(hotelId: string, cardId: string, version: number): boolean {
+  let versions = latestCardVersionByHotel.get(hotelId);
   if (!versions) {
     versions = new Map<string, number>();
-    latestCardVersionByChannel.set(channelName, versions);
+    latestCardVersionByHotel.set(hotelId, versions);
   }
   const previous = versions.get(cardId);
   if (previous !== undefined && version < previous) {
-    console.warn(`[REALTIME STALE EVENT IGNORED] card=${cardId} version=${version} previous=${previous}`);
+    console.warn(`[REALTIME STALE EVENT IGNORED] hotel=${hotelId} card=${cardId} version=${version} previous=${previous}`);
     return false;
   }
   versions.set(cardId, Math.max(previous ?? 0, version));
@@ -61,7 +61,7 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     if (!recordId) return;
     const record = payload.new || payload.old;
     const version = getRecordVersion(record, payload);
-    if (eventType !== 'DELETE' && !acceptCardVersion(channelName, recordId, version)) return;
+    if (eventType !== 'DELETE' && !acceptCardVersion(hotelId, recordId, version)) return;
     console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, recordId);
     if (eventType === 'DELETE') {
       handlers.onCardDelete?.(recordId);
@@ -81,7 +81,7 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     const card = message?.payload?.card as KanbanCard | undefined;
     if (!card?.id) return;
     const version = getRecordVersion(card, message?.payload);
-    if (!acceptCardVersion(broadcastChannelName, card.id, version)) return;
+    if (!acceptCardVersion(hotelId, card.id, version)) return;
     console.info('[REALTIME BROADCAST RECEIVED] Card UPDATE:', card.id);
     handlers.onCardUpdate?.(card);
   });
@@ -90,9 +90,16 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     const card = message?.payload?.card as KanbanCard | undefined;
     if (!card?.id) return;
     const version = getRecordVersion(card, message?.payload);
-    if (!acceptCardVersion(broadcastChannelName, card.id, version)) return;
+    if (!acceptCardVersion(hotelId, card.id, version)) return;
     console.info('[REALTIME BROADCAST RECEIVED] Card INSERT:', card.id);
     handlers.onCardInsert?.(card);
+  });
+
+  broadcastChannel.on('broadcast', { event: 'kanban_card_delete' }, (message: any) => {
+    const cardId = String(message?.payload?.cardId || '');
+    if (!cardId) return;
+    console.info('[REALTIME BROADCAST RECEIVED] Card DELETE:', cardId);
+    handlers.onCardDelete?.(cardId);
   });
 
   channel.on('postgres_changes', {
@@ -101,7 +108,6 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
     const recordId = String(payload.new?.id || payload.old?.id || '');
     if (!recordId) return;
-    console.info(`[REALTIME EVENT RECEIVED] kanban_boards -> ${eventType}:`, recordId);
     if (eventType === 'DELETE') handlers.onBoardDelete?.(recordId);
     else if (payload.new) {
       try {
@@ -120,7 +126,6 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
     const recordId = String(payload.new?.id || payload.old?.id || '');
     if (!recordId) return;
-    console.info(`[REALTIME EVENT RECEIVED] kanban_columns -> ${eventType}:`, recordId);
     if (eventType === 'DELETE') handlers.onColumnDelete?.(recordId);
     else if (payload.new) {
       try {
@@ -143,14 +148,10 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
 
   broadcastChannel.subscribe((status, err) => {
     console.info(`[KANBAN BROADCAST STATUS] ${status} for channel ${broadcastChannelName}`, err || '');
-    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      console.warn(`[KANBAN BROADCAST] Canal indisponível: ${status}`);
-    }
   });
 
   return () => {
-    latestCardVersionByChannel.delete(channelName);
-    latestCardVersionByChannel.delete(broadcastChannelName);
+    latestCardVersionByHotel.delete(hotelId);
     void supabase.removeChannel(channel);
     void supabase.removeChannel(broadcastChannel);
   };
