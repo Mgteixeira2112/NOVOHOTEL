@@ -20,8 +20,7 @@ import {
   AdminTab,
   RBACMatrixConfig,
   RBACResourceRule,
-  RBACRolePermission,
-  RBACAccessLevel
+  RBACRolePermission
 } from '../types';
 import { 
   INITIAL_HOTEL_CONFIG, 
@@ -37,8 +36,8 @@ import {
   INITIAL_RBAC_MATRIX
 } from '../data/mockInitialData';
 import { searchAvailableRooms, generateBookingCode, generateSmartLockPin } from '../utils/availability';
-import { TEMPLATE_PRESETS, applyThemeVariables } from '../utils/themeHelper';
-import { getCurrentTotpToken, generateOtpToken, validate2FACode, TotpStatus } from '../utils/securityHelper';
+import { TEMPLATE_PRESETS } from '../utils/themeHelper';
+import { generateOtpToken, validate2FACode, TotpStatus } from '../utils/securityHelper';
 import {
   isSupabaseConfigured,
   SUPABASE_URL,
@@ -76,6 +75,8 @@ import {
   SeedAllResponse
 } from '../services/supabase';
 import { subscribeToHotelRealtime } from '../core/realtime/hotelRealtimeManager';
+import { useHotelRBAC } from '../hooks/useHotelRBAC';
+import { useHotelSecurity2FA } from '../hooks/useHotelSecurity2FA';
 
 // Tipagem para os filtros de busca de disponibilidade
 interface BookingSearchFilters {
@@ -249,135 +250,148 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
-function saveToStorage<T>(key: string, data: T) {
+function saveToStorage<T>(key: string, value: T): void {
   try {
-    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(data));
+    localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(value));
   } catch (e) {
-    console.error('Falha ao salvar no localStorage', e);
+    console.error('Erro ao salvar no storage', e);
   }
 }
 
-// Datas padrão para formulário de busca inicial (amanhã / 3 noites após)
-const today = new Date();
-const tomorrow = new Date(today);
-tomorrow.setDate(tomorrow.getDate() + 1);
-const dayAfter = new Date(today);
-dayAfter.setDate(dayAfter.getDate() + 4);
-
-const formatDateForInput = (d: Date) => d.toISOString().split('T')[0];
-
 export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [hotelConfig, setHotelConfig] = useState<HotelConfig>(() => {
-    const loaded = loadFromStorage<HotelConfig>('hotel_config', INITIAL_HOTEL_CONFIG);
-    if (loaded.hero_titulo_custom === 'Hotel Centenário Itajubá') {
-      loaded.hero_titulo_custom = 'Hotel Centenário';
-    }
-    if (loaded.nome === 'Hotel Centenário Itajubá') {
-      loaded.nome = 'Hotel Centenário';
-    }
-    return loaded;
-  });
-  const [rooms, setRooms] = useState<Quarto[]>(() => loadFromStorage('rooms', INITIAL_ROOMS));
-  const [roomTypes, setRoomTypes] = useState<TipoQuarto[]>(() => loadFromStorage('room_types', INITIAL_ROOM_TYPES));
-  const [guests, setGuests] = useState<Hospede[]>(() => loadFromStorage('guests', INITIAL_GUESTS));
-  const [reservations, setReservations] = useState<Reserva[]>(() => loadFromStorage('reservations', INITIAL_RESERVATIONS));
-  const [payments, setPayments] = useState<Pagamento[]>(() => loadFromStorage('payments', INITIAL_PAYMENTS));
-  const [blocks, setBlocks] = useState<BloqueioQuarto[]>(() => loadFromStorage('blocks', INITIAL_BLOCKS));
-  const [automations, setAutomations] = useState<AutomacaoMensagem[]>(() => loadFromStorage('automations', INITIAL_AUTOMATIONS));
-  const [users, setUsers] = useState<Usuario[]>(() => loadFromStorage('users', INITIAL_USERS));
-  const [rbacMatrix, setRbacMatrix] = useState<RBACMatrixConfig>(() => {
-    return loadFromStorage<RBACMatrixConfig>('rbac_matrix', hotelConfig.rbac_matrix || INITIAL_RBAC_MATRIX);
-  });
-  const [securityLogs, setSecurityLogs] = useState<SecurityLogEntry[]>(() => loadFromStorage('security_logs', INITIAL_SECURITY_LOGS));
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => loadFromStorage('auth_authenticated', false));
+  // Estado das Configurações do Hotel
+  const [hotelConfig, setHotelConfig] = useState<HotelConfig>(() =>
+    loadFromStorage('config', INITIAL_HOTEL_CONFIG)
+  );
+
+  // Entidades Operacionais do PMS
+  const [rooms, setRooms] = useState<Quarto[]>(() =>
+    loadFromStorage('rooms', INITIAL_ROOMS)
+  );
+  const [roomTypes, setRoomTypes] = useState<TipoQuarto[]>(() =>
+    loadFromStorage('room_types', INITIAL_ROOM_TYPES)
+  );
+  const [guests, setGuests] = useState<Hospede[]>(() =>
+    loadFromStorage('guests', INITIAL_GUESTS)
+  );
+  const [reservations, setReservations] = useState<Reserva[]>(() =>
+    loadFromStorage('reservations', INITIAL_RESERVATIONS)
+  );
+  const [payments, setPayments] = useState<Pagamento[]>(() =>
+    loadFromStorage('payments', INITIAL_PAYMENTS)
+  );
+  const [blocks, setBlocks] = useState<BloqueioQuarto[]>(() =>
+    loadFromStorage('blocks', INITIAL_BLOCKS)
+  );
+  const [automations, setAutomations] = useState<AutomacaoMensagem[]>(() =>
+    loadFromStorage('automations', INITIAL_AUTOMATIONS)
+  );
+  const [users, setUsers] = useState<Usuario[]>(() =>
+    loadFromStorage('users', INITIAL_USERS)
+  );
+
+  // Usuário Atual e Autenticação
   const [currentUser, setCurrentUser] = useState<Usuario>(() => {
-    const saved = loadFromStorage<Usuario | null>('auth_current_user', null);
-    if (saved) {
-      const found = INITIAL_USERS.find((u) => u.id === saved.id);
-      return found || saved;
-    }
-    return INITIAL_USERS[0];
+    const saved = loadFromStorage<Usuario | null>('current_user', null);
+    return saved || INITIAL_USERS[0];
   });
-
-  // Supabase State
-  const [supabaseStatus, setSupabaseStatus] = useState<'connected' | 'syncing' | 'offline' | 'needs_tables' | 'error'>('syncing');
-  const [supabaseLatency, setSupabaseLatency] = useState<number | null>(null);
-  const [supabaseMessage, setSupabaseMessage] = useState<string>('Verificando conexão com o Supabase...');
-  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => loadFromStorage('supabase_last_sync', null));
-  const [healthReport, setHealthReport] = useState<SupabaseHealthReport | null>(null);
-
-  // Estados de Autenticação e 2FA
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() =>
+    loadFromStorage('is_authenticated', true)
+  );
   const [pendingLoginUser, setPendingLoginUser] = useState<Usuario | null>(null);
   const [pendingLoginOtp, setPendingLoginOtp] = useState<string | null>(null);
-  const [activeActionOtp, setActiveActionOtp] = useState<string | null>(null);
 
-  // Estado do Modal de Confirmação de Operações 2FA
-  const [securityModalOpen, setSecurityModalOpen] = useState(false);
-  const [securityModalRequest, setSecurityModalRequest] = useState<SecurityActionRequest | null>(null);
-
-  // Sincronizador de Token TOTP em Tempo Real
-  const [currentTotp, setCurrentTotp] = useState<TotpStatus>(() => getCurrentTotpToken());
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTotp(getCurrentTotpToken());
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Estado de Visualização
-  const [currentView, setCurrentView] = useState<'landing' | 'admin'>('landing');
+  // Estado de Navegação e Interface
+  const [currentView, setCurrentView] = useState<'landing' | 'admin'>('admin');
   const [adminActiveTab, setAdminActiveTab] = useState<string>('dashboard');
 
-  // Estado do Modal de Reservas
+  // Modal do Motor de Reservas da Landing Page
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSearchFilters, setBookingSearchFilters] = useState<BookingSearchFilters>({
-    checkin: formatDateForInput(tomorrow),
-    checkout: formatDateForInput(dayAfter),
+    checkin: new Date().toISOString().split('T')[0],
+    checkout: new Date(Date.now() + 86400000 * 2).toISOString().split('T')[0],
     guests: 2,
   });
 
-  // Sincronização Automática com o Armazenamento Local (localStorage) e Variáveis CSS de Tema
-  useEffect(() => { 
-    saveToStorage('hotel_config', hotelConfig); 
-    applyThemeVariables(hotelConfig.tema_cor);
-  }, [hotelConfig]);
-  useEffect(() => { saveToStorage('rooms', rooms); }, [rooms]);
-  useEffect(() => { saveToStorage('room_types', roomTypes); }, [roomTypes]);
-  useEffect(() => { saveToStorage('guests', guests); }, [guests]);
-  useEffect(() => { saveToStorage('reservations', reservations); }, [reservations]);
-  useEffect(() => { saveToStorage('payments', payments); }, [payments]);
-  useEffect(() => { saveToStorage('blocks', blocks); }, [blocks]);
-  useEffect(() => { saveToStorage('automations', automations); }, [automations]);
-  useEffect(() => { saveToStorage('users', users); }, [users]);
-  useEffect(() => { saveToStorage('rbac_matrix', rbacMatrix); }, [rbacMatrix]);
-  useEffect(() => { saveToStorage('security_logs', securityLogs); }, [securityLogs]);
-  useEffect(() => { saveToStorage('auth_authenticated', isAuthenticated); }, [isAuthenticated]);
-  useEffect(() => { saveToStorage('auth_current_user', currentUser); }, [currentUser]);
-  useEffect(() => { if (lastSyncTime) saveToStorage('supabase_last_sync', lastSyncTime); }, [lastSyncTime]);
+  // Supabase Cloud State
+  const [supabaseStatus, setSupabaseStatus] = useState<'connected' | 'syncing' | 'offline' | 'needs_tables' | 'error'>('connected');
+  const [supabaseLatency, setSupabaseLatency] = useState<number | null>(null);
+  const [supabaseMessage, setSupabaseMessage] = useState<string>('Conectado à nuvem Supabase');
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [healthReport, setHealthReport] = useState<SupabaseHealthReport | null>(null);
 
-  // Função para testar saúde da conexão com Supabase e verificar todas as 10 tabelas
+  // RBAC Hook
+  const initialRbac = hotelConfig.rbac_matrix || loadFromStorage('rbac_matrix', INITIAL_RBAC_MATRIX);
+  const {
+    rbacMatrix,
+    setRbacMatrix,
+    hasTabAccess,
+    getRoleModulePermission,
+    updateRBACPermission,
+    updateRBACMatrix,
+    addRBACResource,
+    editRBACResource,
+    deleteRBACResource,
+    resetRBACMatrix
+  } = useHotelRBAC(currentUser, initialRbac, (updated) => {
+    setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
+    saveToStorage('rbac_matrix', updated);
+  });
+
+  // 2FA Security Hook
+  const initialLogs = loadFromStorage('security_logs', INITIAL_SECURITY_LOGS);
+  const {
+    securityModalOpen,
+    securityModalRequest,
+    activeActionOtp,
+    securityLogs,
+    setSecurityLogs,
+    currentTotp,
+    confirmActionWith2FA,
+    closeSecurityModal,
+    generateNewActionOtp,
+    verifyAndExecuteAction,
+    clearSecurityLogs
+  } = useHotelSecurity2FA(currentUser, initialLogs);
+
+  // Persistência local automática em cada alteração
+  useEffect(() => saveToStorage('config', hotelConfig), [hotelConfig]);
+  useEffect(() => saveToStorage('rooms', rooms), [rooms]);
+  useEffect(() => saveToStorage('room_types', roomTypes), [roomTypes]);
+  useEffect(() => saveToStorage('guests', guests), [guests]);
+  useEffect(() => saveToStorage('reservations', reservations), [reservations]);
+  useEffect(() => saveToStorage('payments', payments), [payments]);
+  useEffect(() => saveToStorage('blocks', blocks), [blocks]);
+  useEffect(() => saveToStorage('automations', automations), [automations]);
+  useEffect(() => saveToStorage('users', users), [users]);
+  useEffect(() => saveToStorage('current_user', currentUser), [currentUser]);
+  useEffect(() => saveToStorage('is_authenticated', isAuthenticated), [isAuthenticated]);
+  useEffect(() => saveToStorage('security_logs', securityLogs), [securityLogs]);
+
+  // Monitor de Saúde e Conexão com o Supabase
   const checkSupabaseHealth = useCallback(async () => {
     try {
-      const report = await checkAllTablesHealth();
-      setHealthReport(report);
-      setSupabaseLatency(report.latencyMs);
+      const conn = await testSupabaseConnection();
+      setSupabaseLatency(conn.latencyMs);
 
-      if (report.connected) {
-        if (!report.allTablesReady) {
+      if (conn.connected) {
+        const report = await checkAllTablesHealth();
+        setHealthReport(report);
+
+        if (report.missingTables.length > 0) {
           setSupabaseStatus('needs_tables');
-          setSupabaseMessage(`Supabase conectado! ${report.missingTables.length} tabela(s) pendente(s) de criação.`);
+          setSupabaseMessage(`Banco conectado, mas faltam tabelas: ${report.missingTables.join(', ')}`);
         } else {
           setSupabaseStatus('connected');
-          setSupabaseMessage(`Conectado ao Supabase com todas as 10 tabelas prontas (${report.latencyMs}ms).`);
+          setSupabaseMessage(`Conexão OK com Supabase (${conn.latencyMs}ms) - Todas as 10 tabelas operacionais.`);
         }
       } else {
         setSupabaseStatus('offline');
-        setSupabaseMessage(report.message || 'Falha ao conectar com o Supabase.');
+        setSupabaseMessage(`Supabase Offline ou Inacessível: ${conn.message || 'Verifique as chaves de API'}`);
       }
-    } catch (err: any) {
+    } catch {
       setSupabaseStatus('offline');
-      setSupabaseMessage(`Erro de conexão: ${err?.message || 'Inacessível'}`);
+      setSupabaseMessage('Erro ao verificar saúde do banco de dados na nuvem.');
     }
   }, []);
 
@@ -394,7 +408,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     checkSupabaseHealth();
   }, [checkSupabaseHealth]);
 
-  // Função para sincronizar dados do Supabase para o estado local
+  // Sincronizar todos os dados da nuvem para o estado local
   const syncFromSupabase = useCallback(async (): Promise<{ success: boolean; message: string }> => {
     setSupabaseStatus('syncing');
     setSupabaseMessage('Sincronizando com Supabase...');
@@ -449,7 +463,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setSupabaseMessage(msg);
       return { success: false, message: msg };
     }
-  }, []);
+  }, [setSecurityLogs]);
 
   // Exportar / Enviar todos os dados locais para o Supabase (Seed / Push)
   const exportAllToSupabase = useCallback(async () => {
@@ -485,10 +499,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Inicialização no Mount: testa Supabase e tenta sincronizar
   useEffect(() => {
     checkSupabaseHealth().then(() => {
-      // Tenta sincronizar se estiver conectado
-      syncFromSupabase().catch(() => {
-        // Fallback silencioso para dados locais
-      });
+      syncFromSupabase().catch(() => {});
     });
   }, [checkSupabaseHealth, syncFromSupabase]);
 
@@ -702,7 +713,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     setBlocks((prev) => [...prev, newBlock]);
     upsertBlockToSupabase(newBlock).catch(() => {});
-    // Define o quarto como em manutenção
     setRoomStatus(blockData.quarto_id, 'manutencao');
   };
 
@@ -754,7 +764,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     deleteGuestFromSupabase(id).catch(() => {});
   };
 
-  // Fluxo Completo de Criação de Reserva (conforme fluxo de reservas)
+  // Fluxo Completo de Criação de Reserva
   const createReservation = (params: {
     quartoId: string;
     checkin: string;
@@ -843,7 +853,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPayments((prev) => [payment, ...prev]);
     setReservations((prev) => [reservation, ...prev]);
 
-    // Gravação no Supabase
     upsertPaymentToSupabase(payment).catch(() => {});
     upsertReservationToSupabase(reservation).catch(() => {});
 
@@ -862,7 +871,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (extras?.checkinTime) updated.checkin_horario = extras.checkinTime;
         if (extras?.checkoutTime) updated.checkout_horario = extras.checkoutTime;
 
-        // Atualização automática do status operacional do quarto
         if (status === 'checkin_realizado') {
           setRoomStatus(res.quarto_id, 'ocupado');
         } else if (status === 'checkout_concluido') {
@@ -952,7 +960,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     text = text.replace(/{CHECKIN}/g, res.checkin);
     text = text.replace(/{CHECKOUT}/g, res.checkout);
     text = text.replace(/{QTD_HOSPEDES}/g, res.quantidade_hospedes.toString());
-    text = text.replace(/{PIN_FECHADURA}/g, res.pin_fechadura || '123456');
+    text = text.replace(/{PIN_FECHADURA}/g, res.pin_fechadura || '849201');
     text = text.replace(/{VALOR_TOTAL}/g, `R$ ${res.valor_total.toFixed(2)}`);
 
     return {
@@ -963,7 +971,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
-  // Controle de Autenticação e Sessão do Usuário com 2 Fatores (2FA)
+  // Controle de Autenticação e Sessão do Usuário
   const loginValidatePassword = (email: string, senha: string): { success: boolean; user?: Usuario; message?: string; otp?: string } => {
     const trimmedEmail = email.trim().toLowerCase();
     const user = users.find((u) => u.email.trim().toLowerCase() === trimmedEmail);
@@ -1013,7 +1021,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       detalhes: `Acesso autenticado com sucesso via ${method.toUpperCase()} e senha corporativa.`,
       categoria: 'Sistema',
       metodo_2fa: method,
-      ip_origem: '187.54.120.45 (Terminal Autenticado)',
+      ip_origem: '10.0.4.12 (Terminal Autenticado)',
       sucesso: true,
       timestamp: new Date().toISOString(),
     };
@@ -1024,7 +1032,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setAdminActiveTab('dashboard');
     setSecurityLogs((prev) => [newLog, ...prev]);
 
-    // Supabase
     upsertUserToSupabase(updatedUser).catch(() => {});
     insertSecurityLogToSupabase(newLog).catch(() => {});
 
@@ -1072,87 +1079,10 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsAuthenticated(false);
     setPendingLoginUser(null);
     setPendingLoginOtp(null);
-    setSecurityModalOpen(false);
-    setSecurityModalRequest(null);
-  };
-
-  // Sistema de Confirmação em 2 Fatores para Operações Administrativas (Área Logada)
-  const confirmActionWith2FA = (request: SecurityActionRequest) => {
-    const otp = generateOtpToken();
-    setActiveActionOtp(otp);
-    setSecurityModalRequest(request);
-    setSecurityModalOpen(true);
-  };
-
-  const closeSecurityModal = () => {
-    setSecurityModalOpen(false);
-    setSecurityModalRequest(null);
-    setActiveActionOtp(null);
-  };
-
-  const generateNewActionOtp = (): string => {
-    const otp = generateOtpToken();
-    setActiveActionOtp(otp);
-    return otp;
-  };
-
-  const verifyAndExecuteAction = (
-    password: string, 
-    code2FA: string, 
-    method: TwoFactorMethod = 'authenticator'
-  ): { success: boolean; message: string } => {
-    if (!securityModalRequest) {
-      return { success: false, message: 'Nenhuma operação em processo de autorização.' };
-    }
-
-    // 1. Validação Obrigatória da Senha Operacional do Usuário Atual
-    const expectedPassword = currentUser.senha || 'admin';
-    if (!password || password.trim() !== expectedPassword.trim()) {
-      return { success: false, message: 'Senha operacional incorreta. Insira a senha do usuário conectado.' };
-    }
-
-    // 2. Validação Obrigatória do Token de 2 Fatores
-    const validation = validate2FACode(code2FA, activeActionOtp || undefined);
-    if (!validation.valid) {
-      return { success: false, message: 'Código de Confirmação em 2 Fatores incorreto ou expirado.' };
-    }
-
-    // 3. Registrar Log de Auditoria Imutável
-    const newLog: SecurityLogEntry = {
-      id: `log-${Date.now()}`,
-      usuario_id: currentUser.id,
-      usuario_nome: currentUser.nome,
-      usuario_email: currentUser.email,
-      usuario_cargo: currentUser.cargo_titulo || currentUser.tipo_usuario,
-      operacao: securityModalRequest.title,
-      detalhes: `${securityModalRequest.description}${securityModalRequest.details ? ' | ' + securityModalRequest.details : ''}`,
-      categoria: securityModalRequest.category,
-      metodo_2fa: method,
-      ip_origem: '187.54.120.45 (Terminal Seguro PMS)',
-      sucesso: true,
-      timestamp: new Date().toISOString(),
-    };
-
-    setSecurityLogs((prev) => [newLog, ...prev]);
-    insertSecurityLogToSupabase(newLog).catch(() => {});
-
-    // 4. Executa a Ação Operacional
-    try {
-      securityModalRequest.onConfirm();
-    } catch (e) {
-      console.error('Erro ao executar ação após autorização 2FA', e);
-    }
-
-    // 5. Finaliza e Fecha o Modal
     closeSecurityModal();
-    return { success: true, message: 'Operação autorizada e executada com sucesso com validação 2FA!' };
   };
 
-  const clearSecurityLogs = () => {
-    setSecurityLogs(INITIAL_SECURITY_LOGS);
-  };
-
-  // Gerenciamento Completo de Usuários
+  // Gerenciamento de Usuários
   const addUser = (userData: Omit<Usuario, 'id' | 'created_at'>): Usuario => {
     const newUser: Usuario = {
       ...userData,
@@ -1241,115 +1171,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!currentUser) return;
     updateUser(currentUser.id, data);
   };
-
-  // Gerenciamento e Customização da Matriz de Controle de Acesso (RBAC)
-  const hasTabAccess = useCallback((role: UserRole, tab: AdminTab): boolean => {
-    if (role === 'admin') return true;
-
-    // Buscar recurso mapeado com adminTab ou pelo id
-    const rule = rbacMatrix.resources.find((r) => r.adminTab === tab || r.id === tab);
-    if (rule && rule.permissions && rule.permissions[role]) {
-      return rule.permissions[role].granted;
-    }
-
-    // Regras padrão de contingência
-    if (tab === 'dashboard') return true;
-    if (tab === 'settings' || tab === 'users') return role === 'gerente';
-    if (tab === 'financial') return role === 'gerente' || role === 'financeiro';
-    if (tab === 'rooms' || tab === 'checkin_out' || tab === 'frigobar') return true;
-    if (tab === 'reservations' || tab === 'guests' || tab === 'automation') return role === 'gerente' || role === 'recepcionista';
-    return false;
-  }, [rbacMatrix]);
-
-  const getRoleModulePermission = useCallback((role: UserRole, resourceId: string): RBACRolePermission | undefined => {
-    const rule = rbacMatrix.resources.find((r) => r.id === resourceId);
-    return rule?.permissions?.[role];
-  }, [rbacMatrix]);
-
-  const updateRBACPermission = useCallback((resourceId: string, role: UserRole, permissionData: Partial<RBACRolePermission>) => {
-    setRbacMatrix((prev) => {
-      const updated: RBACMatrixConfig = {
-        ...prev,
-        lastUpdated: new Date().toISOString(),
-        updatedBy: currentUser?.nome ? `${currentUser.nome} (${currentUser.cargo_titulo || currentUser.tipo_usuario})` : 'Administrador',
-        resources: prev.resources.map((res) => {
-          if (res.id !== resourceId) return res;
-          const currentRolePerm = res.permissions[role] || { granted: true, level: 'total', customLabel: '✓ Total' };
-          return {
-            ...res,
-            permissions: {
-              ...res.permissions,
-              [role]: {
-                ...currentRolePerm,
-                ...permissionData,
-              },
-            },
-          };
-        }),
-      };
-      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
-      return updated;
-    });
-  }, [currentUser]);
-
-  const updateRBACMatrix = useCallback((newMatrix: RBACMatrixConfig) => {
-    setRbacMatrix(newMatrix);
-    setHotelConfig((h) => ({ ...h, rbac_matrix: newMatrix }));
-    saveToStorage('rbac_matrix', newMatrix);
-  }, []);
-
-  const addRBACResource = useCallback((resourceData: Omit<RBACResourceRule, 'id'>) => {
-    const newId = 'custom-res-' + Date.now();
-    setRbacMatrix((prev) => {
-      const updated: RBACMatrixConfig = {
-        ...prev,
-        lastUpdated: new Date().toISOString(),
-        updatedBy: currentUser?.nome || 'Administrador',
-        resources: [
-          ...prev.resources,
-          {
-            ...resourceData,
-            id: newId,
-            isCustom: true,
-          },
-        ],
-      };
-      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
-      return updated;
-    });
-  }, [currentUser]);
-
-  const editRBACResource = useCallback((resourceId: string, data: Partial<RBACResourceRule>) => {
-    setRbacMatrix((prev) => {
-      const updated: RBACMatrixConfig = {
-        ...prev,
-        lastUpdated: new Date().toISOString(),
-        updatedBy: currentUser?.nome || 'Administrador',
-        resources: prev.resources.map((r) => (r.id === resourceId ? { ...r, ...data } : r)),
-      };
-      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
-      return updated;
-    });
-  }, [currentUser]);
-
-  const deleteRBACResource = useCallback((resourceId: string) => {
-    setRbacMatrix((prev) => {
-      const updated: RBACMatrixConfig = {
-        ...prev,
-        lastUpdated: new Date().toISOString(),
-        updatedBy: currentUser?.nome || 'Administrador',
-        resources: prev.resources.filter((r) => r.id !== resourceId),
-      };
-      setHotelConfig((h) => ({ ...h, rbac_matrix: updated }));
-      return updated;
-    });
-  }, [currentUser]);
-
-  const resetRBACMatrix = useCallback(() => {
-    setRbacMatrix(INITIAL_RBAC_MATRIX);
-    setHotelConfig((h) => ({ ...h, rbac_matrix: INITIAL_RBAC_MATRIX }));
-    saveToStorage('rbac_matrix', INITIAL_RBAC_MATRIX);
-  }, []);
 
   // Motor de Busca de Disponibilidade
   const searchRooms = (checkin: string, checkout: string, guestsCount: number) => {

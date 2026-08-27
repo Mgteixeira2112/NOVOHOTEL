@@ -86,6 +86,7 @@ export const KanbanModule: React.FC = () => {
     syncAllFromPMS,
     isSyncing,
     lastSyncTime,
+    realtimeStatus,
     simulateIncomingEvent, 
     playTestSound,
     resetToDefaults 
@@ -211,10 +212,22 @@ export const KanbanModule: React.FC = () => {
                 </span>
               )}
 
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                Live Sincronizado
-              </span>
+              {realtimeStatus === 'SUBSCRIBED' ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-extrabold flex items-center gap-1 border border-emerald-200" title="Conexão Realtime ativa com Supabase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  Realtime Ativo
+                </span>
+              ) : realtimeStatus === 'CONNECTING' ? (
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold flex items-center gap-1 border border-amber-200" title="Estabelecendo conexão Realtime">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Conectando...
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px] font-extrabold flex items-center gap-1 border border-rose-200" title="Tentando reconectar ao Realtime">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                  Offline
+                </span>
+              )}
             </div>
             
             <p className="text-xs sm:text-sm text-stone-500 leading-relaxed">

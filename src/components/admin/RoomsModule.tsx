@@ -78,7 +78,7 @@ export const RoomsModule: React.FC = () => {
     tamanho_m2: 35,
     vista: 'Vista para os Jardins',
     cama: '1 Cama Queen Size',
-    fechadura_pin: '123456',
+    fechadura_pin: '849201',
     fotos: [
       'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80'
     ] as string[],
@@ -122,7 +122,7 @@ export const RoomsModule: React.FC = () => {
       tamanho_m2: room.tamanho_m2,
       vista: room.vista,
       cama: room.cama,
-      fechadura_pin: room.fechadura_pin || '123456',
+      fechadura_pin: room.fechadura_pin || '849201',
       fotos: room.fotos && room.fotos.length > 0 ? room.fotos : [
         'https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1000&q=80'
       ],
