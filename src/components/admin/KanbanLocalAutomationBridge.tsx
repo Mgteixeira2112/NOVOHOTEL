@@ -1,5 +1,10 @@
 import React, { useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
+import {
+  canonicalKanbanAutomationId,
+  isKanbanAutomationCard,
+  kanbanAutomationRoomNumber,
+} from '../../domain/kanbanAutomation';
 
 const STORAGE_KEY = 'ITAJUBA_PMS_KANBAN_STORE_V2';
 const EVENT_BUS_NAME = 'itajuba_kanban_event';
@@ -16,66 +21,9 @@ interface LocalStoreData {
   cards?: LocalCard[];
 }
 
-function safeIdPart(value: string) {
-  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
-}
-
-function roomNumberOf(card: LocalCard): string | null {
-  if (typeof card.room_number === 'string' && card.room_number) return card.room_number;
-  const match = typeof card.location === 'string' ? card.location.match(/(\d{2,4})/) : null;
-  return match?.[1] || null;
-}
-
-function isAutomationCard(card: LocalCard): boolean {
-  if (!card?.id || card.id.startsWith('card-init-')) return false;
-  const metadata = card.metadata && typeof card.metadata === 'object' ? card.metadata : {};
-  return Boolean(
-    card.id.startsWith('gov_card_')
-    || card.id.startsWith('man_card_')
-    || card.id.startsWith('rec_card_')
-    || card.id.startsWith('mb_card_')
-    || card.id.startsWith('auto-gov-room-')
-    || card.id.startsWith('auto-man-room-')
-    || card.id.startsWith('auto-res-')
-    || card.id.startsWith('auto-minibar-room-')
-    || metadata.pms_synced === true
-    || metadata.type === 'frigobar_restock'
-    || metadata.automation_source === true
-    || metadata.automation_type
-    || card.reservation_id
-  );
-}
-
-function canonicalAutomationId(card: LocalCard): string {
-  if (typeof card.reservation_id === 'string' && card.reservation_id) {
-    return `auto-res-${safeIdPart(card.reservation_id)}`;
-  }
-
-  const room = roomNumberOf(card);
-  const metadata = card.metadata && typeof card.metadata === 'object' ? card.metadata : {};
-  const isMinibar = metadata.type === 'frigobar_restock'
-    || metadata.automation_type === 'frigobar_restock'
-    || card.id.startsWith('mb_card_')
-    || String(card.titulo || '').toLowerCase().includes('frigobar');
-  if (room && isMinibar) return `auto-minibar-room-${safeIdPart(room)}`;
-
-  if (room && (card.departamento === 'manutencao' || card.id.startsWith('man_card_'))) {
-    return `auto-man-room-${safeIdPart(room)}`;
-  }
-
-  const isGovernance = card.id.startsWith('gov_card_')
-    || metadata.pms_synced === true
-    || metadata.automation_type === 'room_cleaning';
-  if (room && card.departamento === 'governanca' && isGovernance) {
-    return `auto-gov-room-${safeIdPart(room)}`;
-  }
-
-  return card.id;
-}
-
 function fingerprint(card: LocalCard): string {
   return JSON.stringify({
-    id: canonicalAutomationId(card),
+    id: canonicalKanbanAutomationId(card),
     updated_at: card.updated_at || null,
     board_id: card.board_id,
     column_id: card.column_id,
@@ -98,7 +46,7 @@ function persistentPayload(card: LocalCard): Record<string, unknown> {
     : { automation_bridge: true };
 
   return {
-    id: canonicalAutomationId(card),
+    id: canonicalKanbanAutomationId(card),
     hotel_id: KANBAN_TENANT_ID,
     board_id: card.board_id,
     column_id: card.column_id,
@@ -107,7 +55,7 @@ function persistentPayload(card: LocalCard): Record<string, unknown> {
     prioridade: card.prioridade || 'normal',
     ordem: Number(card.ordem ?? Date.now()),
     departamento: card.departamento ?? null,
-    room_number: card.room_number ?? roomNumberOf(card),
+    room_number: card.room_number ?? kanbanAutomationRoomNumber(card),
     location: card.location ?? null,
     assigned_to: card.assigned_to ?? null,
     checklist: Array.isArray(card.checklist) ? card.checklist : [],
@@ -135,8 +83,8 @@ function readInitialSnapshot(): Map<string, string> {
     const parsed = JSON.parse(raw) as LocalStoreData;
     if (!Array.isArray(parsed?.cards)) return snapshot;
 
-    parsed.cards.filter(isAutomationCard).forEach(card => {
-      snapshot.set(canonicalAutomationId(card), fingerprint(card));
+    parsed.cards.filter(isKanbanAutomationCard).forEach(card => {
+      snapshot.set(canonicalKanbanAutomationId(card), fingerprint(card));
     });
   } catch {}
 
@@ -159,8 +107,8 @@ export const KanbanLocalAutomationBridge: React.FC = () => {
       if (!Array.isArray(store?.cards)) return;
 
       const changed: LocalCard[] = [];
-      store.cards.filter(isAutomationCard).forEach(card => {
-        const id = canonicalAutomationId(card);
+      store.cards.filter(isKanbanAutomationCard).forEach(card => {
+        const id = canonicalKanbanAutomationId(card);
         const nextFingerprint = fingerprint(card);
         if (snapshotRef.current.get(id) === nextFingerprint) return;
         snapshotRef.current.set(id, nextFingerprint);
