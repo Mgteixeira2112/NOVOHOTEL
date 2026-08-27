@@ -12,6 +12,9 @@
     "test": "tsx --test tests/**/*.test.ts",
     "audit:production": "node scripts/phase17-production-audit.mjs"
   },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@google/genai": "^2.4.0",
     "@supabase/supabase-js": "^2.112.4",
