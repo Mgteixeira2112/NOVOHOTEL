@@ -48,8 +48,11 @@ export function defaultKanbanCapabilities(role: string): KanbanCapabilities {
     return { view: true, create: true, edit: true, move: true, assign: true, delete: true };
   }
 
+  // Perfis operacionais podem administrar integralmente os cards que já fazem
+  // parte do seu escopo autorizado. A visibilidade por setor/responsável continua
+  // sendo a barreira que impede operar tarefas fora da fila permitida.
   if (role === 'recepcionista' || role === 'governanca' || role === 'cozinha_only') {
-    return { view: true, create: true, edit: true, move: true, assign: false, delete: false };
+    return { view: true, create: true, edit: true, move: true, assign: true, delete: true };
   }
 
   return { view: false, create: false, edit: false, move: false, assign: false, delete: false };
@@ -89,8 +92,8 @@ export function filterKanbanCardsForUser<T extends KanbanAccessCard>(
  * Permissão efetiva de uma ação sobre um card.
  *
  * - admin/gerente possuem controle integral;
- * - perfis operacionais podem editar/mover apenas cards que já podem visualizar;
- * - atribuição de outro responsável e exclusão ficam reservadas à gestão;
+ * - perfis operacionais podem editar, mover, atribuir e arquivar somente cards
+ *   que já pertencem ao seu escopo de setor/responsabilidade;
  * - cards arquivados/excluídos nunca podem ser alterados pelo fluxo operacional ativo.
  */
 export function canPerformKanbanAction(
