@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase';
-import { KANBAN_TENANT_ID } from './kanbanV2';
 
+const KANBAN_TENANT_ID = 'default_hotel';
 const GOVERNANCE_BOARD = 'kanban-board-governanca';
 const RECEPTION_BOARD = 'kanban-board-recepcao';
 const MAINTENANCE_BOARD = 'kanban-board-manutencao';
@@ -248,9 +248,6 @@ export const kanbanAutomationSync = {
         tags: ['Frigobar', 'Reposição'],
         metadata: { automation_type: 'frigobar_restock' },
       }));
-      await updateActiveByRoom(roomNumber, 'governanca', {
-        completed_at: null,
-      });
       return;
     }
 
