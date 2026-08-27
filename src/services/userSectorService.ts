@@ -14,6 +14,19 @@ export interface UserOperationalSectorAssignment {
   principalSectorId: OperationalSectorId | null;
 }
 
+export function operationalSectorRowId(
+  sectorId: OperationalSectorId,
+  hotelId = DEFAULT_OPERATIONAL_HOTEL_ID,
+): string {
+  return `${hotelId}:${sectorId}`;
+}
+
+function sectorCodeFromRowId(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const separator = value.lastIndexOf(':');
+  return separator >= 0 ? value.slice(separator + 1) : value;
+}
+
 export async function fetchOperationalSectors(hotelId = DEFAULT_OPERATIONAL_HOTEL_ID) {
   try {
     const { data, error } = await supabase
@@ -55,9 +68,11 @@ export async function fetchUserOperationalSectors(
       .eq('usuario_id', userId);
 
     if (!error && Array.isArray(data)) {
-      const sectorIds = normalizeOperationalSectorIds(data.map(row => row.sector_id));
+      const sectorIds = normalizeOperationalSectorIds(
+        data.map(row => sectorCodeFromRowId(row.sector_id)),
+      );
       const principalSectorId = normalizeOperationalSectorIds([
-        data.find(row => row.principal)?.sector_id,
+        sectorCodeFromRowId(data.find(row => row.principal)?.sector_id),
       ])[0] || null;
 
       return { userId, hotelId, sectorIds, principalSectorId };
@@ -94,7 +109,7 @@ export async function saveUserOperationalSectors(input: {
     const rows = sectorIds.map(sectorId => ({
       hotel_id: hotelId,
       usuario_id: input.userId,
-      sector_id: sectorId,
+      sector_id: operationalSectorRowId(sectorId, hotelId),
       principal: sectorId === principalSectorId,
     }));
 
