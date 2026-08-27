@@ -337,6 +337,7 @@ export const kanbanV2 = {
     if (!cardId || !columnId) throw new Error('Identificador do card e coluna de destino são obrigatórios.');
 
     const updatedAt = new Date().toISOString();
+    let updatedCard: KanbanV2Card | null = null;
 
     // Tenta atualizar no Supabase se disponível
     try {
@@ -346,31 +347,294 @@ export const kanbanV2 = {
         .select('*')
         .single();
       if (!error && data) {
-        const persisted = normalizeCard(data);
-        const store = getLocalStore();
-        store.cards = store.cards.map(c => c.id === persisted.id ? persisted : c);
-        saveLocalStore(store);
-        return persisted;
+        updatedCard = normalizeCard(data);
       }
     } catch {}
 
-    // Atualiza localmente com sucesso
     const store = getLocalStore();
     const card = store.cards.find(c => c.id === cardId);
-    if (!card) throw new Error('Card não encontrado.');
+    if (!card && !updatedCard) throw new Error('Card não encontrado.');
 
     const isDone = columnId.includes('concluido') || columnId.includes('liberado') || columnId.includes('finalizado') || columnId.includes('resolvido') || columnId.includes('entregue');
 
-    const updatedCard: KanbanV2Card = {
-      ...card,
-      column_id: columnId,
-      updated_at: updatedAt,
-      completed_at: isDone ? (card.completed_at || updatedAt) : null,
-    };
+    if (!updatedCard && card) {
+      updatedCard = {
+        ...card,
+        column_id: columnId,
+        updated_at: updatedAt,
+        completed_at: isDone ? (card.completed_at || updatedAt) : null,
+      };
+    }
 
-    store.cards = store.cards.map(c => c.id === cardId ? updatedCard : c);
-    saveLocalStore(store);
-    return updatedCard;
+    if (updatedCard) {
+      store.cards = store.cards.map(c => c.id === cardId ? updatedCard! : c);
+      saveLocalStore(store);
+
+      // Sincronização em tempo real do status de acomodações com o mapa operacional
+      const roomNum = updatedCard.room_number || (updatedCard.location?.match(/(\d{2,4})/)?.[1]);
+      if (roomNum) {
+        let newRoomStatus: string | null = null;
+        const colLower = columnId.toLowerCase();
+        const dept = (updatedCard.departamento || '').toLowerCase();
+
+        if (colLower.includes('liberado') || (dept === 'governanca' && isDone) || colLower === 'man-col-resolvido') {
+          newRoomStatus = 'disponivel';
+        } else if (colLower.includes('limpeza') || colLower.includes('inspecao') || (dept === 'governanca' && colLower.includes('andamento'))) {
+          newRoomStatus = 'limpeza';
+        } else if (colLower.includes('a-limpar') || (dept === 'governanca' && colLower.includes('entrada'))) {
+          newRoomStatus = 'sujo';
+        } else if (colLower.includes('man-col') || dept === 'manutencao') {
+          if (colLower.includes('resolvido') || isDone) {
+            newRoomStatus = 'disponivel';
+          } else {
+            newRoomStatus = 'manutencao';
+          }
+        }
+
+        if (newRoomStatus && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('pms_room_status_sync', {
+            detail: { roomNumber: roomNum, status: newRoomStatus, sourceCardId: cardId }
+          }));
+        }
+      }
+
+      return updatedCard;
+    }
+
+    throw new Error('Falha ao processar movimentação do card.');
+  },
+
+  // Sincroniza o status de um quarto (disponivel, sujo, limpeza, manutencao, ocupado) com o Kanban
+  async syncRoomStatus(roomNumber: string, status: string, details?: string) {
+    if (!roomNumber) return;
+    const store = getLocalStore();
+    const now = new Date().toISOString();
+    let modified = false;
+
+    if (status === 'sujo') {
+      const existing = store.cards.find(c => 
+        (c.room_number === roomNumber || c.location?.includes(roomNumber)) &&
+        (c.board_id === 'kanban-board-governanca' || c.board_id === DEFAULT_BOARD_ID) &&
+        !c.column_id.includes('liberado') && !c.column_id.includes('concluido')
+      );
+      if (!existing) {
+        const newCard: KanbanV2Card = {
+          id: `gov_card_${roomNumber}_${Date.now()}`,
+          hotel_id: KANBAN_TENANT_ID,
+          board_id: 'kanban-board-governanca',
+          column_id: 'gov-col-a-limpar',
+          titulo: `Higienização Quarto ${roomNumber}`,
+          descricao: details || 'Quarto desocupado / necessita arrumação e higienização completa.',
+          prioridade: 'atencao',
+          ordem: Date.now(),
+          departamento: 'governanca',
+          room_number: roomNumber,
+          location: `Quarto ${roomNumber}`,
+          assigned_to: null,
+          checklist: [
+            { id: '1', text: 'Troca de enxoval e toalhas', completed: false },
+            { id: '2', text: 'Limpeza de banheiro e desinfecção', completed: false },
+            { id: '3', text: 'Reposição de frigobar e amenities', completed: false },
+            { id: '4', text: 'Vistoria e liberação final', completed: false }
+          ],
+          comments: [],
+          metadata: { pms_synced: true },
+          completed_at: null,
+          created_at: now,
+          updated_at: now,
+          is_archived: false,
+          guest_name: null,
+          reservation_id: null,
+          service_details: null,
+          tags: ['Governança', 'Higienização'],
+          notes: null
+        };
+        store.cards.push(newCard);
+        modified = true;
+      }
+    } else if (status === 'limpeza') {
+      store.cards = store.cards.map(c => {
+        if ((c.room_number === roomNumber || c.location?.includes(roomNumber)) && (c.board_id === 'kanban-board-governanca' || c.departamento === 'governanca')) {
+          modified = true;
+          return { ...c, column_id: 'gov-col-em-limpeza', updated_at: now };
+        }
+        return c;
+      });
+    } else if (status === 'manutencao') {
+      const existing = store.cards.find(c => 
+        (c.room_number === roomNumber || c.location?.includes(roomNumber)) &&
+        (c.board_id === 'kanban-board-manutencao' || c.departamento === 'manutencao') &&
+        !c.column_id.includes('resolvido')
+      );
+      if (!existing) {
+        const newCard: KanbanV2Card = {
+          id: `man_card_${roomNumber}_${Date.now()}`,
+          hotel_id: KANBAN_TENANT_ID,
+          board_id: 'kanban-board-manutencao',
+          column_id: 'man-col-chamados',
+          titulo: `Manutenção Quarto ${roomNumber}: ${details || 'Reparo Técnico'}`,
+          descricao: details || 'Ordem de serviço aberta para manutenção do quarto.',
+          prioridade: 'critica',
+          ordem: Date.now(),
+          departamento: 'manutencao',
+          room_number: roomNumber,
+          location: `Quarto ${roomNumber}`,
+          assigned_to: null,
+          checklist: [],
+          comments: [],
+          metadata: { pms_synced: true },
+          completed_at: null,
+          created_at: now,
+          updated_at: now,
+          is_archived: false,
+          guest_name: null,
+          reservation_id: null,
+          service_details: null,
+          tags: ['Manutenção', 'Reparo'],
+          notes: null
+        };
+        store.cards.push(newCard);
+        modified = true;
+      }
+    } else if (status === 'disponivel') {
+      store.cards = store.cards.map(c => {
+        if ((c.room_number === roomNumber || c.location?.includes(roomNumber)) && !c.is_archived) {
+          if (c.board_id === 'kanban-board-governanca' && !c.column_id.includes('liberado')) {
+            modified = true;
+            return { ...c, column_id: 'gov-col-liberado', completed_at: now, updated_at: now };
+          }
+          if (c.board_id === 'kanban-board-manutencao' && !c.column_id.includes('resolvido')) {
+            modified = true;
+            return { ...c, column_id: 'man-col-resolvido', completed_at: now, updated_at: now };
+          }
+          if (c.board_id === DEFAULT_BOARD_ID && !c.column_id.includes('concluido')) {
+            modified = true;
+            return { ...c, column_id: 'kanban-default-column-concluido', completed_at: now, updated_at: now };
+          }
+        }
+        return c;
+      });
+    }
+
+    if (modified) {
+      saveLocalStore(store);
+    }
+  },
+
+  // Sincroniza reservas com os quadros operacionais da Recepção
+  async syncReservation(res: { id: string; codigo: string; status: string; guestName: string; roomNumber?: string; total?: number; checkin?: string; checkout?: string }) {
+    const store = getLocalStore();
+    const now = new Date().toISOString();
+    let modified = false;
+
+    if (res.status === 'confirmada' || res.status === 'checkin_realizado') {
+      const existing = store.cards.find(c => c.reservation_id === res.id || c.titulo.includes(res.codigo));
+      const targetColumn = res.status === 'checkin_realizado' ? 'rec-col-atendimento' : 'rec-col-novos';
+
+      if (!existing) {
+        const newCard: KanbanV2Card = {
+          id: `rec_card_${res.id}_${Date.now()}`,
+          hotel_id: KANBAN_TENANT_ID,
+          board_id: 'kanban-board-recepcao',
+          column_id: targetColumn,
+          titulo: `${res.status === 'checkin_realizado' ? 'Hóspede In-House' : 'Check-in Previsto'}: ${res.guestName} (#${res.codigo})`,
+          descricao: `Reserva #${res.codigo} | Quarto ${res.roomNumber || 'A definir'} | Check-out: ${res.checkout || 'N/D'}`,
+          prioridade: 'normal',
+          ordem: Date.now(),
+          departamento: 'recepcao',
+          room_number: res.roomNumber || null,
+          location: res.roomNumber ? `Quarto ${res.roomNumber}` : 'Recepção',
+          assigned_to: null,
+          checklist: [],
+          comments: [],
+          metadata: { reservation_id: res.id, total: res.total },
+          completed_at: null,
+          created_at: now,
+          updated_at: now,
+          is_archived: false,
+          guest_name: res.guestName,
+          reservation_id: res.id,
+          service_details: null,
+          tags: ['Recepção', res.status === 'checkin_realizado' ? 'In-House' : 'Check-in'],
+          notes: null
+        };
+        store.cards.push(newCard);
+        modified = true;
+      } else if (existing.column_id !== targetColumn) {
+        store.cards = store.cards.map(c => c.id === existing.id ? { ...c, column_id: targetColumn, updated_at: now } : c);
+        modified = true;
+      }
+    } else if (res.status === 'checkout_concluido' || res.status === 'cancelada') {
+      store.cards = store.cards.map(c => {
+        if ((c.reservation_id === res.id || c.titulo.includes(res.codigo)) && !c.column_id.includes('finalizado')) {
+          modified = true;
+          return { ...c, column_id: 'rec-col-finalizado', completed_at: now, updated_at: now };
+        }
+        return c;
+      });
+    }
+
+    if (modified) {
+      saveLocalStore(store);
+    }
+  },
+
+  // Sincroniza estado do frigobar com governança/almoxarifado
+  async syncMinibar(roomNumber: string, needsRestock: boolean, missingSummary?: string) {
+    if (!roomNumber) return;
+    const store = getLocalStore();
+    const now = new Date().toISOString();
+    let modified = false;
+
+    if (needsRestock) {
+      const existing = store.cards.find(c => 
+        (c.room_number === roomNumber || c.location?.includes(roomNumber)) &&
+        c.titulo.toLowerCase().includes('frigobar') &&
+        !c.column_id.includes('concluido') && !c.column_id.includes('liberado')
+      );
+      if (!existing) {
+        const newCard: KanbanV2Card = {
+          id: `mb_card_${roomNumber}_${Date.now()}`,
+          hotel_id: KANBAN_TENANT_ID,
+          board_id: 'kanban-board-governanca',
+          column_id: 'gov-col-a-limpar',
+          titulo: `Reposição Frigobar Quarto ${roomNumber}`,
+          descricao: missingSummary || `Quarto ${roomNumber} necessita reposição de itens de frigobar.`,
+          prioridade: 'atencao',
+          ordem: Date.now(),
+          departamento: 'governanca',
+          room_number: roomNumber,
+          location: `Quarto ${roomNumber}`,
+          assigned_to: null,
+          checklist: [],
+          comments: [],
+          metadata: { type: 'frigobar_restock' },
+          completed_at: null,
+          created_at: now,
+          updated_at: now,
+          is_archived: false,
+          guest_name: null,
+          reservation_id: null,
+          service_details: null,
+          tags: ['Frigobar', 'Reposição'],
+          notes: null
+        };
+        store.cards.push(newCard);
+        modified = true;
+      }
+    } else {
+      store.cards = store.cards.map(c => {
+        if ((c.room_number === roomNumber || c.location?.includes(roomNumber)) && c.titulo.toLowerCase().includes('frigobar')) {
+          modified = true;
+          return { ...c, column_id: 'gov-col-liberado', completed_at: now, updated_at: now };
+        }
+        return c;
+      });
+    }
+
+    if (modified) {
+      saveLocalStore(store);
+    }
   },
 
   subscribe(_hotelId: string | undefined, handlers: { onInsert: (card: KanbanV2Card) => void; onUpdate: (card: KanbanV2Card) => void; onDelete: (card: KanbanV2Card) => void; onStatus: (status: string) => void }) {

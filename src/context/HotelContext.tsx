@@ -77,6 +77,7 @@ import {
 import { subscribeToHotelRealtime } from '../core/realtime/hotelRealtimeManager';
 import { useHotelRBAC } from '../hooks/useHotelRBAC';
 import { useHotelSecurity2FA } from '../hooks/useHotelSecurity2FA';
+import { kanbanV2 } from '../services/kanbanV2';
 
 // Tipagem para os filtros de busca de disponibilidade
 interface BookingSearchFilters {
@@ -604,6 +605,28 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, [hotelConfig?.id]);
 
+  // Sincronização em tempo real das acomodações com movimentações do Kanban Operacional
+  useEffect(() => {
+    const handleRoomStatusSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ roomNumber: string; status: RoomStatus }>;
+      if (!customEvent.detail) return;
+      const { roomNumber, status } = customEvent.detail;
+      setRooms((prev) =>
+        prev.map((r) => {
+          if (r.numero === roomNumber && r.status !== status) {
+            const updated = { ...r, status };
+            upsertRoomToSupabase(updated).catch(() => {});
+            return updated;
+          }
+          return r;
+        })
+      );
+    };
+
+    window.addEventListener('pms_room_status_sync', handleRoomStatusSync);
+    return () => window.removeEventListener('pms_room_status_sync', handleRoomStatusSync);
+  }, []);
+
   const openBookingWithRoom = (roomId?: string) => {
     setBookingSearchFilters((prev) => ({
       ...prev,
@@ -666,6 +689,9 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (r.id === id) {
           const updated = { ...r, ...data };
           upsertRoomToSupabase(updated).catch(() => {});
+          if (data.status && r.status !== data.status) {
+            kanbanV2.syncRoomStatus(r.numero, data.status).catch(() => {});
+          }
           return updated;
         }
         return r;
@@ -856,6 +882,17 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     upsertPaymentToSupabase(payment).catch(() => {});
     upsertReservationToSupabase(reservation).catch(() => {});
 
+    kanbanV2.syncReservation({
+      id: reservation.id,
+      codigo: reservation.codigo,
+      status: reservation.status,
+      guestName: guest.nome,
+      roomNumber: room.numero,
+      total: reservation.valor_total,
+      checkin: reservation.checkin,
+      checkout: reservation.checkout,
+    }).catch(() => {});
+
     return { reserva: reservation, hospede: guest, pagamento: payment };
   };
 
@@ -877,6 +914,19 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setRoomStatus(res.quarto_id, 'limpeza');
         }
 
+        const room = rooms.find(r => r.id === res.quarto_id);
+        const guest = guests.find(g => g.id === res.hospede_id);
+        kanbanV2.syncReservation({
+          id: res.id,
+          codigo: res.codigo || res.codigo_reserva || res.id,
+          status,
+          guestName: guest?.nome || 'Hóspede',
+          roomNumber: room?.numero,
+          total: res.valor_total,
+          checkin: res.checkin,
+          checkout: res.checkout,
+        }).catch(() => {});
+
         upsertReservationToSupabase(updated).catch(() => {});
         return updated;
       })
@@ -893,6 +943,16 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           status: 'cancelada',
           observacoes: motivo ? `${res.observacoes ? res.observacoes + ' | ' : ''}Cancelada: ${motivo}` : res.observacoes,
         };
+        const room = rooms.find(r => r.id === res.quarto_id);
+        const guest = guests.find(g => g.id === res.hospede_id);
+        kanbanV2.syncReservation({
+          id: res.id,
+          codigo: res.codigo || res.codigo_reserva || res.id,
+          status: 'cancelada',
+          guestName: guest?.nome || 'Hóspede',
+          roomNumber: room?.numero,
+        }).catch(() => {});
+
         upsertReservationToSupabase(updated).catch(() => {});
         return updated;
       })

@@ -20,6 +20,7 @@ import {
   INITIAL_FRIGOBAR_FORNECEDORES
 } from '../data/mockFrigobarData';
 import { useHotel } from './HotelContext';
+import { kanbanV2 } from '../services/kanbanV2';
 
 export interface MinibarItemSummary {
   product: FrigobarProduct;
@@ -451,6 +452,8 @@ export const FrigobarProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setMovements((prev) => [...newMovements, ...prev]);
     }
 
+    kanbanV2.syncMinibar(minibar.quarto_numero, false).catch(() => {});
+
     return {
       success: true,
       message: `Frigobar do Quarto ${minibar.quarto_numero} abastecido com sucesso! (${countRestocked} itens repostos).`,
@@ -651,6 +654,12 @@ export const FrigobarProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         return r;
       })
     );
+
+    const needsRestock = !auditData.reposicao_efetuada && auditData.itens_consumidos.length > 0;
+    const missingSummary = needsRestock 
+      ? `Itens consumidos: ${auditData.itens_consumidos.map(i => `${i.quantidade}x ${i.produto_nome}`).join(', ')}`
+      : undefined;
+    kanbanV2.syncMinibar(auditData.quarto_numero, needsRestock, missingSummary).catch(() => {});
   }, [products, addConsumoToReservation]);
 
   // Reabastecer Todos os Quartos
