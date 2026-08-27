@@ -16,6 +16,10 @@ export interface KanbanBootstrapResult {
   message?: string;
 }
 
+function safeIdPart(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 function isRealLegacyCard(value: unknown): value is KanbanV2Card {
   if (!value || typeof value !== 'object') return false;
   const card = value as Partial<KanbanV2Card>;
@@ -27,13 +31,38 @@ function isRealLegacyCard(value: unknown): value is KanbanV2Card {
   return true;
 }
 
+function canonicalLegacyCardId(card: KanbanV2Card): string {
+  if (card.reservation_id) return `auto-res-${safeIdPart(card.reservation_id)}`;
+
+  const room = card.room_number || card.location?.match(/(\d{2,4})/)?.[1] || null;
+  const metadata = card.metadata || {};
+  const isMinibar = (metadata as any).type === 'frigobar_restock'
+    || (metadata as any).automation_type === 'frigobar_restock'
+    || card.id.startsWith('mb_card_')
+    || card.titulo.toLowerCase().includes('frigobar');
+  if (room && isMinibar) return `auto-minibar-room-${safeIdPart(room)}`;
+
+  if (room && (card.id.startsWith('man_card_') || card.departamento === 'manutencao')) {
+    return `auto-man-room-${safeIdPart(room)}`;
+  }
+
+  const isGovernanceAutomation = card.id.startsWith('gov_card_')
+    || (metadata as any).pms_synced === true
+    || (metadata as any).automation_type === 'room_cleaning';
+  if (room && card.departamento === 'governanca' && isGovernanceAutomation) {
+    return `auto-gov-room-${safeIdPart(room)}`;
+  }
+
+  return card.id;
+}
+
 function sanitizeLegacyCard(card: KanbanV2Card): Record<string, unknown> {
   const metadata = card.metadata && typeof card.metadata === 'object'
     ? { ...card.metadata, primary_database_bootstrap: true }
     : { primary_database_bootstrap: true };
 
   return {
-    id: card.id,
+    id: canonicalLegacyCardId(card),
     hotel_id: KANBAN_TENANT_ID,
     board_id: card.board_id,
     column_id: card.column_id,
@@ -74,8 +103,8 @@ function readLegacyCards(): KanbanV2Card[] {
 
 /**
  * Promove somente cards reais que existem no cache legado e ainda não existem
- * no projeto Supabase principal. O processo é idempotente por ID e nunca
- * sobrescreve um card que já esteja no banco.
+ * no projeto Supabase principal. Automações antigas são normalizadas para IDs
+ * determinísticos, evitando duplicidade por reserva/quarto.
  */
 export async function bootstrapLegacyKanbanCards(): Promise<KanbanBootstrapResult> {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
@@ -110,7 +139,17 @@ export async function bootstrapLegacyKanbanCards(): Promise<KanbanBootstrapResul
         : [],
     );
 
-    const missingCards = localCards.filter(card => !remoteIds.has(card.id));
+    const uniqueLocalByCanonicalId = new Map<string, KanbanV2Card>();
+    localCards.forEach(card => {
+      const id = canonicalLegacyCardId(card);
+      const previous = uniqueLocalByCanonicalId.get(id);
+      if (!previous || String(card.updated_at || '') >= String(previous.updated_at || '')) {
+        uniqueLocalByCanonicalId.set(id, card);
+      }
+    });
+
+    const candidates = Array.from(uniqueLocalByCanonicalId.values());
+    const missingCards = candidates.filter(card => !remoteIds.has(canonicalLegacyCardId(card)));
     if (missingCards.length === 0) {
       localStorage.setItem(BOOTSTRAP_MARKER_KEY, new Date().toISOString());
       return {
