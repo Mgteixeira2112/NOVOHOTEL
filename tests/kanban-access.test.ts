@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  canCreateKanbanCardInSector,
+  canPerformKanbanAction,
   canViewKanbanCard,
   defaultKanbanCapabilities,
   defaultKanbanVisibilityScope,
@@ -63,4 +65,44 @@ test('capacidades padrão separam operação de gestão', () => {
     view: true, create: true, edit: true, move: true, assign: false, delete: false,
   });
   assert.equal(defaultKanbanCapabilities('financeiro').view, false);
+});
+
+test('operacional pode editar e mover apenas cards visíveis, sem atribuir ou excluir', () => {
+  const context = {
+    userId: 'joao',
+    role: 'governanca',
+    sectorIds: ['governanca'] as const,
+    scope: 'sector_or_assigned' as const,
+  };
+
+  assert.equal(canPerformKanbanAction(context, 'edit', cards[2]), true);
+  assert.equal(canPerformKanbanAction(context, 'move', cards[2]), true);
+  assert.equal(canPerformKanbanAction(context, 'edit', cards[3]), false);
+  assert.equal(canPerformKanbanAction(context, 'assign', cards[2]), false);
+  assert.equal(canPerformKanbanAction(context, 'delete', cards[2]), false);
+});
+
+test('admin e gerente podem atribuir e excluir cards ativos', () => {
+  const admin = { userId: 'admin-1', role: 'admin', sectorIds: [], scope: 'all' as const };
+  const gerente = { userId: 'ger-1', role: 'gerente', sectorIds: [], scope: 'all' as const };
+
+  assert.equal(canPerformKanbanAction(admin, 'assign', cards[0]), true);
+  assert.equal(canPerformKanbanAction(admin, 'delete', cards[0]), true);
+  assert.equal(canPerformKanbanAction(gerente, 'assign', cards[0]), true);
+  assert.equal(canPerformKanbanAction(gerente, 'delete', cards[0]), true);
+  assert.equal(canPerformKanbanAction(admin, 'edit', cards[4]), false);
+});
+
+test('criação operacional respeita setores quando configurados e preserva fallback legado sem setores', () => {
+  const configured = {
+    userId: 'joao',
+    role: 'recepcionista',
+    sectorIds: ['recepcao'] as const,
+    scope: 'sector_or_assigned' as const,
+  };
+  const fallback = { ...configured, sectorIds: [] };
+
+  assert.equal(canCreateKanbanCardInSector(configured, 'recepcao'), true);
+  assert.equal(canCreateKanbanCardInSector(configured, 'governanca'), false);
+  assert.equal(canCreateKanbanCardInSector(fallback, 'governanca'), true);
 });
