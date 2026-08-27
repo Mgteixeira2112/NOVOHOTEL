@@ -25,7 +25,6 @@ export const kanbanRepository = {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para updateCard');
     const payload = mapKanbanCardToDatabaseRow(card, hotelId);
     const { id: _id, hotel_id: _hotelId, ...updatePayload } = payload;
-    // O timestamp da aplicação é enviado explicitamente para que Realtime possa ordenar versões.
     updatePayload.updated_at = card.updated_at || new Date().toISOString();
     const { data, error } = await supabase.from('kanban_cards').update(updatePayload).eq('id', card.id).eq('hotel_id', hotelId).select('*').single();
     if (error) { console.error('[SUPABASE UPDATE ERROR] Card:', card.id, error); throw error; }
@@ -40,15 +39,12 @@ export const kanbanRepository = {
 
   async upsertCard(hotelId: string, card: KanbanCard): Promise<void> {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para upsertCard');
-
     const { data: existing, error: lookupError } = await supabase.from('kanban_cards').select('id').eq('id', card.id).eq('hotel_id', hotelId).maybeSingle();
     if (lookupError) { console.error('[SUPABASE LOOKUP ERROR] Card:', card.id, lookupError); throw lookupError; }
-
     if (existing) {
       await this.updateCard(hotelId, card);
       return;
     }
-
     const payload = mapKanbanCardToDatabaseRow(card, hotelId);
     const { data, error } = await supabase.from('kanban_cards').insert(payload).select('*').single();
     if (error) { console.error('[SUPABASE INSERT ERROR] Card:', card.id, error); throw error; }
@@ -61,10 +57,11 @@ export const kanbanRepository = {
     await broadcastKanbanCardChange(hotelId, 'INSERT', persistedCard);
   },
 
-  async deleteCard(cardId: string): Promise<void> {
-    if (!cardId) throw new Error('[KANBAN REPOSITORY] cardId é obrigatório para deleteCard');
-    const { error } = await supabase.from('kanban_cards').delete().eq('id', cardId);
+  async deleteCard(hotelId: string, cardId: string): Promise<void> {
+    if (!hotelId || !cardId) throw new Error('[KANBAN REPOSITORY] hotelId e cardId são obrigatórios para deleteCard');
+    const { error } = await supabase.from('kanban_cards').delete().eq('id', cardId).eq('hotel_id', hotelId);
     if (error) throw error;
+    await broadcastKanbanCardChange(hotelId, 'DELETE', undefined, cardId);
   },
 
   async upsertBoard(hotelId: string, board: KanbanBoard): Promise<void> {
