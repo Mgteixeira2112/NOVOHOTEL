@@ -280,7 +280,7 @@ export const kanbanV2 = {
     };
   },
 
-  async createCard(input: { hotelId?: string; boardId: string; columnId: string; titulo: string; descricao?: string; prioridade?: string; departamento?: string; room_number?: string; location?: string; guest_name?: string; notes?: string }) {
+  async createCard(input: { hotelId?: string; boardId: string; columnId: string; titulo: string; descricao?: string; prioridade?: string; departamento?: string; room_number?: string; location?: string; assigned_to?: Record<string, unknown> | null; guest_name?: string; notes?: string }) {
     const hotelId = KANBAN_TENANT_ID;
     const title = input.titulo.trim();
     if (!title) throw new Error('Título da tarefa é obrigatório.');
@@ -299,7 +299,7 @@ export const kanbanV2 = {
       departamento: input.departamento || null,
       room_number: input.room_number?.trim() || null,
       location: input.location?.trim() || (input.room_number ? `Quarto ${input.room_number}` : 'Geral'),
-      assigned_to: null,
+      assigned_to: input.assigned_to || null,
       checklist: [],
       comments: [],
       metadata: {},
@@ -331,6 +331,54 @@ export const kanbanV2 = {
     store.cards = [...store.cards, newCard];
     saveLocalStore(store);
     return newCard;
+  },
+
+  async updateCard(cardId: string, updates: Partial<KanbanV2Card>) {
+    if (!cardId) throw new Error('Identificador do card é obrigatório.');
+    const updatedAt = new Date().toISOString();
+    let updatedCard: KanbanV2Card | null = null;
+    const sanitized = { ...updates, updated_at: updatedAt };
+    delete (sanitized as any).id;
+
+    try {
+      const { data, error } = await supabase.from('kanban_cards')
+        .update(sanitized)
+        .eq('id', cardId)
+        .select('*')
+        .single();
+      if (!error && data) {
+        updatedCard = normalizeCard(data);
+      }
+    } catch {}
+
+    const store = getLocalStore();
+    const card = store.cards.find(c => c.id === cardId);
+    if (!card && !updatedCard) throw new Error('Card não encontrado.');
+
+    if (!updatedCard && card) {
+      updatedCard = {
+        ...card,
+        ...updates,
+        updated_at: updatedAt,
+      };
+    }
+
+    if (updatedCard) {
+      store.cards = store.cards.map(c => c.id === cardId ? updatedCard! : c);
+      saveLocalStore(store);
+      return updatedCard;
+    }
+    throw new Error('Falha ao atualizar card.');
+  },
+
+  async deleteCard(cardId: string) {
+    if (!cardId) return;
+    try {
+      await supabase.from('kanban_cards').delete().eq('id', cardId);
+    } catch {}
+    const store = getLocalStore();
+    store.cards = store.cards.filter(c => c.id !== cardId);
+    saveLocalStore(store);
   },
 
   async moveCard(_hotelId: string | undefined, cardId: string, columnId: string) {
