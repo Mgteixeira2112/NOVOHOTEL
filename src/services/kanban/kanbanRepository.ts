@@ -69,7 +69,10 @@ export const kanbanRepository = {
   },
 
   /**
-   * Salva ou atualiza um cartão Kanban no Supabase de forma atômica.
+   * Salva ou atualiza um cartão Kanban no Supabase.
+   *
+   * A resposta do banco é validada para impedir que a UI considere o movimento
+   * concluído quando a alteração não foi realmente persistida.
    */
   async upsertCard(hotelId: string, card: KanbanCard): Promise<void> {
     if (!hotelId || !card?.id) {
@@ -77,16 +80,38 @@ export const kanbanRepository = {
     }
 
     const payload = mapKanbanCardToDatabaseRow(card, hotelId);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('kanban_cards')
-      .upsert(payload, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' })
+      .select('id, hotel_id, board_id, column_id, updated_at')
+      .single();
 
     if (error) {
       console.error('[SUPABASE SAVE ERROR] Card:', card.id, error);
       throw error;
     }
 
-    console.info(`[SUPABASE SAVE SUCCESS] Card: ${card.id} ("${card.title}") no hotel ${hotelId}`);
+    if (!data) {
+      throw new Error(`[SUPABASE SAVE ERROR] Card ${card.id}: Supabase não retornou o registro persistido.`);
+    }
+
+    if (String(data.hotel_id) !== String(hotelId)) {
+      throw new Error(`[SUPABASE SAVE ERROR] Card ${card.id}: hotel_id retornado não corresponde ao hotel ativo.`);
+    }
+
+    if (String(data.column_id) !== String(card.column_id)) {
+      throw new Error(
+        `[SUPABASE SAVE ERROR] Card ${card.id}: coluna persistida (${data.column_id}) diferente da solicitada (${card.column_id}).`
+      );
+    }
+
+    if (String(data.board_id) !== String(card.board_id)) {
+      throw new Error(
+        `[SUPABASE SAVE ERROR] Card ${card.id}: board persistido (${data.board_id}) diferente do solicitado (${card.board_id}).`
+      );
+    }
+
+    console.info(`[SUPABASE SAVE SUCCESS] Card: ${card.id} ("${card.title}") no hotel ${hotelId} | coluna=${data.column_id}`);
   },
 
   /**
