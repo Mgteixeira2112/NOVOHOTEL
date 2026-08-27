@@ -48,6 +48,34 @@ export interface KanbanAuditReadResult<T> {
   message?: string;
 }
 
+type DepartmentBoardTarget = {
+  boardId: string;
+  initialColumnId: string;
+};
+
+const DEPARTMENT_BOARD_TARGETS: Record<string, DepartmentBoardTarget> = {
+  operacao: {
+    boardId: 'kanban-default-board',
+    initialColumnId: 'kanban-default-column-entrada',
+  },
+  governanca: {
+    boardId: 'kanban-board-governanca',
+    initialColumnId: 'gov-col-a-limpar',
+  },
+  recepcao: {
+    boardId: 'kanban-board-recepcao',
+    initialColumnId: 'rec-col-novos',
+  },
+  manutencao: {
+    boardId: 'kanban-board-manutencao',
+    initialColumnId: 'man-col-chamados',
+  },
+  cozinha: {
+    boardId: 'kanban-board-cozinha',
+    initialColumnId: 'coz-col-pedidos',
+  },
+};
+
 function assignedUserId(value: Record<string, unknown> | null | undefined): string | null {
   const id = value?.id;
   return typeof id === 'string' && id ? id : null;
@@ -90,6 +118,33 @@ function compactCardSnapshot(card: KanbanV2Card | null | undefined) {
     completed_at: card.completed_at,
     is_archived: card.is_archived,
     deleted_at: extended.deleted_at || null,
+  };
+}
+
+function normalizeDepartmentTransition(
+  currentCard: KanbanV2Card,
+  updates: Partial<KanbanV2Card>,
+): Partial<KanbanV2Card> {
+  const requestedDepartment = typeof updates.departamento === 'string'
+    ? updates.departamento.trim().toLowerCase()
+    : null;
+  const currentDepartment = (currentCard.departamento || '').trim().toLowerCase();
+
+  if (!requestedDepartment || requestedDepartment === currentDepartment) {
+    return updates;
+  }
+
+  const target = DEPARTMENT_BOARD_TARGETS[requestedDepartment];
+  if (!target) {
+    throw new Error('O setor selecionado não possui um quadro operacional configurado.');
+  }
+
+  return {
+    ...updates,
+    departamento: requestedDepartment,
+    board_id: target.boardId,
+    column_id: target.initialColumnId,
+    completed_at: null,
   };
 }
 
@@ -183,7 +238,8 @@ export const kanbanCardGovernance = {
     updates: Partial<KanbanV2Card>,
     actor: KanbanGovernanceActor = {},
   ) {
-    const updated = await kanbanV2.updateCard(currentCard.id, updates);
+    const governedUpdates = normalizeDepartmentTransition(currentCard, updates);
+    const updated = await kanbanV2.updateCard(currentCard.id, governedUpdates);
     const responsibleId = assignedUserId(updated.assigned_to);
     const eventType: KanbanCardEventType = assignmentChanged(currentCard, updated) ? 'assigned' : 'updated';
 
@@ -198,6 +254,15 @@ export const kanbanCardGovernance = {
       eventType,
       fromValue: compactCardSnapshot(currentCard),
       toValue: compactCardSnapshot(updated),
+      metadata: currentCard.departamento !== updated.departamento
+        ? {
+            department_changed: true,
+            from_department: currentCard.departamento,
+            to_department: updated.departamento,
+            from_board_id: currentCard.board_id,
+            to_board_id: updated.board_id,
+          }
+        : {},
     });
 
     return {
