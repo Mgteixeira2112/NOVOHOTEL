@@ -8,7 +8,10 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
   return {
-    base: './',
+    // GitHub Pages publishes this repository under /SITE-PARA-HOTEIS/.
+    // Using an explicit base prevents the production bundle from resolving
+    // JS/CSS/assets against the github.io domain root.
+    base: '/SITE-PARA-HOTEIS/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
@@ -19,9 +22,7 @@ export default defineConfig(() => {
       host: '0.0.0.0',
       port: 3000,
       allowedHosts: true as const,
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
   };
