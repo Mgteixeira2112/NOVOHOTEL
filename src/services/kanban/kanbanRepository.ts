@@ -93,11 +93,11 @@ export const kanbanRepository = {
       throw new Error(`[SUPABASE CONCURRENCY ERROR] Card ${card.id}: o registro foi alterado por outro cliente ou a versão local está desatualizada.`);
     }
 
-    const persistedCard = mapDatabaseCardToKanbanCard(data);
-    if (String(persistedCard.hotel_id ?? hotelId) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
+    if (String(data.hotel_id) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
       throw new Error(`[SUPABASE UPDATE ERROR] Card ${card.id}: resposta persistida não corresponde ao estado solicitado.`);
     }
 
+    const persistedCard = mapDatabaseCardToKanbanCard(data);
     card.updated_at = persistedCard.updated_at;
     console.info(`[SUPABASE UPDATE SUCCESS] Card: ${card.id} | coluna=${data.column_id} | updated_at=${data.updated_at}`);
     return persistedCard;
@@ -168,6 +168,5 @@ export const kanbanRepository = {
   async deleteColumn(columnId: string): Promise<void> {
     if (!columnId) throw new Error('[KANBAN REPOSITORY] columnId é obrigatório para deleteColumn');
     const { error } = await supabase.from('kanban_columns').delete().eq('id', columnId);
-    if (error) throw error;
   },
 };
