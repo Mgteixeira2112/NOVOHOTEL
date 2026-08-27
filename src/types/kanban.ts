@@ -34,10 +34,12 @@ export interface KanbanCard {
   board_id: string;
   column_id: string;
   title: string;
-  location: string; // Ex: "Quarto 204", "Chalé 10", "Área da Piscina", "Lobby", "Restaurante"
+  location: string;
   priority: KanbanPriority;
   sla_target_minutes: number;
   created_at: string;
+  /** Versão temporal retornada pelo PostgreSQL. Usada para impedir regressão por evento atrasado. */
+  updated_at?: string;
   started_at?: string;
   completed_at?: string;
   assigned_to?: KanbanCardAssignee | null;
