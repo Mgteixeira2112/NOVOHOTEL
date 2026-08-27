@@ -24,26 +24,35 @@ export const kanbanRepository = {
   async updateCard(hotelId: string, card: KanbanCard): Promise<void> {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para updateCard');
 
-    // Toda mutação gera uma nova versão temporal. Nunca reutilizar o updated_at
-    // do objeto local, pois isso permite que eventos Realtime antigos pareçam atuais.
     const mutationUpdatedAt = new Date().toISOString();
     const payload = mapKanbanCardToDatabaseRow({ ...card, updated_at: mutationUpdatedAt }, hotelId);
     const { id: _id, hotel_id: _hotelId, ...updatePayload } = payload;
     updatePayload.updated_at = mutationUpdatedAt;
 
-    const { data, error } = await supabase
+    // Controle otimista de concorrência: se outro usuário já alterou o card,
+    // este UPDATE antigo não pode sobrescrever column_id/board_id com estado obsoleto.
+    let query = supabase
       .from('kanban_cards')
       .update(updatePayload)
       .eq('id', card.id)
-      .eq('hotel_id', hotelId)
-      .select('*')
-      .single();
+      .eq('hotel_id', hotelId);
+
+    if (card.updated_at) {
+      query = query.eq('updated_at', card.updated_at);
+    }
+
+    const { data, error } = await query.select('*').maybeSingle();
 
     if (error) {
       console.error('[SUPABASE UPDATE ERROR] Card:', card.id, error);
       throw error;
     }
-    if (!data) throw new Error(`[SUPABASE UPDATE ERROR] Card ${card.id}: nenhum registro foi atualizado.`);
+
+    if (!data) {
+      throw new Error(
+        `[SUPABASE CONCURRENCY ERROR] Card ${card.id}: o registro já foi alterado por outro usuário ou a versão local está desatualizada.`
+      );
+    }
 
     if (
       String(data.hotel_id) !== String(hotelId) ||
@@ -62,7 +71,7 @@ export const kanbanRepository = {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para upsertCard');
     const { data: existing, error: lookupError } = await supabase
       .from('kanban_cards')
-      .select('id')
+      .select('id, updated_at')
       .eq('id', card.id)
       .eq('hotel_id', hotelId)
       .maybeSingle();
@@ -71,6 +80,8 @@ export const kanbanRepository = {
       throw lookupError;
     }
     if (existing) {
+      // Use a versão que o caller conhece. Se ela estiver desatualizada,
+      // updateCard bloqueará a gravação em vez de restaurar um status antigo.
       await this.updateCard(hotelId, card);
       return;
     }
