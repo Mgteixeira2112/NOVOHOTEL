@@ -23,8 +23,15 @@ import {
 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Board, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
+import { kanbanCardGovernance } from '../../services/kanbanCardGovernanceService';
 import { fetchUserOperationalSectorsState } from '../../services/userSectorService';
-import { defaultKanbanVisibilityScope, filterKanbanCardsForUser } from '../../domain/kanbanAccess';
+import {
+  canCreateKanbanCardInSector,
+  canPerformKanbanAction,
+  defaultKanbanCapabilities,
+  defaultKanbanVisibilityScope,
+  filterKanbanCardsForUser,
+} from '../../domain/kanbanAccess';
 import { OperationalSectorId, isOperationalSectorId } from '../../domain/operationalSectors';
 
 const DEPARTMENTS: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; badgeBg: string; text: string; border: string }[] = [
@@ -185,6 +192,28 @@ export const KanbanModule: React.FC = () => {
 
   const activeBoard = visibleBoards.find(b => b.id === activeBoardId) || boards.find(b => b.id === activeBoardId);
   const boardColumns = useMemo(() => columns.filter(c => c.board_id === activeBoardId).sort((a, b) => a.ordem - b.ordem), [columns, activeBoardId]);
+
+  const actionAccessContext = useMemo(() => ({
+    userId: currentUser?.id || '',
+    role: userRole,
+    sectorIds: selectiveVisibilityActive ? userSectorIds : [],
+    scope: selectiveVisibilityActive ? defaultKanbanVisibilityScope(userRole) : ('all' as const),
+  }), [currentUser?.id, userRole, selectiveVisibilityActive, userSectorIds]);
+
+  const baseCapabilities = useMemo(() => defaultKanbanCapabilities(userRole), [userRole]);
+  const canCreateInActiveBoard = canCreateKanbanCardInSector(actionAccessContext, activeBoard?.departamento);
+  const canEditModalCard = editingCard
+    ? canPerformKanbanAction(actionAccessContext, 'edit', editingCard)
+    : canCreateInActiveBoard;
+  const canMoveModalCard = editingCard
+    ? canPerformKanbanAction(actionAccessContext, 'move', editingCard)
+    : canCreateInActiveBoard;
+  const canAssignModalCard = editingCard
+    ? canPerformKanbanAction(actionAccessContext, 'assign', editingCard)
+    : baseCapabilities.assign;
+  const canDeleteModalCard = editingCard
+    ? canPerformKanbanAction(actionAccessContext, 'delete', editingCard)
+    : false;
   
   const boardCards = useMemo(() => {
     return accessCards
@@ -212,6 +241,10 @@ export const KanbanModule: React.FC = () => {
 
   // Abertura do Modal para Novo Card
   const handleOpenCreateModal = (targetColId?: string) => {
+    if (!canCreateInActiveBoard) {
+      setError('Seu perfil não possui permissão para criar tarefas neste setor.');
+      return;
+    }
     setEditingCard(null);
     setFormTitle('');
     setFormDescription('');
@@ -225,6 +258,10 @@ export const KanbanModule: React.FC = () => {
 
   // Abertura do Modal para Edição de Card existente
   const handleOpenEditModal = (card: KanbanV2Card) => {
+    if (!canPerformKanbanAction(actionAccessContext, 'edit', card)) {
+      setError('Você pode visualizar esta tarefa, mas não possui permissão para editá-la.');
+      return;
+    }
     setEditingCard(card);
     setFormTitle(card.titulo);
     setFormDescription(card.descricao || '');
@@ -240,6 +277,15 @@ export const KanbanModule: React.FC = () => {
   // Salvar Card (Criação ou Edição)
   const handleSaveCard = async () => {
     if (!formTitle.trim() || saving) return;
+
+    const canSave = editingCard
+      ? canPerformKanbanAction(actionAccessContext, 'edit', editingCard)
+      : canCreateInActiveBoard;
+    if (!canSave) {
+      setError('Seu perfil não possui permissão para salvar esta alteração.');
+      return;
+    }
+
     setSaving(true);
     setError('');
 
@@ -261,38 +307,60 @@ export const KanbanModule: React.FC = () => {
 
     try {
       if (editingCard) {
-        // Atualização de card existente
-        const updated = await kanbanV2.updateCard(editingCard.id, {
+        const canAssign = canPerformKanbanAction(actionAccessContext, 'assign', editingCard);
+        const canMove = canPerformKanbanAction(actionAccessContext, 'move', editingCard);
+        const effectiveAssignedPayload = canAssign ? assignedPayload : editingCard.assigned_to;
+        const effectiveColumnId = canMove ? targetColumn : editingCard.column_id;
+        const effectiveDepartment = hasFullKanbanVisibility
+          ? formDepartment
+          : (editingCard.departamento || activeBoard?.departamento || 'operacao');
+
+        // Atualização de card existente via camada aditiva de governança/auditoria.
+        let persisted = await kanbanCardGovernance.updateCard(editingCard, {
           titulo: formTitle.trim(),
           descricao: formDescription.trim() || null,
           prioridade: formPriority,
-          departamento: formDepartment,
-          assigned_to: assignedPayload,
+          departamento: effectiveDepartment,
+          assigned_to: effectiveAssignedPayload,
           room_number: formRoomNumber.trim() || null,
           location: formRoomNumber ? `Quarto ${formRoomNumber}` : 'Geral',
-          column_id: formColumnId,
-        });
+          column_id: effectiveColumnId,
+        }, { userId: currentUser?.id });
 
-        // Se mudou de coluna, chama a lógica de movimentação para sincronizar status de quarto se necessário
-        if (editingCard.column_id !== formColumnId) {
-          await kanbanV2.moveCard(KANBAN_TENANT_ID, editingCard.id, formColumnId);
+        // Mantém a lógica já estabilizada de movimentação/status de quarto.
+        if (editingCard.column_id !== effectiveColumnId) {
+          persisted = await kanbanCardGovernance.moveCard(editingCard, effectiveColumnId, { userId: currentUser?.id });
         }
 
-        setCards(prev => prev.map(c => c.id === updated.id ? updated : c));
+        setCards(prev => prev.map(c => c.id === persisted.id ? persisted : c));
       } else {
-        // Criação de novo card
-        const newCard = await kanbanV2.createCard({
+        const effectiveDepartment = hasFullKanbanVisibility
+          ? formDepartment
+          : (activeBoard?.departamento || formDepartment);
+
+        if (!canCreateKanbanCardInSector(actionAccessContext, effectiveDepartment)) {
+          throw new Error('Seu perfil não possui permissão para criar tarefas neste setor.');
+        }
+
+        // Criação continua usando o motor estável; a camada de governança só anexa auditoria.
+        const newCard = await kanbanCardGovernance.createCard({
           hotelId: KANBAN_TENANT_ID,
           boardId: activeBoardId,
           columnId: targetColumn,
           titulo: formTitle.trim(),
           descricao: formDescription.trim() || undefined,
           prioridade: formPriority,
-          departamento: formDepartment,
-          assigned_to: assignedPayload,
+          departamento: effectiveDepartment,
+          assigned_to: baseCapabilities.assign ? assignedPayload : (currentUser ? {
+            id: currentUser.id,
+            name: currentUser.nome,
+            email: currentUser.email,
+            avatar_url: currentUser.avatar_url,
+            role: currentUser.tipo_usuario,
+          } : null),
           room_number: formRoomNumber.trim() || undefined,
           location: formRoomNumber ? `Quarto ${formRoomNumber}` : 'Geral',
-        });
+        }, { userId: currentUser?.id });
         setCards(prev => prev.some(c => c.id === newCard.id) ? prev : [...prev, newCard]);
       }
 
@@ -305,17 +373,22 @@ export const KanbanModule: React.FC = () => {
     }
   };
 
-  // Excluir card
-  const handleDeleteCard = async (cardId: string) => {
-    if (!confirm('Deseja realmente remover esta tarefa do quadro?')) return;
+  // Exclusão lógica: apenas gestão pode arquivar; o card permanece auditável no banco.
+  const handleDeleteCard = async (card: KanbanV2Card) => {
+    if (!canPerformKanbanAction(actionAccessContext, 'delete', card)) {
+      setError('Somente administração e gerência podem excluir tarefas do Kanban.');
+      return;
+    }
+    if (!confirm('Deseja arquivar esta tarefa? Ela deixará o quadro ativo, mas permanecerá disponível para auditoria e restauração.')) return;
     setSaving(true);
+    setError('');
     try {
-      await kanbanV2.deleteCard(cardId);
-      setCards(prev => prev.filter(c => c.id !== cardId));
+      const archived = await kanbanCardGovernance.softDeleteCard(card, { userId: currentUser?.id });
+      setCards(prev => prev.map(c => c.id === archived.id ? archived : c));
       setModalOpen(false);
       setEditingCard(null);
     } catch (e: any) {
-      setError(e?.message || 'Falha ao remover o card.');
+      setError(e?.message || 'Falha ao arquivar o card.');
     } finally {
       setSaving(false);
     }
@@ -324,10 +397,15 @@ export const KanbanModule: React.FC = () => {
   // Mover Card via Drag & Drop
   const moveCard = async (card: KanbanV2Card | undefined, targetColumnId: string) => {
     if (!card || card.column_id === targetColumnId || saving) return;
+    if (!canPerformKanbanAction(actionAccessContext, 'move', card)) {
+      setError('Seu perfil não possui permissão para alterar o status desta tarefa.');
+      setDraggingId(null);
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      const persisted = await kanbanV2.moveCard(KANBAN_TENANT_ID, card.id, targetColumnId);
+      const persisted = await kanbanCardGovernance.moveCard(card, targetColumnId, { userId: currentUser?.id });
       setCards(current => current.map(c => c.id === persisted.id ? persisted : c));
     } catch (e: any) {
       setError(e?.message || 'Falha ao mover card no Supabase.');
@@ -429,8 +507,9 @@ export const KanbanModule: React.FC = () => {
 
               <button 
                 onClick={() => handleOpenCreateModal()} 
-                disabled={!activeBoardId || !boardColumns.length || saving} 
+                disabled={!activeBoardId || !boardColumns.length || saving || !canCreateInActiveBoard} 
                 className="h-10 px-4 rounded-xl bg-slate-950 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition active:scale-95 disabled:opacity-40"
+                title={canCreateInActiveBoard ? 'Criar nova tarefa' : 'Sem permissão para criar neste setor'}
               >
                 <Plus className="w-4 h-4" /> Novo Card
               </button>
@@ -507,7 +586,7 @@ export const KanbanModule: React.FC = () => {
               return (
                 <section 
                   key={column.id} 
-                  onDragOver={e => e.preventDefault()} 
+                  onDragOver={e => { if (baseCapabilities.move) e.preventDefault(); }} 
                   onDrop={() => void moveCard(boardCards.find(c => c.id === draggingId), column.id)} 
                   className="min-h-[560px] rounded-3xl bg-slate-100/70 border border-slate-200 p-3.5 flex flex-col justify-between shadow-2xs"
                 >
@@ -522,8 +601,9 @@ export const KanbanModule: React.FC = () => {
                       </div>
                       <button
                         onClick={() => handleOpenCreateModal(column.id)}
-                        className="w-7 h-7 rounded-xl bg-white hover:bg-slate-200 border border-slate-200 grid place-items-center text-slate-700 transition"
-                        title="Adicionar card nesta coluna"
+                        disabled={!canCreateInActiveBoard}
+                        className="w-7 h-7 rounded-xl bg-white hover:bg-slate-200 border border-slate-200 grid place-items-center text-slate-700 transition disabled:opacity-35 disabled:cursor-not-allowed"
+                        title={canCreateInActiveBoard ? 'Adicionar card nesta coluna' : 'Sem permissão para criar neste setor'}
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
@@ -535,22 +615,24 @@ export const KanbanModule: React.FC = () => {
                         const deptMeta = getDepartmentMeta(card.departamento);
                         const assigned = card.assigned_to as any;
                         const assignedName = assigned?.name || (users.find(u => u.id === assigned?.id)?.nome) || null;
+                        const canMoveThisCard = canPerformKanbanAction(actionAccessContext, 'move', card);
+                        const canEditThisCard = canPerformKanbanAction(actionAccessContext, 'edit', card);
 
                         return (
                           <article 
                             key={card.id} 
-                            draggable 
-                            onDragStart={() => setDraggingId(card.id)} 
+                            draggable={canMoveThisCard}
+                            onDragStart={() => { if (canMoveThisCard) setDraggingId(card.id); }} 
                             onDragEnd={() => setDraggingId(null)} 
                             onClick={() => handleOpenEditModal(card)}
-                            className={`group rounded-2xl border bg-white p-3.5 cursor-grab active:cursor-grabbing hover:shadow-md transition duration-150 relative space-y-2.5 ${
+                            className={`group rounded-2xl border bg-white p-3.5 hover:shadow-md transition duration-150 relative space-y-2.5 ${
                               draggingId === card.id ? 'opacity-40 scale-95' : 'border-slate-200 hover:border-slate-300'
-                            }`}
+                            } ${canMoveThisCard ? 'cursor-grab active:cursor-grabbing' : canEditThisCard ? 'cursor-pointer' : 'cursor-default'}`}
                           >
                             {/* TOPO: TÍTULO, GRIP E PRIORIDADE */}
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-start gap-1.5 min-w-0">
-                                <GripVertical className="w-3.5 h-3.5 text-slate-300 mt-1 shrink-0 group-hover:text-slate-500" />
+                                <GripVertical className={`w-3.5 h-3.5 mt-1 shrink-0 ${canMoveThisCard ? 'text-slate-300 group-hover:text-slate-500' : 'text-slate-200'}`} />
                                 <h3 className="font-bold text-xs text-slate-900 leading-snug break-words">
                                   {card.titulo}
                                 </h3>
@@ -619,10 +701,14 @@ export const KanbanModule: React.FC = () => {
 
                       {columnCards.length === 0 && (
                         <div 
-                          onClick={() => handleOpenCreateModal(column.id)}
-                          className="h-32 rounded-2xl border-2 border-dashed border-slate-200 hover:border-slate-300 hover:bg-white/50 grid place-items-center text-xs text-slate-400 cursor-pointer transition"
+                          onClick={() => { if (canCreateInActiveBoard) handleOpenCreateModal(column.id); }}
+                          className={`h-32 rounded-2xl border-2 border-dashed grid place-items-center text-xs transition ${
+                            canCreateInActiveBoard
+                              ? 'border-slate-200 hover:border-slate-300 hover:bg-white/50 text-slate-400 cursor-pointer'
+                              : 'border-slate-200 text-slate-300 cursor-default'
+                          }`}
                         >
-                          + Arraste ou clique para adicionar
+                          {canCreateInActiveBoard ? '+ Arraste ou clique para adicionar' : 'Sem permissão para criar neste setor'}
                         </div>
                       )}
                     </div>
@@ -674,7 +760,8 @@ export const KanbanModule: React.FC = () => {
                   autoFocus 
                   value={formTitle} 
                   onChange={e => setFormTitle(e.target.value)} 
-                  className="w-full h-11 px-3.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-slate-900/10 text-sm font-medium" 
+                  disabled={!canEditModalCard}
+                  className="w-full h-11 px-3.5 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-slate-900/10 text-sm font-medium disabled:bg-slate-50 disabled:text-slate-500" 
                   placeholder="Ex.: Higienizar banheiro e repor toalhas" 
                 />
               </div>
@@ -687,7 +774,8 @@ export const KanbanModule: React.FC = () => {
                 <textarea 
                   value={formDescription} 
                   onChange={e => setFormDescription(e.target.value)} 
-                  className="w-full min-h-20 p-3 rounded-xl border border-slate-200 outline-none resize-none text-xs font-medium" 
+                  disabled={!canEditModalCard}
+                  className="w-full min-h-20 p-3 rounded-xl border border-slate-200 outline-none resize-none text-xs font-medium disabled:bg-slate-50 disabled:text-slate-500" 
                   placeholder="Detalhes específicos da execução…" 
                 />
               </div>
@@ -701,7 +789,8 @@ export const KanbanModule: React.FC = () => {
                   <select 
                     value={formDepartment} 
                     onChange={e => setFormDepartment(e.target.value)} 
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800"
+                    disabled={!canEditModalCard || !hasFullKanbanVisibility}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
                   >
                     {DEPARTMENTS.map(d => (
                       <option key={d.id} value={d.id}>{d.label}</option>
@@ -716,7 +805,8 @@ export const KanbanModule: React.FC = () => {
                   <select 
                     value={formPriority} 
                     onChange={e => setFormPriority(e.target.value)} 
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800"
+                    disabled={!canEditModalCard}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
                   >
                     <option value="normal">Normal</option>
                     <option value="atencao">Atenção</option>
@@ -734,7 +824,9 @@ export const KanbanModule: React.FC = () => {
                   <select 
                     value={formUserId} 
                     onChange={e => setFormUserId(e.target.value)} 
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800"
+                    disabled={!canAssignModalCard}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                    title={canAssignModalCard ? 'Alterar responsável' : 'Atribuição de responsável é restrita à gestão'}
                   >
                     <option value="">-- Não atribuído --</option>
                     {users.filter(u => u.ativo).map(u => (
@@ -750,7 +842,8 @@ export const KanbanModule: React.FC = () => {
                   <select 
                     value={formRoomNumber} 
                     onChange={e => setFormRoomNumber(e.target.value)} 
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800"
+                    disabled={!canEditModalCard}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
                   >
                     <option value="">-- Nenhum / Geral --</option>
                     {rooms.map(r => (
@@ -769,7 +862,9 @@ export const KanbanModule: React.FC = () => {
                   <select 
                     value={formColumnId} 
                     onChange={e => setFormColumnId(e.target.value)} 
-                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800"
+                    disabled={!canMoveModalCard}
+                    className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500"
+                    title={canMoveModalCard ? 'Alterar status da tarefa' : 'Sem permissão para alterar o status'}
                   >
                     {boardColumns.map(col => (
                       <option key={col.id} value={col.id}>{col.nome}</option>
@@ -781,14 +876,14 @@ export const KanbanModule: React.FC = () => {
 
             {/* BOTÕES DE AÇÃO */}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
-              {editingCard ? (
+              {editingCard && canDeleteModalCard ? (
                 <button
                   type="button"
-                  onClick={() => handleDeleteCard(editingCard.id)}
+                  onClick={() => void handleDeleteCard(editingCard)}
                   disabled={saving}
                   className="px-3.5 py-2.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center gap-1.5 transition"
                 >
-                  <Trash2 className="w-4 h-4" /> Excluir
+                  <Trash2 className="w-4 h-4" /> Arquivar
                 </button>
               ) : (
                 <div />
@@ -805,7 +900,7 @@ export const KanbanModule: React.FC = () => {
                 </button>
                 <button
                   type="button"
-                  disabled={saving || !formTitle.trim()}
+                  disabled={saving || !formTitle.trim() || !canEditModalCard}
                   onClick={() => void handleSaveCard()}
                   className="px-5 py-2.5 rounded-xl bg-slate-950 hover:bg-slate-800 text-white text-xs font-black disabled:opacity-40 flex items-center gap-2 shadow-sm transition"
                 >
