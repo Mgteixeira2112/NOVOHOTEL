@@ -84,7 +84,7 @@ export const HotelOSCommandCenter: React.FC = () => {
     const occupancyRatio = calculateOccupancy(occupied, totalRooms);
     const occupancyPct = `${Math.round(occupancyRatio * 100)}%`;
     const openTasksCount = cards.filter((c) => !c.completed_at).length;
-    const criticalTasksCount = cards.filter((c) => !c.completed_at && (c.priority === 'critica' || c.priority === 'atencao')).length;
+    const criticalTasksCount = cards.filter((c) => !c.completed_at && (c.prioridade === 'critica' || c.prioridade === 'atencao')).length;
     const activeStaff = users.filter((u) => u.ativo).length;
 
     return {
@@ -165,21 +165,21 @@ export const HotelOSCommandCenter: React.FC = () => {
                   <div key={card.id} className="p-3.5 flex items-center gap-3 hover:bg-stone-50 transition">
                     <ClipboardList className="w-4 h-4 text-stone-400 shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-xs text-stone-900 truncate">{card.title}</div>
+                      <div className="font-bold text-xs text-stone-900 truncate">{card.titulo}</div>
                       <div className="text-[11px] text-stone-500">
-                        {card.delegated_to_department || card.origin_department || card.location || 'Geral'} · {card.completed_at ? 'Concluído' : 'Pendente'}
+                        {card.departamento || card.location || 'Geral'} · {card.completed_at ? 'Concluído' : 'Pendente'}
                       </div>
                     </div>
                     <span
                       className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                        card.priority === 'critica'
+                        card.prioridade === 'critica'
                           ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                          : card.priority === 'atencao'
+                          : card.prioridade === 'atencao'
                           ? 'bg-amber-50 text-amber-800 border border-amber-200'
                           : 'bg-stone-100 text-stone-600'
                       }`}
                     >
-                      {card.priority || 'Normal'}
+                      {card.prioridade || 'Normal'}
                     </span>
                   </div>
                 ))}
@@ -283,7 +283,7 @@ export const HotelOSCommandCenter: React.FC = () => {
   // Visão 4: Manutenção
   const Maintenance = () => {
     const maintenanceCards = cards.filter(
-      (c) => (c.delegated_to_department === 'manutencao' || c.origin_department === 'manutencao') && !c.completed_at
+      (c) => (c.departamento === 'manutencao') && !c.completed_at
     );
     return (
       <div className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs">
@@ -307,9 +307,9 @@ export const HotelOSCommandCenter: React.FC = () => {
               <div key={c.id} className="p-3 bg-stone-50 rounded-xl flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <Wrench className="w-4 h-4 text-stone-400" />
-                  <span className="font-bold text-stone-900">{c.title}</span>
+                  <span className="font-bold text-stone-900">{c.titulo}</span>
                 </div>
-                <span className="text-stone-500">{c.priority}</span>
+                <span className="text-stone-500">{c.prioridade}</span>
               </div>
             ))}
           </div>

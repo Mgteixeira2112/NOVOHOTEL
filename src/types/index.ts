@@ -44,6 +44,7 @@ export interface Usuario {
   telefone?: string;
   ativo: boolean;
   avatar?: string;
+  avatar_url?: string;
   ultimo_acesso?: string;
   permissoes?: string[];
   created_at: string;
@@ -94,6 +95,7 @@ export interface Quarto {
   status: RoomStatus;
   status_housekeeping?: HousekeepingStatus;
   status_governanca?: HousekeepingStatus;
+  status_manutencao_motivo?: string;
   ultima_limpeza?: string;
   responsavel_limpeza?: string;
   notas_internas?: string;
@@ -108,6 +110,7 @@ export interface Quarto {
   vista?: string;
   cama?: string;
   fechadura_pin?: string;
+  fechadura_bateria?: number;
 }
 
 export interface Hospede {
@@ -223,6 +226,7 @@ export interface AutomacaoMensagem {
   assunto?: string;
   template?: string;
   template_texto?: string;
+  template_mensagem?: string;
   variaveis_disponiveis?: string[];
 }
 
@@ -306,8 +310,14 @@ export interface HotelConfig {
   endereco: string;
   bairro: string;
   cidade: string;
+  cidade_uf?: string;
   estado: string;
   cep: string;
+  razao_social?: string;
+  site?: string;
+  chave_pix?: string;
+  horario_cafe?: string;
+  desconto_pix_percentual?: number;
 
   tema_cor: ThemeColorPalette;
   tema_estilo: string;
@@ -327,6 +337,30 @@ export interface HotelConfig {
   nota_avaliacao: number;
   nota_label: string;
   sobre_diferenciais: HotelConfigSobreDiferencial[];
+  sobre_resumo?: string;
+  descricao_completa?: string;
+
+  // Customização de seções da Landing Page
+  quartos_titulo?: string;
+  quartos_subtitulo?: string;
+  quartos_descricao?: string;
+  estrutura_titulo?: string;
+  estrutura_subtitulo?: string;
+  estrutura_descricao?: string;
+  avaliacoes_titulo?: string;
+  avaliacoes_subtitulo?: string;
+  avaliacoes_descricao?: string;
+  faq_titulo?: string;
+  faq_subtitulo?: string;
+  faq_descricao?: string;
+  localizacao_titulo?: string;
+  localizacao_subtitulo?: string;
+  localizacao_descricao?: string;
+  contato_titulo?: string;
+  contato_subtitulo?: string;
+  contato_descricao?: string;
+  rodape_descricao?: string;
+  rodape_copyright?: string;
 
   secoes_visibilidade: HotelSecoesVisibilidade;
   comodidades_personalizadas: HotelComodidadePersonalizada[];
@@ -421,15 +455,22 @@ export interface SecurityLogEntry {
 }
 
 export interface SecurityActionRequest {
-  id: string;
-  action: string;
-  resource: string;
-  requestedBy: string;
-  timestamp: string;
+  id?: string;
+  action?: string;
+  actionTitle?: string;
+  actionDescription?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical' | string;
+  resource?: string;
+  requestedBy?: string;
+  timestamp?: string;
+  title?: string;
+  description?: string;
+  category?: string;
+  onConfirm?: () => void | Promise<void>;
   details?: Record<string, unknown>;
 }
 
-export type TwoFactorMethod = 'totp' | 'sms' | 'email' | 'authenticator';
+export type TwoFactorMethod = 'totp' | 'sms' | 'email' | 'authenticator' | 'whatsapp';
 
 export type MediaCategory =
   | 'hero'
@@ -447,6 +488,7 @@ export interface MediaUploadRecord {
   id: string;
   url: string;
   file_name?: string;
+  file_size?: number;
   category?: MediaCategory | string;
   room_id?: string | null;
   is_cover?: boolean;
@@ -467,7 +509,7 @@ export interface AvailabilityResult {
   disponivel?: boolean;
   available?: boolean;
   quarto?: Quarto;
-  tipo?: TipoQuarto | string;
+  tipo?: TipoQuarto;
   noites?: number;
   valorDiarias?: number;
   taxas?: number;

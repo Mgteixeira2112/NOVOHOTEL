@@ -111,7 +111,7 @@ export const ExecutiveDashboardModule: React.FC = () => {
   const localFallback = useMemo(() => {
     const total = rooms.length;
     const occupied = rooms.filter(r => r.status === 'ocupado').length;
-    const revenue = payments.filter(p => p.status === 'aprovado' || p.status === 'pago').reduce((s,p) => s + p.valor, 0);
+    const revenue = payments.filter(p => p.status === 'aprovado').reduce((s,p) => s + p.valor, 0);
     return { 
       occupancy: occupied / Math.max(total, 1), 
       revenue, 

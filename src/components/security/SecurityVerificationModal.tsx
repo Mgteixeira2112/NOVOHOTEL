@@ -163,7 +163,10 @@ export const SecurityVerificationModal: React.FC = () => {
             </p>
             {securityModalRequest.details && (
               <div className="mt-2 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 bg-slate-900/50 p-2 rounded">
-                <strong>Detalhes técnicos:</strong> {securityModalRequest.details}
+                <strong>Detalhes técnicos:</strong>{' '}
+                {typeof securityModalRequest.details === 'object'
+                  ? JSON.stringify(securityModalRequest.details)
+                  : String(securityModalRequest.details)}
               </div>
             )}
           </div>
