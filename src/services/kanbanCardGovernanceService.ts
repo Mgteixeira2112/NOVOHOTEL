@@ -35,8 +35,16 @@ function assignedUserId(value: Record<string, unknown> | null | undefined): stri
   return typeof id === 'string' && id ? id : null;
 }
 
+function normalizedAssignedUserId(card: KanbanV2Card): string | null {
+  const normalized = (card as any).assigned_user_id;
+  return typeof normalized === 'string' && normalized
+    ? normalized
+    : assignedUserId(card.assigned_to);
+}
+
 function compactCardSnapshot(card: KanbanV2Card | null | undefined) {
   if (!card) return null;
+  const extended = card as any;
   return {
     id: card.id,
     board_id: card.board_id,
@@ -44,11 +52,11 @@ function compactCardSnapshot(card: KanbanV2Card | null | undefined) {
     titulo: card.titulo,
     prioridade: card.prioridade,
     departamento: card.departamento,
-    assigned_user_id: card.assigned_user_id || assignedUserId(card.assigned_to),
+    assigned_user_id: normalizedAssignedUserId(card),
     room_number: card.room_number,
     completed_at: card.completed_at,
     is_archived: card.is_archived,
-    deleted_at: card.deleted_at || null,
+    deleted_at: extended.deleted_at || null,
   };
 }
 
@@ -108,9 +116,7 @@ async function appendEvent(input: {
 }
 
 function assignmentChanged(before: KanbanV2Card, after: KanbanV2Card): boolean {
-  const beforeId = before.assigned_user_id || assignedUserId(before.assigned_to);
-  const afterId = after.assigned_user_id || assignedUserId(after.assigned_to);
-  return beforeId !== afterId;
+  return normalizedAssignedUserId(before) !== normalizedAssignedUserId(after);
 }
 
 export const kanbanCardGovernance = {
@@ -131,7 +137,12 @@ export const kanbanCardGovernance = {
       toValue: compactCardSnapshot(card),
     });
 
-    return { ...card, assigned_user_id: responsibleId, created_by_user_id: actor.userId || null, updated_by_user_id: actor.userId || null } as KanbanV2Card;
+    return {
+      ...card,
+      assigned_user_id: responsibleId,
+      created_by_user_id: actor.userId || null,
+      updated_by_user_id: actor.userId || null,
+    } as KanbanV2Card;
   },
 
   async updateCard(
@@ -156,7 +167,11 @@ export const kanbanCardGovernance = {
       toValue: compactCardSnapshot(updated),
     });
 
-    return { ...updated, assigned_user_id: responsibleId, updated_by_user_id: actor.userId || null } as KanbanV2Card;
+    return {
+      ...updated,
+      assigned_user_id: responsibleId,
+      updated_by_user_id: actor.userId || null,
+    } as KanbanV2Card;
   },
 
   async moveCard(
