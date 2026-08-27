@@ -84,3 +84,46 @@ export function filterKanbanCardsForUser<T extends KanbanAccessCard>(
 ): T[] {
   return cards.filter(card => canViewKanbanCard(context, card));
 }
+
+/**
+ * Permissão efetiva de uma ação sobre um card.
+ *
+ * - admin/gerente possuem controle integral;
+ * - perfis operacionais podem editar/mover apenas cards que já podem visualizar;
+ * - atribuição de outro responsável e exclusão ficam reservadas à gestão;
+ * - cards arquivados/excluídos nunca podem ser alterados pelo fluxo operacional ativo.
+ */
+export function canPerformKanbanAction(
+  context: KanbanAccessContext,
+  action: KanbanAction,
+  card?: KanbanAccessCard | null,
+): boolean {
+  const capabilities = defaultKanbanCapabilities(context.role);
+  if (!capabilities[action]) return false;
+
+  if (action === 'create') return Boolean(context.userId);
+  if (!card) return false;
+
+  if (action === 'view') return canViewKanbanCard(context, card);
+  if (card.is_archived || card.deleted_at) return false;
+
+  if (context.role === 'admin' || context.role === 'gerente') return true;
+
+  // A operação só modifica cards que já fazem parte da sua fila autorizada.
+  return canViewKanbanCard(context, card);
+}
+
+/**
+ * Restringe a criação a setores vinculados ao usuário quando a configuração
+ * setorial estiver disponível. Um array vazio preserva o comportamento legado
+ * de fallback até a associação de setores estar pronta no banco.
+ */
+export function canCreateKanbanCardInSector(
+  context: KanbanAccessContext,
+  sector: string | null | undefined,
+): boolean {
+  if (!canPerformKanbanAction(context, 'create')) return false;
+  if (context.role === 'admin' || context.role === 'gerente') return true;
+  if (context.sectorIds.length === 0) return true;
+  return isOperationalSectorId(sector) && context.sectorIds.includes(sector);
+}
