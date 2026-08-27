@@ -23,7 +23,7 @@ const latestCardVersionByHotel = new Map<string, Map<string, number>>();
 function getRecordVersion(record: any, payload?: any): number {
   const value = record?.updated_at ?? payload?.sentAt ?? payload?.commit_timestamp;
   const parsed = value ? Date.parse(String(value)) : NaN;
-  return Number.isFinite(parsed) ? parsed : Date.now();
+  return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function acceptCardVersion(hotelId: string, cardId: string, version: number): boolean {
@@ -33,12 +33,38 @@ function acceptCardVersion(hotelId: string, cardId: string, version: number): bo
     latestCardVersionByHotel.set(hotelId, versions);
   }
   const previous = versions.get(cardId);
-  if (previous !== undefined && version < previous) {
+  if (previous !== undefined && version > 0 && version < previous) {
     console.warn(`[REALTIME STALE EVENT IGNORED] hotel=${hotelId} card=${cardId} version=${version} previous=${previous}`);
     return false;
   }
-  versions.set(cardId, Math.max(previous ?? 0, version));
+  if (version > 0) versions.set(cardId, Math.max(previous ?? 0, version));
   return true;
+}
+
+/**
+ * Reconcile every card notification against PostgreSQL before changing React state.
+ * Realtime is used as the trigger, while PostgreSQL remains the source of truth.
+ * This prevents a delayed Broadcast/postgres payload or the initial hydration race
+ * from restoring an older column_id after a successful move.
+ */
+async function fetchAuthoritativeCard(hotelId: string, cardId: string): Promise<KanbanCard | null> {
+  const { data, error } = await supabase
+    .from('kanban_cards')
+    .select('*')
+    .eq('hotel_id', hotelId)
+    .eq('id', cardId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[REALTIME RECONCILE ERROR] Card ${cardId}:`, error);
+    return null;
+  }
+  if (!data) return null;
+
+  const card = mapDatabaseCardToKanbanCard(data);
+  const version = getRecordVersion(data);
+  if (!acceptCardVersion(hotelId, cardId, version)) return null;
+  return card;
 }
 
 export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealtimeHandlers): () => void {
@@ -53,46 +79,50 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
   const channel: RealtimeChannel = supabase.channel(channelName);
   const broadcastChannel: RealtimeChannel = supabase.channel(broadcastChannelName);
 
-  channel.on('postgres_changes', {
-    event: '*', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}`,
-  }, (payload: any) => {
+  const handleCardDatabaseEvent = async (payload: any) => {
     const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
     const recordId = String(payload.new?.id || payload.old?.id || '');
     if (!recordId) return;
-    const record = payload.new || payload.old;
-    const version = getRecordVersion(record, payload);
-    if (eventType !== 'DELETE' && !acceptCardVersion(hotelId, recordId, version)) return;
-    console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, recordId);
+
     if (eventType === 'DELETE') {
       handlers.onCardDelete?.(recordId);
       return;
     }
-    if (!payload.new) return;
-    try {
-      const card = mapDatabaseCardToKanbanCard(payload.new);
-      if (eventType === 'INSERT') handlers.onCardInsert?.(card);
-      else handlers.onCardUpdate?.(card);
-    } catch (err) {
-      console.error(`[REALTIME MAP ERROR] Erro ao mapear ${eventType} de card:`, err);
-    }
+
+    // Do not trust payload.new as the final state. Fetch the current row after
+    // PostgreSQL has committed it, so delayed events cannot roll the UI back.
+    const authoritativeCard = await fetchAuthoritativeCard(hotelId, recordId);
+    if (!authoritativeCard) return;
+
+    console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, recordId);
+    if (eventType === 'INSERT') handlers.onCardInsert?.(authoritativeCard);
+    else handlers.onCardUpdate?.(authoritativeCard);
+  };
+
+  channel.on('postgres_changes', {
+    event: '*', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}`,
+  }, (payload: any) => {
+    void handleCardDatabaseEvent(payload);
   });
 
   broadcastChannel.on('broadcast', { event: 'kanban_card_update' }, (message: any) => {
     const card = message?.payload?.card as KanbanCard | undefined;
     if (!card?.id) return;
-    const version = getRecordVersion(card, message?.payload);
-    if (!acceptCardVersion(hotelId, card.id, version)) return;
-    console.info('[REALTIME BROADCAST RECEIVED] Card UPDATE:', card.id);
-    handlers.onCardUpdate?.(card);
+    void fetchAuthoritativeCard(hotelId, card.id).then((authoritativeCard) => {
+      if (!authoritativeCard) return;
+      console.info('[REALTIME BROADCAST RECONCILED] Card UPDATE:', card.id);
+      handlers.onCardUpdate?.(authoritativeCard);
+    });
   });
 
   broadcastChannel.on('broadcast', { event: 'kanban_card_insert' }, (message: any) => {
     const card = message?.payload?.card as KanbanCard | undefined;
     if (!card?.id) return;
-    const version = getRecordVersion(card, message?.payload);
-    if (!acceptCardVersion(hotelId, card.id, version)) return;
-    console.info('[REALTIME BROADCAST RECEIVED] Card INSERT:', card.id);
-    handlers.onCardInsert?.(card);
+    void fetchAuthoritativeCard(hotelId, card.id).then((authoritativeCard) => {
+      if (!authoritativeCard) return;
+      console.info('[REALTIME BROADCAST RECONCILED] Card INSERT:', card.id);
+      handlers.onCardInsert?.(authoritativeCard);
+    });
   });
 
   broadcastChannel.on('broadcast', { event: 'kanban_card_delete' }, (message: any) => {
