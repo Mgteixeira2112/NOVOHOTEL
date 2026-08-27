@@ -18,15 +18,10 @@ export interface KanbanRealtimeHandlers {
   onStatusChange?: (status: KanbanRealtimeStatus) => void;
 }
 
-/**
- * Mantém a última versão recebida por entidade dentro desta conexão.
- * Realtime pode entregar eventos repetidos/atrasados; nunca devemos aplicar
- * uma versão anterior sobre uma alteração mais nova.
- */
 const latestCardVersionByChannel = new Map<string, Map<string, number>>();
 
-function getRecordVersion(record: any, payload: any): number {
-  const value = record?.updated_at ?? payload?.commit_timestamp;
+function getRecordVersion(record: any, payload?: any): number {
+  const value = record?.updated_at ?? payload?.sentAt ?? payload?.commit_timestamp;
   const parsed = value ? Date.parse(String(value)) : NaN;
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
@@ -53,8 +48,10 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
   }
 
   const channelName = `hotel-kanban-sync:${hotelId}`;
+  const broadcastChannelName = `hotel-kanban-broadcast:${hotelId}`;
   handlers.onStatusChange?.('CONNECTING');
   const channel: RealtimeChannel = supabase.channel(channelName);
+  const broadcastChannel: RealtimeChannel = supabase.channel(broadcastChannelName);
 
   channel.on('postgres_changes', {
     event: '*', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}`,
@@ -64,10 +61,7 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     if (!recordId) return;
     const record = payload.new || payload.old;
     const version = getRecordVersion(record, payload);
-
-    // DELETE não possui updated_at confiável; aplica-se normalmente.
     if (eventType !== 'DELETE' && !acceptCardVersion(channelName, recordId, version)) return;
-
     console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, recordId);
     if (eventType === 'DELETE') {
       handlers.onCardDelete?.(recordId);
@@ -81,6 +75,24 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     } catch (err) {
       console.error(`[REALTIME MAP ERROR] Erro ao mapear ${eventType} de card:`, err);
     }
+  });
+
+  broadcastChannel.on('broadcast', { event: 'kanban_card_update' }, (message: any) => {
+    const card = message?.payload?.card as KanbanCard | undefined;
+    if (!card?.id) return;
+    const version = getRecordVersion(card, message?.payload);
+    if (!acceptCardVersion(broadcastChannelName, card.id, version)) return;
+    console.info('[REALTIME BROADCAST RECEIVED] Card UPDATE:', card.id);
+    handlers.onCardUpdate?.(card);
+  });
+
+  broadcastChannel.on('broadcast', { event: 'kanban_card_insert' }, (message: any) => {
+    const card = message?.payload?.card as KanbanCard | undefined;
+    if (!card?.id) return;
+    const version = getRecordVersion(card, message?.payload);
+    if (!acceptCardVersion(broadcastChannelName, card.id, version)) return;
+    console.info('[REALTIME BROADCAST RECEIVED] Card INSERT:', card.id);
+    handlers.onCardInsert?.(card);
   });
 
   channel.on('postgres_changes', {
@@ -102,8 +114,6 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     }
   });
 
-  // Colunas são relacionadas a boards; não existe hotel_id garantido nesta tabela.
-  // O isolamento é feito pelo board_id no consumidor. Não adicionar filtro inexistente.
   channel.on('postgres_changes', {
     event: '*', schema: 'public', table: 'kanban_columns',
   }, (payload: any) => {
@@ -125,24 +135,23 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
 
   channel.subscribe((status, err) => {
     console.info(`[KANBAN REALTIME STATUS] ${status} for channel ${channelName}`, err || '');
-    if (status === 'SUBSCRIBED') {
-      console.info(`[REALTIME CONNECTED] Hotel: ${hotelId}`);
-      handlers.onStatusChange?.('SUBSCRIBED');
-    } else if (status === 'TIMED_OUT') {
-      console.warn(`[REALTIME TIMED_OUT] Hotel: ${hotelId}`);
-      handlers.onStatusChange?.('TIMED_OUT');
-    } else if (status === 'CLOSED') {
-      console.warn(`[REALTIME DISCONNECTED] Hotel: ${hotelId}`);
-      handlers.onStatusChange?.('CLOSED');
-    } else if (status === 'CHANNEL_ERROR') {
-      console.error(`[REALTIME ERROR] Hotel: ${hotelId}`, err);
-      handlers.onStatusChange?.('CHANNEL_ERROR');
+    if (status === 'SUBSCRIBED') handlers.onStatusChange?.('SUBSCRIBED');
+    else if (status === 'TIMED_OUT') handlers.onStatusChange?.('TIMED_OUT');
+    else if (status === 'CLOSED') handlers.onStatusChange?.('CLOSED');
+    else if (status === 'CHANNEL_ERROR') handlers.onStatusChange?.('CHANNEL_ERROR');
+  });
+
+  broadcastChannel.subscribe((status, err) => {
+    console.info(`[KANBAN BROADCAST STATUS] ${status} for channel ${broadcastChannelName}`, err || '');
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      console.warn(`[KANBAN BROADCAST] Canal indisponível: ${status}`);
     }
   });
 
   return () => {
-    console.info(`[KANBAN REALTIME CLEANUP] Removendo canal ${channelName}`);
     latestCardVersionByChannel.delete(channelName);
+    latestCardVersionByChannel.delete(broadcastChannelName);
     void supabase.removeChannel(channel);
+    void supabase.removeChannel(broadcastChannel);
   };
 }
