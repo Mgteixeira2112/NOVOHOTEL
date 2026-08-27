@@ -8,14 +8,14 @@ const engine = readFileSync('src/services/kanbanV2.ts', 'utf8');
 const bootstrap = readFileSync('src/services/kanbanLocalBootstrapService.ts', 'utf8');
 
 test('ponte global usa o mesmo event bus do motor legado', () => {
-  assert.ok(bridge.includes("const EVENT_BUS_NAME = 'itajuba_kanban_event'"));
-  assert.ok(engine.includes("const EVENT_BUS_NAME = 'itajuba_kanban_event'"));
-  assert.ok(bridge.includes("window.addEventListener(EVENT_BUS_NAME"));
+  assert.match(bridge, /EVENT_BUS_NAME\s*=\s*['"]itajuba_kanban_event['"]/);
+  assert.match(engine, /EVENT_BUS_NAME\s*=\s*['"]itajuba_kanban_event['"]/);
+  assert.match(bridge, /addEventListener\(EVENT_BUS_NAME/);
 });
 
 test('ponte fica montada em todo o painel administrativo, não apenas na aba Kanban', () => {
-  assert.ok(layout.includes("import { KanbanLocalAutomationBridge }"));
-  assert.ok(layout.includes('<KanbanLocalAutomationBridge />'));
+  assert.match(layout, /import\s*\{\s*KanbanLocalAutomationBridge\s*\}/);
+  assert.match(layout, /<KanbanLocalAutomationBridge\s*\/>/);
 });
 
 test('ponte persiste somente automações e ignora cards demonstrativos', () => {
@@ -28,24 +28,20 @@ test('ponte persiste somente automações e ignora cards demonstrativos', () => 
 });
 
 test('automações recebem IDs determinísticos por reserva ou quarto', () => {
-  assert.ok(bridge.includes('auto-res-'));
-  assert.ok(bridge.includes('auto-gov-room-'));
-  assert.ok(bridge.includes('auto-man-room-'));
-  assert.ok(bridge.includes('auto-minibar-room-'));
-  assert.ok(bootstrap.includes('auto-res-'));
-  assert.ok(bootstrap.includes('auto-gov-room-'));
-  assert.ok(bootstrap.includes('auto-man-room-'));
-  assert.ok(bootstrap.includes('auto-minibar-room-'));
+  for (const prefix of ['auto-res-', 'auto-gov-room-', 'auto-man-room-', 'auto-minibar-room-']) {
+    assert.ok(bridge.includes(prefix), `ponte deve conter prefixo ${prefix}`);
+    assert.ok(bootstrap.includes(prefix), `bootstrap deve conter prefixo ${prefix}`);
+  }
 });
 
 test('alterações automáticas são promovidas por upsert e portanto geram INSERT/UPDATE realtime', () => {
-  assert.ok(bridge.includes(".from('kanban_cards')"));
-  assert.ok(bridge.includes(".upsert(persistentPayload(card), { onConflict: 'id' })"));
-  assert.ok(engine.includes("event: 'INSERT'"));
-  assert.ok(engine.includes("event: 'UPDATE'"));
+  assert.match(bridge, /from\(['"]kanban_cards['"]\)/);
+  assert.match(bridge, /upsert\(persistentPayload\(card\),\s*\{\s*onConflict:\s*['"]id['"]\s*\}\)/);
+  assert.match(engine, /event\s*:\s*['"]INSERT['"]/);
+  assert.match(engine, /event\s*:\s*['"]UPDATE['"]/);
 });
 
 test('snapshot impede reenvio de cards automáticos que não mudaram', () => {
-  assert.ok(bridge.includes('snapshotRef.current.get(id) === nextFingerprint'));
-  assert.ok(bridge.includes('snapshotRef.current.set(id, nextFingerprint)'));
+  assert.match(bridge, /snapshotRef\.current\.get\(id\)\s*===\s*nextFingerprint/);
+  assert.match(bridge, /snapshotRef\.current\.set\(id,\s*nextFingerprint\)/);
 });
