@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useHotel } from '../../context/HotelContext';
 import { useFrigobar } from '../../context/FrigobarContext';
 import { formatCurrency, formatDateBR } from '../../utils/formatters';
@@ -30,16 +30,29 @@ import {
   Lock,
   BatteryCharging,
   ChevronRight,
-  Filter
+  Filter,
+  Radio,
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 import { RoomStatus, Quarto, Reserva } from '../../types';
 import { RoomControlModal } from './RoomControlModal';
 import { getOperationalTodayStr } from '../../utils/dateHelper';
 import { AdminPageHeader } from '../common/AdminPageHeader';
 import { EmptyState } from '../common/UIStates';
+import { kanbanV2 } from '../../services/kanbanV2';
 
 type FilterStatus = 'todos' | 'disponivel' | 'ocupado' | 'limpeza' | 'vistoria' | 'manutencao';
 type FilterFrigobar = 'todos' | 'ok' | 'precisa_repor';
+
+const STATUS_CONFIGS: Record<RoomStatus, { label: string; bg: string; text: string; dot: string; border: string }> = {
+  disponivel: { label: 'Disponível', bg: 'bg-emerald-600', text: 'text-white', dot: 'bg-emerald-400', border: 'border-emerald-300 hover:border-emerald-500 bg-emerald-50/40' },
+  ocupado: { label: 'Ocupado', bg: 'bg-blue-600', text: 'text-white', dot: 'bg-blue-400', border: 'border-blue-300 hover:border-blue-500 bg-blue-50/40' },
+  limpeza: { label: 'Limpeza', bg: 'bg-amber-600', text: 'text-white', dot: 'bg-amber-400', border: 'border-amber-300 hover:border-amber-500 bg-amber-50/40' },
+  vistoria: { label: 'Vistoriado', bg: 'bg-teal-600', text: 'text-white', dot: 'bg-teal-400', border: 'border-teal-300 hover:border-teal-500 bg-teal-50/40' },
+  manutencao: { label: 'Manutenção', bg: 'bg-rose-600', text: 'text-white', dot: 'bg-rose-400', border: 'border-rose-300 hover:border-rose-500 bg-rose-50/40' },
+  bloqueado: { label: 'Interditado', bg: 'bg-stone-700', text: 'text-white', dot: 'bg-stone-400', border: 'border-stone-400 bg-stone-100' },
+};
 
 export const DashboardModule: React.FC = () => {
   const { 
@@ -67,6 +80,11 @@ export const DashboardModule: React.FC = () => {
   const [selectedRoomForControl, setSelectedRoomForControl] = useState<Quarto | null>(null);
   const [selectedRoomIndex, setSelectedRoomIndex] = useState<number>(0);
 
+  // Controle de Menu Rápido de Status e Sincronização em Tempo Real
+  const [openStatusMenuRoomId, setOpenStatusMenuRoomId] = useState<string | null>(null);
+  const [recentlyUpdatedRooms, setRecentlyUpdatedRooms] = useState<Record<string, number>>({});
+  const [lastSyncTimestamp, setLastSyncTimestamp] = useState<Date>(new Date());
+
   // Filtros do Mapa Operacional
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('todos');
   const [frigobarFilter, setFrigobarFilter] = useState<FilterFrigobar>('todos');
@@ -76,6 +94,32 @@ export const DashboardModule: React.FC = () => {
 
   // Feedback de ações rápidas
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // Fecha o menu de status ao clicar fora
+  useEffect(() => {
+    const handleClickOutside = () => setOpenStatusMenuRoomId(null);
+    window.addEventListener('click', handleClickOutside);
+    return () => window.removeEventListener('click', handleClickOutside);
+  }, []);
+
+  // Monitoramento de Sincronização em Tempo Real (Eventos de Kanban e Base de Dados)
+  useEffect(() => {
+    const handleRealtimeSync = (e: Event) => {
+      const customEvent = e as CustomEvent<{ roomNumber: string; status: RoomStatus; sourceCardId?: string }>;
+      if (!customEvent.detail) return;
+      const { roomNumber, status } = customEvent.detail;
+      const targetRoom = rooms.find((r) => r.numero === roomNumber);
+      if (targetRoom) {
+        setRecentlyUpdatedRooms((prev) => ({ ...prev, [targetRoom.id]: Date.now() }));
+        setLastSyncTimestamp(new Date());
+        setActionNotice(`⚡ Sincronização Online: Quarto ${roomNumber} atualizado para '${STATUS_CONFIGS[status]?.label || status}'.`);
+        setTimeout(() => setActionNotice(null), 3500);
+      }
+    };
+
+    window.addEventListener('pms_room_status_sync', handleRealtimeSync);
+    return () => window.removeEventListener('pms_room_status_sync', handleRealtimeSync);
+  }, [rooms]);
 
   // Data operacional do dia (America/Sao_Paulo)
   const todayStr = getOperationalTodayStr();
@@ -185,6 +229,41 @@ export const DashboardModule: React.FC = () => {
     const res = reabastecerTodosQuartos(currentUser?.nome);
     setActionNotice(`⚡ Todos os ${rooms.length} frigobares foram 100% abastecidos! (${res.totalReposto} itens repostos).`);
     setTimeout(() => setActionNotice(null), 3500);
+  };
+
+  // Mudança Imediata de Status Operacional direto pelo Card (Estilo Kanban)
+  const handleDirectChangeRoomStatus = (e: React.MouseEvent, room: Quarto, newStatus: RoomStatus) => {
+    e.stopPropagation();
+    if (room.status === newStatus) {
+      setOpenStatusMenuRoomId(null);
+      return;
+    }
+
+    // Atualiza status do quarto
+    setRoomStatus(room.id, newStatus);
+
+    // Sincroniza com o Kanban correspondente
+    kanbanV2.syncRoomStatus(room.numero, newStatus).catch(() => {});
+
+    // Marca timestamp de atualização em tempo real
+    setRecentlyUpdatedRooms((prev) => ({ ...prev, [room.id]: Date.now() }));
+    setLastSyncTimestamp(new Date());
+
+    // Dispara evento para todas as telas abertas
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('pms_room_status_sync', {
+        detail: { roomNumber: room.numero, status: newStatus }
+      }));
+    }
+
+    setActionNotice(`⚡ Quarto ${room.numero} atualizado em tempo real para '${STATUS_CONFIGS[newStatus].label}' e sincronizado com os Kanbans.`);
+    setTimeout(() => setActionNotice(null), 3500);
+    setOpenStatusMenuRoomId(null);
+  };
+
+  const handleToggleStatusMenu = (e: React.MouseEvent, roomId: string) => {
+    e.stopPropagation();
+    setOpenStatusMenuRoomId((prev) => (prev === roomId ? null : roomId));
   };
 
   // Liberar Todos os Quartos Limpos para Disponíveis
@@ -387,20 +466,24 @@ export const DashboardModule: React.FC = () => {
       {/* MAPA OPERACIONAL DE ACOMODAÇÕES (ROOM RACK COM FRIGOBAR INTEGRADO) */}
       <div className="bg-white rounded-3xl border border-stone-200 shadow-sm overflow-hidden space-y-4 p-5 sm:p-6">
         
-        {/* CABEÇALHO DO MAPA OPERACIONAL COM FILTROS AVANÇADOS */}
+        {/* CABEÇALHO DO MAPA OPERACIONAL COM FILTROS AVANÇADOS & STATUS EM TEMPO REAL */}
         <div className="space-y-4 pb-4 border-b border-stone-100">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <h3 className="font-serif-luxury text-lg font-bold text-stone-900">
                   Mapa Operacional de Acomodações & Frigobares (Room Rack)
                 </h3>
                 <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-stone-100 text-stone-700">
                   {filteredRooms.length} de {rooms.length} unidades
                 </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                  <span>Tempo Real Ativo</span>
+                </span>
               </div>
               <p className="text-xs text-stone-500 mt-0.5">
-                Clique em qualquer quarto para abrir a <strong>Central de Controle Total</strong> (Status, Governança, Frigobar, PIN da Fechadura e Hóspede).
+                Clique no <strong>Status</strong> para alterá-lo instantaneamente ou no quarto para abrir a <strong>Central de Controle Total</strong>.
               </p>
             </div>
 
@@ -408,7 +491,7 @@ export const DashboardModule: React.FC = () => {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleRestockAllHotel}
-                className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold flex items-center gap-1.5 transition"
+                className="px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
                 title="Abastecer todos os quartos com 1 clique"
               >
                 <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
@@ -417,7 +500,7 @@ export const DashboardModule: React.FC = () => {
 
               <button
                 onClick={handleReleaseAllClean}
-                className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 transition"
+                className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 transition active:scale-95"
                 title="Liberar todos os quartos limpos"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -425,6 +508,19 @@ export const DashboardModule: React.FC = () => {
               </button>
             </div>
           </div>
+
+          {/* BANNER DE AVISO DE SINCRONIZAÇÃO EM TEMPO REAL */}
+          {actionNotice && (
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-900 flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-600 animate-bounce" />
+                <span>{actionNotice}</span>
+              </div>
+              <span className="text-[10px] text-amber-700 font-mono">
+                {lastSyncTimestamp.toLocaleTimeString('pt-BR')}
+              </span>
+            </div>
+          )}
 
           {/* BARRA DE FILTROS (STATUS + FRIGOBAR + ANDAR + BUSCA) */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-2">
@@ -569,41 +665,27 @@ export const DashboardModule: React.FC = () => {
             const activeRes = reservations.find((r) => r.quarto_id === room.id && r.status === 'checkin_realizado');
             const guest = activeRes ? guests.find((g) => g.id === activeRes.hospede_id) : null;
             const minibar = getRoomMinibarSummary(room.numero);
-
-            // Estilos visuais dinâmicos conforme status
-            let cardBorder = 'border-emerald-300 hover:border-emerald-500 bg-emerald-50/40';
-            let statusPill = 'bg-emerald-600 text-white';
-            let statusLabel = 'Disponível';
-
-            if (room.status === 'ocupado') {
-              cardBorder = 'border-blue-300 hover:border-blue-500 bg-blue-50/40';
-              statusPill = 'bg-blue-600 text-white';
-              statusLabel = 'Ocupado';
-            } else if (room.status === 'limpeza') {
-              cardBorder = 'border-amber-300 hover:border-amber-500 bg-amber-50/40';
-              statusPill = 'bg-amber-600 text-white';
-              statusLabel = 'Limpeza';
-            } else if (room.status === 'vistoria') {
-              cardBorder = 'border-teal-300 hover:border-teal-500 bg-teal-50/40';
-              statusPill = 'bg-teal-600 text-white';
-              statusLabel = 'Vistoriado';
-            } else if (room.status === 'manutencao') {
-              cardBorder = 'border-rose-300 hover:border-rose-500 bg-rose-50/40';
-              statusPill = 'bg-rose-600 text-white';
-              statusLabel = 'Manutenção';
-            } else if (room.status === 'bloqueado') {
-              cardBorder = 'border-stone-400 bg-stone-100';
-              statusPill = 'bg-stone-700 text-white';
-              statusLabel = 'Interditado';
-            }
+            const isMenuOpen = openStatusMenuRoomId === room.id;
+            const isRecentlyUpdated = Date.now() - (recentlyUpdatedRooms[room.id] || 0) < 5000;
+            const cfg = STATUS_CONFIGS[room.status] || STATUS_CONFIGS.disponivel;
 
             return (
               <div
                 key={room.id}
                 onClick={() => handleOpenRoomControl(room)}
-                className={`p-4 rounded-2xl border-2 transition-all duration-150 cursor-pointer flex flex-col justify-between min-h-[160px] shadow-xs hover:shadow-md relative group ${cardBorder}`}
+                className={`p-4 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex flex-col justify-between min-h-[168px] shadow-xs hover:shadow-md relative group ${cfg.border} ${
+                  isRecentlyUpdated ? 'ring-4 ring-amber-400/80 shadow-lg scale-[1.01]' : ''
+                }`}
               >
-                {/* TOPO DO CARD: NÚMERO, ANDAR E STATUS */}
+                {/* INDICADOR DE ATUALIZAÇÃO RECENTE EM TEMPO REAL */}
+                {isRecentlyUpdated && (
+                  <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-500 text-stone-950 font-black text-[9px] px-2 py-0.5 rounded-full shadow-md flex items-center gap-1 z-10 animate-bounce">
+                    <Zap className="w-2.5 h-2.5 fill-current" />
+                    <span>Atualizado Online</span>
+                  </div>
+                )}
+
+                {/* TOPO DO CARD: NÚMERO, ANDAR E STATUS INTERATIVO */}
                 <div>
                   <div className="flex items-start justify-between">
                     <div>
@@ -615,14 +697,55 @@ export const DashboardModule: React.FC = () => {
                           {room.andar}º Andar
                         </span>
                       </div>
-                      <span className="text-[11px] font-medium text-stone-600 truncate block max-w-[130px]">
+                      <span className="text-[11px] font-medium text-stone-600 truncate block max-w-[125px]">
                         {room.nome}
                       </span>
                     </div>
 
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${statusPill}`}>
-                      {statusLabel}
-                    </span>
+                    {/* SELETOR RÁPIDO DE STATUS (BOTÃO DROPDOWN DIRETO NO CARD) */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleStatusMenu(e, room.id)}
+                        className={`text-[10px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 transition-transform active:scale-95 shadow-xs hover:brightness-110 ${cfg.bg} ${cfg.text}`}
+                        title="Clique para mudar o status diretamente"
+                      >
+                        <span>{cfg.label}</span>
+                        <ChevronDown className="w-3 h-3 opacity-80" />
+                      </button>
+
+                      {/* MENU POPUP COM AS OPÇÕES DE STATUS EM TEMPO REAL */}
+                      {isMenuOpen && (
+                        <div 
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-2xl border border-stone-200 p-1.5 z-30 space-y-1 animate-in fade-in zoom-in-95"
+                        >
+                          <div className="px-2 py-1 text-[10px] font-bold text-stone-400 border-b border-stone-100 uppercase tracking-wider">
+                            Mudar Status Quarto {room.numero}
+                          </div>
+                          {(['disponivel', 'ocupado', 'limpeza', 'vistoria', 'manutencao', 'bloqueado'] as RoomStatus[]).map((st) => {
+                            const opt = STATUS_CONFIGS[st];
+                            const isCurrent = room.status === st;
+                            return (
+                              <button
+                                key={st}
+                                type="button"
+                                onClick={(e) => handleDirectChangeRoomStatus(e, room, st)}
+                                className={`w-full text-left px-2 py-1.5 rounded-xl text-xs font-bold flex items-center justify-between transition ${
+                                  isCurrent ? 'bg-stone-100 text-stone-950 font-black' : 'hover:bg-stone-50 text-stone-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className={`w-2.5 h-2.5 rounded-full ${opt.dot}`} />
+                                  <span>{opt.label}</span>
+                                </div>
+                                {isCurrent && <Check className="w-3.5 h-3.5 text-stone-900" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* INFORMAÇÃO DE HÓSPEDE (SE OCUPADO) OU DIÁRIA */}
@@ -646,8 +769,16 @@ export const DashboardModule: React.FC = () => {
                   </div>
                 </div>
 
-                {/* STATUS DE FRIGOBAR INTEGRADO & BARRA DE PREENCHIMENTO */}
-                <div className="mt-3 pt-2 border-t border-stone-200/70 space-y-1.5">
+                {/* STATUS DE FRIGOBAR INTEGRADO & BARRA DE PREENCHIMENTO INTERATIVA */}
+                <div 
+                  className="mt-3 pt-2 border-t border-stone-200/70 space-y-1.5"
+                  onClick={(e) => {
+                    if (minibar.needsRestock) {
+                      handleQuickRestockRoom(e, room.numero);
+                    }
+                  }}
+                  title={minibar.needsRestock ? "Clique para repor 100% o Frigobar" : "Frigobar 100% OK"}
+                >
                   <div className="flex items-center justify-between text-[10px]">
                     <span className="font-bold flex items-center gap-1 text-stone-700">
                       <ShoppingBag className="w-3 h-3 text-blue-600" />
@@ -659,8 +790,9 @@ export const DashboardModule: React.FC = () => {
                         ✓ 100% OK
                       </span>
                     ) : (
-                      <span className="font-black text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded">
-                        -{minibar.missingCount} reposição
+                      <span className="font-black text-amber-800 bg-amber-100 hover:bg-amber-200 px-1.5 py-0.5 rounded cursor-pointer transition flex items-center gap-1">
+                        <RefreshCw className="w-2.5 h-2.5 text-amber-700" />
+                        -{minibar.missingCount} repor
                       </span>
                     )}
                   </div>
@@ -681,7 +813,7 @@ export const DashboardModule: React.FC = () => {
                 </div>
 
                 {/* BOTÃO DE AÇÃO RÁPIDA NO HOVER */}
-                <div className="absolute inset-x-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity bg-stone-900/90 backdrop-blur-xs text-white rounded-xl p-1.5 flex items-center justify-between shadow-lg text-[10px]">
+                <div className="absolute inset-x-2 bottom-2 opacity-0 group-hover:opacity-100 transition-opacity bg-stone-900/90 backdrop-blur-xs text-white rounded-xl p-1.5 flex items-center justify-between shadow-lg text-[10px] z-20">
                   <span className="font-bold pl-1 flex items-center gap-1 text-amber-400">
                     <SlidersHorizontal className="w-3 h-3" /> Abrir Controle
                   </span>
