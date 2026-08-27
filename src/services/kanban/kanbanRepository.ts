@@ -7,8 +7,6 @@ import { INITIAL_KANBAN_BOARDS, INITIAL_KANBAN_CARDS } from '../../data/mockKanb
 async function persistDefaultKanban(hotelId: string): Promise<void> {
   if (!hotelId) return;
 
-  // The defaults are the initial data contract of the current UI. They must be
-  // persisted before the application can use Supabase as the single source of truth.
   for (const board of INITIAL_KANBAN_BOARDS) {
     const { error: boardError } = await supabase
       .from('kanban_boards')
@@ -46,10 +44,10 @@ export const kanbanRepository = {
       if (columnsResult.error) throw columnsResult.error;
       if (cardsResult.error) throw cardsResult.error;
 
-      const columns = (columnsResult.data || []).filter((row: any) => {
-        const boardIds = new Set((boardsResult.data || []).map((board: any) => String(board.id)));
-        return boardIds.has(String(row.board_id));
-      }).map(mapDatabaseColumnToKanbanColumn);
+      const boardIds = new Set((boardsResult.data || []).map((board: any) => String(board.id)));
+      const columns = (columnsResult.data || [])
+        .filter((row: any) => boardIds.has(String(row.board_id)))
+        .map(mapDatabaseColumnToKanbanColumn);
       const boards = (boardsResult.data || []).map(row => mapDatabaseBoardToKanbanBoard(row, columns));
       const cards = (cardsResult.data || []).map(mapDatabaseCardToKanbanCard);
       return { boards, cards };
@@ -57,9 +55,8 @@ export const kanbanRepository = {
 
     let result = await load();
 
-    // Empty database is the first-install state. Seed it from the same defaults
-    // used by the UI, then immediately reload from PostgreSQL. From this point
-    // forward the local mock data is no longer the source of truth.
+    // First installation: persist the same defaults used by the UI and then
+    // reload them from PostgreSQL so local mock state stops being authoritative.
     if (result.boards.length === 0 || result.cards.length === 0) {
       console.info(`[KANBAN SEED] Persistindo dados iniciais do Kanban para o hotel ${hotelId}`);
       await persistDefaultKanban(hotelId);
@@ -84,9 +81,6 @@ export const kanbanRepository = {
       .eq('id', card.id)
       .eq('hotel_id', hotelId);
 
-    // Keep optimistic concurrency when the caller has a server version.
-    // Undefined versions occur only for legacy/local cards and must not block
-    // their first persistence.
     if (card.updated_at) {
       query = query.eq('updated_at', card.updated_at);
     }
@@ -105,8 +99,6 @@ export const kanbanRepository = {
     }
 
     const persistedCard = mapDatabaseCardToKanbanCard(data);
-    // Keep the caller's object version synchronized so subsequent mutations do
-    // not reuse the previous updated_at and accidentally trigger a false conflict.
     card.updated_at = persistedCard.updated_at;
     console.info(`[SUPABASE UPDATE SUCCESS] Card: ${card.id} | coluna=${data.column_id} | updated_at=${data.updated_at}`);
     await broadcastKanbanCardChange(hotelId, 'UPDATE', persistedCard);
@@ -129,7 +121,7 @@ export const kanbanRepository = {
     }
 
     if (existing) {
-      return this.updateCard(hotelId, card);
+      return kanbanRepository.updateCard(hotelId, card);
     }
 
     const mutationUpdatedAt = new Date().toISOString();
@@ -179,5 +171,6 @@ export const kanbanRepository = {
   async deleteColumn(columnId: string): Promise<void> {
     if (!columnId) throw new Error('[KANBAN REPOSITORY] columnId é obrigatório para deleteColumn');
     const { error } = await supabase.from('kanban_columns').delete().eq('id', columnId);
+    if (error) throw error;
   },
 };
