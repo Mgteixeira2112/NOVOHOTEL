@@ -14,6 +14,7 @@ import { AutomationModule } from './AutomationModule';
 import { SettingsModule } from './SettingsModule';
 import { UsersOperationalAccessModule } from './UsersOperationalAccessModule';
 import { KanbanWorkspaceModule } from './KanbanWorkspaceModule';
+import { KanbanLocalAutomationBridge } from './KanbanLocalAutomationBridge';
 import { PDVPage } from './PDVPage';
 import { KDSPage } from './KDSPage';
 import { HotelOSCommandCenter } from './HotelOSCommandCenter';
@@ -67,6 +68,7 @@ export const AdminLayout: React.FC = () => {
 
   return (
     <div className={`min-h-screen bg-stone-100/90 flex flex-col text-stone-900 ${fontClass}`}>
+      <KanbanLocalAutomationBridge />
       <AdminHeader />
       <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-2xl border border-stone-200 p-2 shadow-xs mb-6 space-y-2">
