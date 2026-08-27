@@ -73,31 +73,22 @@ const INITIAL_BOARDS: KanbanV2Board[] = [
 ];
 
 const INITIAL_COLUMNS: KanbanV2Column[] = [
-  // Operação Geral
   { id: 'kanban-default-column-entrada', board_id: DEFAULT_BOARD_ID, nome: 'Entrada', ordem: 0, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'kanban-default-column-andamento', board_id: DEFAULT_BOARD_ID, nome: 'Em andamento', ordem: 1, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'kanban-default-column-aguardando', board_id: DEFAULT_BOARD_ID, nome: 'Aguardando', ordem: 2, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'kanban-default-column-concluido', board_id: DEFAULT_BOARD_ID, nome: 'Concluído', ordem: 3, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
-
-  // Governança
   { id: 'gov-col-a-limpar', board_id: 'kanban-board-governanca', nome: 'A Limpar', ordem: 0, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'gov-col-em-limpeza', board_id: 'kanban-board-governanca', nome: 'Em Limpeza', ordem: 1, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'gov-col-inspecao', board_id: 'kanban-board-governanca', nome: 'Em Inspeção', ordem: 2, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'gov-col-liberado', board_id: 'kanban-board-governanca', nome: 'Liberado', ordem: 3, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
-
-  // Recepção
   { id: 'rec-col-novos', board_id: 'kanban-board-recepcao', nome: 'Novas Solicitações', ordem: 0, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'rec-col-atendimento', board_id: 'kanban-board-recepcao', nome: 'Em Atendimento', ordem: 1, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'rec-col-pendente', board_id: 'kanban-board-recepcao', nome: 'Aguardando Hóspede', ordem: 2, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'rec-col-finalizado', board_id: 'kanban-board-recepcao', nome: 'Finalizado', ordem: 3, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
-
-  // Manutenção
   { id: 'man-col-chamados', board_id: 'kanban-board-manutencao', nome: 'Fila de Chamados', ordem: 0, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'man-col-reparo', board_id: 'kanban-board-manutencao', nome: 'Em Execução', ordem: 1, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'man-col-pecas', board_id: 'kanban-board-manutencao', nome: 'Aguardando Peças', ordem: 2, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'man-col-resolvido', board_id: 'kanban-board-manutencao', nome: 'Resolvido', ordem: 3, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
-
-  // Cozinha
   { id: 'coz-col-pedidos', board_id: 'kanban-board-cozinha', nome: 'Novos Pedidos', ordem: 0, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'coz-col-preparo', board_id: 'kanban-board-cozinha', nome: 'Em Preparo', ordem: 1, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
   { id: 'coz-col-pronto', board_id: 'kanban-board-cozinha', nome: 'Pronto p/ Entrega', ordem: 2, configuracao: {}, criado_em: '2026-01-01T00:00:00.000Z', atualizado_em: '2026-01-01T00:00:00.000Z' },
@@ -105,97 +96,16 @@ const INITIAL_COLUMNS: KanbanV2Column[] = [
 ];
 
 const INITIAL_CARDS: KanbanV2Card[] = [
-  {
-    id: 'card-init-1',
-    hotel_id: KANBAN_TENANT_ID,
-    board_id: DEFAULT_BOARD_ID,
-    column_id: 'kanban-default-column-andamento',
-    titulo: 'Arrumação Suíte Presidencial 301',
-    descricao: 'Hóspede VIP chegando às 15h. Preparar amenities especiais e espumante de boas-vindas.',
-    prioridade: 'critica',
-    ordem: 1,
-    departamento: 'governanca',
-    room_number: '301',
-    location: 'Quarto 301',
-    assigned_to: null,
-    checklist: [],
-    comments: [],
-    metadata: {},
-    completed_at: null,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-    updated_at: new Date(Date.now() - 1800000).toISOString(),
-    is_archived: false,
-    guest_name: 'Alice Guimarães',
-    reservation_id: null,
-    service_details: null,
-    tags: ['VIP', 'Check-in Hoje'],
-    notes: null,
-  },
-  {
-    id: 'card-init-2',
-    hotel_id: KANBAN_TENANT_ID,
-    board_id: DEFAULT_BOARD_ID,
-    column_id: 'kanban-default-column-entrada',
-    titulo: 'Manutenção Ar Condicionado Q. 204',
-    descricao: 'Hóspede reportou ruído no ventilador do ar-condicionado.',
-    prioridade: 'atencao',
-    ordem: 2,
-    departamento: 'manutencao',
-    room_number: '204',
-    location: 'Quarto 204',
-    assigned_to: null,
-    checklist: [],
-    comments: [],
-    metadata: {},
-    completed_at: null,
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-    updated_at: new Date(Date.now() - 7200000).toISOString(),
-    is_archived: false,
-    guest_name: 'Carlos Drummond',
-    reservation_id: null,
-    service_details: null,
-    tags: ['Manutenção'],
-    notes: null,
-  },
-  {
-    id: 'card-init-3',
-    hotel_id: KANBAN_TENANT_ID,
-    board_id: DEFAULT_BOARD_ID,
-    column_id: 'kanban-default-column-concluido',
-    titulo: 'Check-in Express Q. 102',
-    descricao: 'Check-in e entrega de chaves finalizados com sucesso.',
-    prioridade: 'normal',
-    ordem: 3,
-    departamento: 'recepcao',
-    room_number: '102',
-    location: 'Recepção',
-    assigned_to: null,
-    checklist: [],
-    comments: [],
-    metadata: {},
-    completed_at: new Date(Date.now() - 900000).toISOString(),
-    created_at: new Date(Date.now() - 10800000).toISOString(),
-    updated_at: new Date(Date.now() - 900000).toISOString(),
-    is_archived: false,
-    guest_name: 'Mariana Silva',
-    reservation_id: null,
-    service_details: null,
-    tags: ['Check-in'],
-    notes: null,
-  }
+  { id: 'card-init-1', hotel_id: KANBAN_TENANT_ID, board_id: DEFAULT_BOARD_ID, column_id: 'kanban-default-column-andamento', titulo: 'Arrumação Suíte Presidencial 301', descricao: 'Hóspede VIP chegando às 15h. Preparar amenities especiais e espumante de boas-vindas.', prioridade: 'critica', ordem: 1, departamento: 'governanca', room_number: '301', location: 'Quarto 301', assigned_to: null, checklist: [], comments: [], metadata: {}, completed_at: null, created_at: new Date(Date.now() - 3600000).toISOString(), updated_at: new Date(Date.now() - 1800000).toISOString(), is_archived: false, guest_name: 'Alice Guimarães', reservation_id: null, service_details: null, tags: ['VIP', 'Check-in Hoje'], notes: null },
+  { id: 'card-init-2', hotel_id: KANBAN_TENANT_ID, board_id: DEFAULT_BOARD_ID, column_id: 'kanban-default-column-entrada', titulo: 'Manutenção Ar Condicionado Q. 204', descricao: 'Hóspede reportou ruído no ventilador do ar-condicionado.', prioridade: 'atencao', ordem: 2, departamento: 'manutencao', room_number: '204', location: 'Quarto 204', assigned_to: null, checklist: [], comments: [], metadata: {}, completed_at: null, created_at: new Date(Date.now() - 7200000).toISOString(), updated_at: new Date(Date.now() - 7200000).toISOString(), is_archived: false, guest_name: 'Carlos Drummond', reservation_id: null, service_details: null, tags: ['Manutenção'], notes: null },
+  { id: 'card-init-3', hotel_id: KANBAN_TENANT_ID, board_id: DEFAULT_BOARD_ID, column_id: 'kanban-default-column-concluido', titulo: 'Check-in Express Q. 102', descricao: 'Check-in e entrega de chaves finalizados com sucesso.', prioridade: 'normal', ordem: 3, departamento: 'recepcao', room_number: '102', location: 'Recepção', assigned_to: null, checklist: [], comments: [], metadata: {}, completed_at: new Date(Date.now() - 900000).toISOString(), created_at: new Date(Date.now() - 10800000).toISOString(), updated_at: new Date(Date.now() - 900000).toISOString(), is_archived: false, guest_name: 'Mariana Silva', reservation_id: null, service_details: null, tags: ['Check-in'], notes: null }
 ];
 
-interface LocalStoreData {
-  boards: KanbanV2Board[];
-  columns: KanbanV2Column[];
-  cards: KanbanV2Card[];
-}
+interface LocalStoreData { boards: KanbanV2Board[]; columns: KanbanV2Column[]; cards: KanbanV2Card[]; }
 
 function getLocalStore(): LocalStoreData {
   try {
-    if (typeof localStorage === 'undefined') {
-      return { boards: INITIAL_BOARDS, columns: INITIAL_COLUMNS, cards: INITIAL_CARDS };
-    }
+    if (typeof localStorage === 'undefined') return { boards: INITIAL_BOARDS, columns: INITIAL_COLUMNS, cards: INITIAL_CARDS };
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
       const initial: LocalStoreData = { boards: INITIAL_BOARDS, columns: INITIAL_COLUMNS, cards: INITIAL_CARDS };
@@ -203,14 +113,8 @@ function getLocalStore(): LocalStoreData {
       return initial;
     }
     const parsed = JSON.parse(raw);
-    return {
-      boards: Array.isArray(parsed?.boards) && parsed.boards.length > 0 ? parsed.boards : INITIAL_BOARDS,
-      columns: Array.isArray(parsed?.columns) && parsed.columns.length > 0 ? parsed.columns : INITIAL_COLUMNS,
-      cards: Array.isArray(parsed?.cards) ? parsed.cards : INITIAL_CARDS,
-    };
-  } catch {
-    return { boards: INITIAL_BOARDS, columns: INITIAL_COLUMNS, cards: INITIAL_CARDS };
-  }
+    return { boards: Array.isArray(parsed?.boards) && parsed.boards.length > 0 ? parsed.boards : INITIAL_BOARDS, columns: Array.isArray(parsed?.columns) && parsed.columns.length > 0 ? parsed.columns : INITIAL_COLUMNS, cards: Array.isArray(parsed?.cards) ? parsed.cards : INITIAL_CARDS };
+  } catch { return { boards: INITIAL_BOARDS, columns: INITIAL_COLUMNS, cards: INITIAL_CARDS }; }
 }
 
 function saveLocalStore(data: LocalStoreData) {
@@ -222,18 +126,7 @@ function saveLocalStore(data: LocalStoreData) {
   } catch {}
 }
 
-const normalizeCard = (row: any): KanbanV2Card => ({
-  ...row,
-  id: String(row.id),
-  hotel_id: String(row.hotel_id || KANBAN_TENANT_ID),
-  board_id: String(row.board_id),
-  column_id: String(row.column_id),
-  ordem: Number(row.ordem ?? 0),
-  checklist: Array.isArray(row.checklist) ? row.checklist : [],
-  comments: Array.isArray(row.comments) ? row.comments : [],
-  tags: Array.isArray(row.tags) ? row.tags : [],
-  metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
-});
+const normalizeCard = (row: any): KanbanV2Card => ({ ...row, id: String(row.id), hotel_id: String(row.hotel_id || KANBAN_TENANT_ID), board_id: String(row.board_id), column_id: String(row.column_id), ordem: Number(row.ordem ?? 0), checklist: Array.isArray(row.checklist) ? row.checklist : [], comments: Array.isArray(row.comments) ? row.comments : [], tags: Array.isArray(row.tags) ? row.tags : [], metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {} });
 
 export const kanbanV2 = {
   async load(_hotelId?: string) {
@@ -246,11 +139,9 @@ export const kanbanV2 = {
           supabase.from('kanban_columns').select('*').in('board_id', boardIds).order('ordem'),
           supabase.from('kanban_cards').select('*').eq('hotel_id', hotelId).eq('is_archived', false).order('ordem').order('created_at'),
         ]);
-        const finalBoards = boards as KanbanV2Board[];
-        const finalColumns = (columns ?? []) as KanbanV2Column[];
-        const finalCards = (cards ?? []).map(normalizeCard);
-        saveLocalStore({ boards: finalBoards, columns: finalColumns, cards: finalCards });
-        return { boards: finalBoards, columns: finalColumns, cards: finalCards };
+        const result = { boards: boards as KanbanV2Board[], columns: (columns ?? []) as KanbanV2Column[], cards: (cards ?? []).map(normalizeCard) };
+        saveLocalStore(result);
+        return result;
       }
     } catch {}
     const local = getLocalStore();
@@ -258,14 +149,12 @@ export const kanbanV2 = {
   },
 
   async createCard(input: { hotelId?: string; boardId: string; columnId: string; titulo: string; descricao?: string; prioridade?: string; departamento?: string; room_number?: string; location?: string; assigned_to?: Record<string, unknown> | null; guest_name?: string; notes?: string }) {
-    const hotelId = KANBAN_TENANT_ID;
     const title = input.titulo.trim();
     if (!title) throw new Error('Título da tarefa é obrigatório.');
     if (!input.boardId || !input.columnId) throw new Error('Quadro e coluna são obrigatórios.');
-    const now = new Date().toISOString();
-    const newCard: KanbanV2Card = {
-      id: `card_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      hotel_id: hotelId,
+
+    const payload = {
+      hotel_id: KANBAN_TENANT_ID,
       board_id: input.boardId,
       column_id: input.columnId,
       titulo: title,
@@ -276,25 +165,27 @@ export const kanbanV2 = {
       room_number: input.room_number?.trim() || null,
       location: input.location?.trim() || (input.room_number ? `Quarto ${input.room_number}` : 'Geral'),
       assigned_to: input.assigned_to || null,
-      checklist: [], comments: [], metadata: {}, completed_at: null,
-      created_at: now, updated_at: now, is_archived: false,
-      guest_name: input.guest_name?.trim() || null, reservation_id: null, service_details: null,
-      tags: input.departamento ? [input.departamento] : [], notes: input.notes?.trim() || null,
+      checklist: [],
+      comments: [],
+      metadata: {},
+      completed_at: null,
+      is_archived: false,
+      guest_name: input.guest_name?.trim() || null,
+      reservation_id: null,
+      service_details: null,
+      tags: input.departamento ? [input.departamento] : [],
+      notes: input.notes?.trim() || null,
     };
-    try {
-      const { data, error } = await supabase.from('kanban_cards').insert(newCard).select('*').single();
-      if (!error && data) {
-        const persisted = normalizeCard(data);
-        const store = getLocalStore();
-        store.cards = [...store.cards.filter(c => c.id !== persisted.id), persisted];
-        saveLocalStore(store);
-        return persisted;
-      }
-    } catch {}
+
+    const { data, error } = await supabase.from('kanban_cards').insert(payload).select('*').single();
+    if (error) throw new Error(`Falha ao criar card no Supabase: ${error.message}`);
+    if (!data) throw new Error('Falha ao criar card no Supabase: nenhum registro retornado.');
+
+    const persisted = normalizeCard(data);
     const store = getLocalStore();
-    store.cards = [...store.cards, newCard];
+    store.cards = [...store.cards.filter(c => c.id !== persisted.id), persisted];
     saveLocalStore(store);
-    return newCard;
+    return persisted;
   },
 
   async updateCard(cardId: string, updates: Partial<KanbanV2Card>) {
