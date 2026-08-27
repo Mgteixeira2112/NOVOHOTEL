@@ -21,7 +21,7 @@ export interface KanbanRealtimeHandlers {
 const latestCardVersionByHotel = new Map<string, Map<string, number>>();
 
 function getRecordVersion(record: any, payload?: any): number {
-  const value = record?.updated_at ?? payload?.sentAt ?? payload?.commit_timestamp;
+  const value = record?.updated_at ?? payload?.commit_timestamp;
   const parsed = value ? Date.parse(String(value)) : NaN;
   return Number.isFinite(parsed) ? parsed : 0;
 }
@@ -33,14 +33,15 @@ function acceptCardVersion(hotelId: string, cardId: string, version: number): bo
     latestCardVersionByHotel.set(hotelId, versions);
   }
   const previous = versions.get(cardId);
-  if (previous !== undefined && version > 0 && version < previous) return false;
+  // Equal versions are ignored. This prevents duplicate/stale deliveries from
+  // replacing a card with an older payload that happens to share the same timestamp.
+  if (previous !== undefined && version > 0 && version <= previous) return false;
   if (version > 0) versions.set(cardId, version);
   return true;
 }
 
 function mapRealtimeCard(record: any, hotelId: string): KanbanCard | null {
-  if (!record) return null;
-  if (String(record.hotel_id) !== String(hotelId)) return null;
+  if (!record || String(record.hotel_id) !== String(hotelId)) return null;
   const cardId = String(record.id || '');
   if (!cardId) return null;
   const version = getRecordVersion(record);
@@ -55,11 +56,8 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
   }
 
   const channelName = `hotel-kanban-sync:${hotelId}`;
-  const broadcastChannelName = `hotel-kanban-broadcast:${hotelId}`;
   handlers.onStatusChange?.('CONNECTING');
-
   const channel: RealtimeChannel = supabase.channel(channelName);
-  const broadcastChannel: RealtimeChannel = supabase.channel(broadcastChannelName);
   let disposed = false;
 
   channel.on('postgres_changes', {
@@ -77,13 +75,9 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
       handlers.onCardDelete?.(recordId);
       return;
     }
-
-    // Use the committed Realtime payload directly. This removes the extra
-    // SELECT round-trip that previously raced with RLS/cache and could make
-    // clients re-read an older version immediately after a move.
     const card = mapRealtimeCard(payload.new, hotelId);
     if (!card) return;
-    console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, card.id, card.column_id);
+    console.info(`[REALTIME EVENT RECEIVED] kanban_cards -> ${eventType}:`, card.id, card.column_id, card.updated_at);
     if (eventType === 'INSERT') handlers.onCardInsert?.(card);
     else handlers.onCardUpdate?.(card);
   });
@@ -131,8 +125,8 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     }
   });
 
-  // Lightweight reconciliation remains only as a recovery mechanism. It no
-  // longer queries the removed/legacy is_archived column and never writes data.
+  // Recovery-only reconciliation. It never writes and never uses the removed
+  // legacy is_archived field. PostgreSQL remains the source of truth.
   const reconcileTimer = window.setInterval(async () => {
     if (disposed) return;
     try {
@@ -173,35 +167,10 @@ export function subscribeToKanbanRealtime(hotelId: string, handlers: KanbanRealt
     else if (status === 'CHANNEL_ERROR') handlers.onStatusChange?.('CHANNEL_ERROR');
   });
 
-  broadcastChannel.on('broadcast', { event: 'kanban_card_update' }, (message: any) => {
-    if (disposed) return;
-    const card = mapRealtimeCard(message?.payload?.card, hotelId);
-    if (card) handlers.onCardUpdate?.(card);
-  });
-
-  broadcastChannel.on('broadcast', { event: 'kanban_card_insert' }, (message: any) => {
-    if (disposed) return;
-    const card = mapRealtimeCard(message?.payload?.card, hotelId);
-    if (card) handlers.onCardInsert?.(card);
-  });
-
-  broadcastChannel.on('broadcast', { event: 'kanban_card_delete' }, (message: any) => {
-    if (disposed) return;
-    const cardId = String(message?.payload?.cardId || '');
-    if (!cardId) return;
-    latestCardVersionByHotel.get(hotelId)?.delete(cardId);
-    handlers.onCardDelete?.(cardId);
-  });
-
-  broadcastChannel.subscribe((status, err) => {
-    console.info(`[KANBAN BROADCAST STATUS] ${status} for channel ${broadcastChannelName}`, err || '');
-  });
-
   return () => {
     disposed = true;
     window.clearInterval(reconcileTimer);
     latestCardVersionByHotel.delete(hotelId);
     void supabase.removeChannel(channel);
-    void supabase.removeChannel(broadcastChannel);
   };
 }
