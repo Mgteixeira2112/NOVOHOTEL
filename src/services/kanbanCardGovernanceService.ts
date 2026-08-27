@@ -30,6 +30,24 @@ export interface CreateGovernedKanbanCardInput {
   notes?: string;
 }
 
+export interface KanbanCardAuditEvent {
+  id: string;
+  hotel_id: string;
+  card_id: string;
+  user_id: string | null;
+  event_type: KanbanCardEventType;
+  from_value: Record<string, unknown> | null;
+  to_value: Record<string, unknown> | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface KanbanAuditReadResult<T> {
+  available: boolean;
+  data: T[];
+  message?: string;
+}
+
 function assignedUserId(value: Record<string, unknown> | null | undefined): string | null {
   const id = value?.id;
   return typeof id === 'string' && id ? id : null;
@@ -40,6 +58,21 @@ function normalizedAssignedUserId(card: KanbanV2Card): string | null {
   return typeof normalized === 'string' && normalized
     ? normalized
     : assignedUserId(card.assigned_to);
+}
+
+function normalizeGovernedCard(row: any): KanbanV2Card {
+  return {
+    ...row,
+    id: String(row.id),
+    hotel_id: String(row.hotel_id || KANBAN_TENANT_ID),
+    board_id: String(row.board_id || ''),
+    column_id: String(row.column_id || ''),
+    ordem: Number(row.ordem ?? 0),
+    checklist: Array.isArray(row.checklist) ? row.checklist : [],
+    comments: Array.isArray(row.comments) ? row.comments : [],
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+  } as KanbanV2Card;
 }
 
 function compactCardSnapshot(card: KanbanV2Card | null | undefined) {
@@ -254,5 +287,73 @@ export const kanbanCardGovernance = {
       deleted_by_user_id: null,
       updated_by_user_id: actor.userId || null,
     } as KanbanV2Card;
+  },
+
+  async fetchArchivedCards(): Promise<KanbanAuditReadResult<KanbanV2Card>> {
+    try {
+      const { data, error } = await supabase
+        .from('kanban_cards')
+        .select('*')
+        .eq('hotel_id', KANBAN_TENANT_ID)
+        .eq('is_archived', true)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        return { available: false, data: [], message: error.message };
+      }
+
+      return {
+        available: true,
+        data: Array.isArray(data) ? data.map(normalizeGovernedCard) : [],
+      };
+    } catch (error: any) {
+      return {
+        available: false,
+        data: [],
+        message: String(error?.message || error || 'Não foi possível carregar cards arquivados.'),
+      };
+    }
+  },
+
+  async fetchAuditEvents(limit = 50): Promise<KanbanAuditReadResult<KanbanCardAuditEvent>> {
+    try {
+      const safeLimit = Math.min(Math.max(Math.trunc(limit) || 50, 1), 200);
+      const { data, error } = await supabase
+        .from('kanban_card_events')
+        .select('*')
+        .eq('hotel_id', KANBAN_TENANT_ID)
+        .order('created_at', { ascending: false })
+        .limit(safeLimit);
+
+      if (error) {
+        return {
+          available: false,
+          data: [],
+          message: 'Histórico detalhado aguardando a migration de auditoria no Supabase.',
+        };
+      }
+
+      const events = Array.isArray(data)
+        ? data.map((row: any) => ({
+            id: String(row.id),
+            hotel_id: String(row.hotel_id || KANBAN_TENANT_ID),
+            card_id: String(row.card_id || ''),
+            user_id: row.user_id ? String(row.user_id) : null,
+            event_type: row.event_type as KanbanCardEventType,
+            from_value: row.from_value && typeof row.from_value === 'object' ? row.from_value : null,
+            to_value: row.to_value && typeof row.to_value === 'object' ? row.to_value : null,
+            metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {},
+            created_at: String(row.created_at || ''),
+          }))
+        : [];
+
+      return { available: true, data: events };
+    } catch {
+      return {
+        available: false,
+        data: [],
+        message: 'Histórico detalhado aguardando a migration de auditoria no Supabase.',
+      };
+    }
   },
 };
