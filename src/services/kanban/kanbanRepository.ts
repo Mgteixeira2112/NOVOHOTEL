@@ -57,11 +57,10 @@ export const kanbanRepository = {
     await broadcastKanbanCardChange(hotelId, 'INSERT', persistedCard);
   },
 
-  async deleteCard(hotelId: string, cardId: string): Promise<void> {
-    if (!hotelId || !cardId) throw new Error('[KANBAN REPOSITORY] hotelId e cardId são obrigatórios para deleteCard');
-    const { error } = await supabase.from('kanban_cards').delete().eq('id', cardId).eq('hotel_id', hotelId);
+  async deleteCard(cardId: string): Promise<void> {
+    if (!cardId) throw new Error('[KANBAN REPOSITORY] cardId é obrigatório para deleteCard');
+    const { error } = await supabase.from('kanban_cards').delete().eq('id', cardId);
     if (error) throw error;
-    await broadcastKanbanCardChange(hotelId, 'DELETE', undefined, cardId);
   },
 
   async upsertBoard(hotelId: string, board: KanbanBoard): Promise<void> {
