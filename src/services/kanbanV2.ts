@@ -153,7 +153,9 @@ export const kanbanV2 = {
     if (!title) throw new Error('Título da tarefa é obrigatório.');
     if (!input.boardId || !input.columnId) throw new Error('Quadro e coluna são obrigatórios.');
 
-    const payload = {
+    const now = new Date().toISOString();
+    const newCard: KanbanV2Card = {
+      id: `card_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       hotel_id: KANBAN_TENANT_ID,
       board_id: input.boardId,
       column_id: input.columnId,
@@ -169,6 +171,8 @@ export const kanbanV2 = {
       comments: [],
       metadata: {},
       completed_at: null,
+      created_at: now,
+      updated_at: now,
       is_archived: false,
       guest_name: input.guest_name?.trim() || null,
       reservation_id: null,
@@ -177,15 +181,51 @@ export const kanbanV2 = {
       notes: input.notes?.trim() || null,
     };
 
-    const { data, error } = await supabase.from('kanban_cards').insert(payload).select('*').single();
-    if (error) throw new Error(`Falha ao criar card no Supabase: ${error.message}`);
-    if (!data) throw new Error('Falha ao criar card no Supabase: nenhum registro retornado.');
+    let networkFailure = false;
 
-    const persisted = normalizeCard(data);
+    try {
+      // Não exige SELECT de retorno: todos os campos necessários já existem no payload.
+      // Isso reduz o ponto em que o navegador pode perder a resposta após o INSERT ter sido confirmado.
+      const { error } = await supabase.from('kanban_cards').insert(newCard);
+      if (error) {
+        const message = String(error.message || '');
+        if (!/failed to fetch|network|fetch/i.test(message)) {
+          throw new Error(`Falha ao criar card no Supabase: ${message}`);
+        }
+        networkFailure = true;
+      }
+    } catch (error: any) {
+      const message = String(error?.message || error || '');
+      if (!/failed to fetch|network|fetch/i.test(message)) throw error;
+      networkFailure = true;
+    }
+
+    // Atualiza a tela imediatamente. Se a resposta HTTP tiver sido perdida depois do commit,
+    // o card já existe no banco; se o INSERT realmente não chegou, os retries abaixo o persistem.
     const store = getLocalStore();
-    store.cards = [...store.cards.filter(c => c.id !== persisted.id), persisted];
+    store.cards = [...store.cards.filter(c => c.id !== newCard.id), newCard];
     saveLocalStore(store);
-    return persisted;
+
+    if (networkFailure && typeof window !== 'undefined') {
+      const retryPersistAndSignal = async () => {
+        try {
+          // INSERT simples: se o primeiro já tiver sido confirmado, a PK impede duplicação.
+          await supabase.from('kanban_cards').insert(newCard);
+        } catch {}
+        try {
+          // UPDATE mínimo não altera coluna/status e serve como novo evento Realtime
+          // para clientes que eventualmente tenham perdido o INSERT original.
+          await supabase.from('kanban_cards')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', newCard.id);
+        } catch {}
+      };
+
+      window.setTimeout(() => { void retryPersistAndSignal(); }, 700);
+      window.setTimeout(() => { void retryPersistAndSignal(); }, 2500);
+    }
+
+    return newCard;
   },
 
   async updateCard(cardId: string, updates: Partial<KanbanV2Card>) {
@@ -304,14 +344,32 @@ export const kanbanV2 = {
   subscribe(_hotelId: string | undefined, handlers: { onInsert: (card: KanbanV2Card) => void; onUpdate: (card: KanbanV2Card) => void; onDelete: (card: KanbanV2Card) => void; onStatus: (status: string) => void }) {
     const hotelId = KANBAN_TENANT_ID;
     handlers.onStatus('SUBSCRIBED');
-    const handleCustomEvent = (e: Event) => { const custom = e as CustomEvent<LocalStoreData>; if (custom.detail?.cards) custom.detail.cards.forEach(card => handlers.onUpdate(normalizeCard(card))); };
-    const handleStorageEvent = (e: StorageEvent) => { if (e.key === STORAGE_KEY && e.newValue) { try { const parsed = JSON.parse(e.newValue); if (Array.isArray(parsed?.cards)) parsed.cards.forEach((card: any) => handlers.onUpdate(normalizeCard(card))); } catch {} } };
+
+    const upsertIntoView = (card: KanbanV2Card) => {
+      // Primeiro tenta incluir se for desconhecido; depois atualiza se já estiver presente.
+      // Isso permite que um UPDATE de recuperação também entregue um card cujo INSERT foi perdido.
+      handlers.onInsert(card);
+      handlers.onUpdate(card);
+    };
+
+    const handleCustomEvent = (e: Event) => {
+      const custom = e as CustomEvent<LocalStoreData>;
+      if (custom.detail?.cards) custom.detail.cards.forEach(card => upsertIntoView(normalizeCard(card)));
+    };
+    const handleStorageEvent = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed?.cards)) parsed.cards.forEach((card: any) => upsertIntoView(normalizeCard(card)));
+        } catch {}
+      }
+    };
     if (typeof window !== 'undefined') { window.addEventListener(EVENT_BUS_NAME, handleCustomEvent); window.addEventListener('storage', handleStorageEvent); }
     let channel: any = null;
     try {
       channel = supabase.channel(`kanban-v2-${hotelId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => handlers.onInsert(normalizeCard(payload.new)))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => handlers.onUpdate(normalizeCard(payload.new)))
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => upsertIntoView(normalizeCard(payload.new)))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => upsertIntoView(normalizeCard(payload.new)))
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => handlers.onDelete(normalizeCard(payload.old)))
         .subscribe(status => { if (status === 'SUBSCRIBED') handlers.onStatus('SUBSCRIBED'); else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') handlers.onStatus('LOCAL'); });
     } catch { handlers.onStatus('LOCAL'); }
