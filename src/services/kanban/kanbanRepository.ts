@@ -1,6 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { KanbanBoard, KanbanCard, KanbanColumn } from '../../types/kanban';
 import { mapDatabaseCardToKanbanCard, mapKanbanCardToDatabaseRow, mapDatabaseBoardToKanbanBoard, mapKanbanBoardToDatabaseRow, mapDatabaseColumnToKanbanColumn, mapKanbanColumnToDatabaseRow } from './kanbanMapper';
+import { broadcastKanbanCardChange } from './kanbanBroadcast';
 
 export const kanbanRepository = {
   async loadKanbanData(hotelId: string): Promise<{ boards: KanbanBoard[]; cards: KanbanCard[] }> {
@@ -20,21 +21,23 @@ export const kanbanRepository = {
     return { boards, cards };
   },
 
-  /** Atualiza um card existente. O filtro hotel_id impede alterar outro hotel. */
   async updateCard(hotelId: string, card: KanbanCard): Promise<void> {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para updateCard');
     const payload = mapKanbanCardToDatabaseRow(card, hotelId);
     const { id: _id, hotel_id: _hotelId, ...updatePayload } = payload;
-    const { data, error } = await supabase.from('kanban_cards').update(updatePayload).eq('id', card.id).eq('hotel_id', hotelId).select('id, hotel_id, board_id, column_id, updated_at').single();
+    // O timestamp da aplicação é enviado explicitamente para que Realtime possa ordenar versões.
+    updatePayload.updated_at = card.updated_at || new Date().toISOString();
+    const { data, error } = await supabase.from('kanban_cards').update(updatePayload).eq('id', card.id).eq('hotel_id', hotelId).select('*').single();
     if (error) { console.error('[SUPABASE UPDATE ERROR] Card:', card.id, error); throw error; }
     if (!data) throw new Error(`[SUPABASE UPDATE ERROR] Card ${card.id}: nenhum registro foi atualizado.`);
     if (String(data.hotel_id) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
       throw new Error(`[SUPABASE UPDATE ERROR] Card ${card.id}: resposta persistida não corresponde ao estado solicitado.`);
     }
+    const persistedCard = mapDatabaseCardToKanbanCard(data);
     console.info(`[SUPABASE UPDATE SUCCESS] Card: ${card.id} | coluna=${data.column_id} | updated_at=${data.updated_at}`);
+    await broadcastKanbanCardChange(hotelId, 'UPDATE', persistedCard);
   },
 
-  /** Upsert para criação/sincronização. Cards que já existem usam UPDATE para o Drag & Drop não depender de upsert. */
   async upsertCard(hotelId: string, card: KanbanCard): Promise<void> {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para upsertCard');
 
@@ -47,13 +50,15 @@ export const kanbanRepository = {
     }
 
     const payload = mapKanbanCardToDatabaseRow(card, hotelId);
-    const { data, error } = await supabase.from('kanban_cards').insert(payload).select('id, hotel_id, board_id, column_id, updated_at').single();
+    const { data, error } = await supabase.from('kanban_cards').insert(payload).select('*').single();
     if (error) { console.error('[SUPABASE INSERT ERROR] Card:', card.id, error); throw error; }
     if (!data) throw new Error(`[SUPABASE INSERT ERROR] Card ${card.id}: Supabase não retornou o registro criado.`);
     if (String(data.hotel_id) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
       throw new Error(`[SUPABASE INSERT ERROR] Card ${card.id}: resposta persistida não corresponde ao estado solicitado.`);
     }
+    const persistedCard = mapDatabaseCardToKanbanCard(data);
     console.info(`[SUPABASE INSERT SUCCESS] Card: ${card.id} | coluna=${data.column_id}`);
+    await broadcastKanbanCardChange(hotelId, 'INSERT', persistedCard);
   },
 
   async deleteCard(cardId: string): Promise<void> {
