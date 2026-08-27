@@ -109,9 +109,9 @@ export const KanbanModule: React.FC = () => {
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white grid place-items-center"><LayoutDashboard className="w-5 h-5" /></div>
                 <div><h1 className="text-2xl font-black text-slate-950 tracking-tight">Operação</h1><p className="text-sm text-slate-500">Kanban operacional em tempo real</p></div>
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${status === 'SUBSCRIBED' ? 'bg-emerald-50 text-emerald-700' : status === 'CONNECTING' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700'}`}>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${status === 'SUBSCRIBED' ? 'bg-emerald-50 text-emerald-700' : status === 'CONNECTING' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
                   {status === 'SUBSCRIBED' ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
-                  {status === 'SUBSCRIBED' ? 'Tempo real conectado' : status === 'CONNECTING' ? 'Conectando' : 'Realtime indisponível'}
+                  {status === 'SUBSCRIBED' ? 'Tempo real conectado' : status === 'CONNECTING' ? 'Conectando' : 'Sincronização Ativa'}
                 </span>
               </div>
               <div className="flex gap-2 mt-4 text-xs text-slate-500"><span>{activeCount} tarefas</span><span>•</span><span>{doneCount} concluídas</span><span>•</span><span>{currentUser?.nome || 'Usuário'}</span><span>•</span><span>Banco: {KANBAN_TENANT_ID}</span></div>

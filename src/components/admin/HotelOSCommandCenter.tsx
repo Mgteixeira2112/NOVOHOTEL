@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Activity, 
   ArrowUpRight, 
@@ -34,7 +34,7 @@ import {
   Inbox
 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
-import { useKanban } from '../../context/KanbanContext';
+import { kanbanV2, KanbanV2Card, KANBAN_TENANT_ID } from '../../services/kanbanV2';
 import { AdminPageHeader } from '../common/AdminPageHeader';
 import { EmptyState, StatSummaryCard } from '../common/UIStates';
 import { calculateOccupancy } from '../../core/bi/metricFormulas';
@@ -54,9 +54,21 @@ const modules: Array<{ id: ModuleId; label: string; icon: React.FC<{ className?:
 
 export const HotelOSCommandCenter: React.FC = () => {
   const { reservations, rooms, users, setAdminActiveTab } = useHotel();
-  const { cards } = useKanban();
+  const [cards, setCards] = useState<KanbanV2Card[]>([]);
   const [active, setActive] = useState<ModuleId>('operations');
   const [lastEvent, setLastEvent] = useState('Barramento de eventos conectado e operacional');
+
+  useEffect(() => {
+    let mounted = true;
+    void kanbanV2.load(KANBAN_TENANT_ID).then((res) => {
+      if (mounted) {
+        setCards(res.cards);
+      }
+    }).catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Workflows do sistema reais configurados
   const [workflows, setWorkflows] = useState([
