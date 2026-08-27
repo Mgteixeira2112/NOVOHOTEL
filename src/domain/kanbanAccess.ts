@@ -6,7 +6,7 @@ export type KanbanAction = 'view' | 'create' | 'edit' | 'move' | 'assign' | 'del
 export interface KanbanAccessContext {
   userId: string;
   role: string;
-  sectorIds: OperationalSectorId[];
+  sectorIds: readonly OperationalSectorId[];
   scope: KanbanVisibilityScope;
 }
 
