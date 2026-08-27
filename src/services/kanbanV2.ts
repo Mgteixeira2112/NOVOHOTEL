@@ -128,15 +128,6 @@ function saveLocalStore(data: LocalStoreData) {
 
 const normalizeCard = (row: any): KanbanV2Card => ({ ...row, id: String(row.id), hotel_id: String(row.hotel_id || KANBAN_TENANT_ID), board_id: String(row.board_id), column_id: String(row.column_id), ordem: Number(row.ordem ?? 0), checklist: Array.isArray(row.checklist) ? row.checklist : [], comments: Array.isArray(row.comments) ? row.comments : [], tags: Array.isArray(row.tags) ? row.tags : [], metadata: row.metadata && typeof row.metadata === 'object' ? row.metadata : {} });
 
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const makeCardId = () => {
-  try {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return `card_${crypto.randomUUID()}`;
-  } catch {}
-  return `card_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-};
-const isNetworkLikeError = (error: any) => /failed to fetch|network|load failed|fetch/i.test(String(error?.message || error || ''));
-
 export const kanbanV2 = {
   async load(_hotelId?: string) {
     const hotelId = KANBAN_TENANT_ID;
@@ -162,9 +153,7 @@ export const kanbanV2 = {
     if (!title) throw new Error('Título da tarefa é obrigatório.');
     if (!input.boardId || !input.columnId) throw new Error('Quadro e coluna são obrigatórios.');
 
-    const now = new Date().toISOString();
-    const payload: KanbanV2Card = {
-      id: makeCardId(),
+    const payload = {
       hotel_id: KANBAN_TENANT_ID,
       board_id: input.boardId,
       column_id: input.columnId,
@@ -180,8 +169,6 @@ export const kanbanV2 = {
       comments: [],
       metadata: {},
       completed_at: null,
-      created_at: now,
-      updated_at: now,
       is_archived: false,
       guest_name: input.guest_name?.trim() || null,
       reservation_id: null,
@@ -190,49 +177,15 @@ export const kanbanV2 = {
       notes: input.notes?.trim() || null,
     };
 
-    let lastError: any = null;
+    const { data, error } = await supabase.from('kanban_cards').insert(payload).select('*').single();
+    if (error) throw new Error(`Falha ao criar card no Supabase: ${error.message}`);
+    if (!data) throw new Error('Falha ao criar card no Supabase: nenhum registro retornado.');
 
-    // ID gerado no cliente + upsert torna a operação idempotente. Se o banco gravar
-    // e a resposta HTTP se perder, uma nova tentativa não cria card duplicado.
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        const { error } = await supabase.from('kanban_cards').upsert(payload, { onConflict: 'id' });
-        if (!error) {
-          const persisted = normalizeCard(payload);
-          const store = getLocalStore();
-          store.cards = [...store.cards.filter(c => c.id !== persisted.id), persisted];
-          saveLocalStore(store);
-          return persisted;
-        }
-        lastError = error;
-        if (!isNetworkLikeError(error)) throw new Error(`Falha ao criar card no Supabase: ${error.message}`);
-      } catch (error: any) {
-        lastError = error;
-        if (!isNetworkLikeError(error)) throw error;
-      }
-      await wait(350 * (attempt + 1));
-    }
-
-    // Uma falha de fetch pode acontecer depois de o PostgreSQL já ter confirmado o INSERT.
-    // Verifica pelo ID antes de informar falha ao usuário.
-    for (let attempt = 0; attempt < 4; attempt += 1) {
-      try {
-        const { data, error } = await supabase.from('kanban_cards').select('*').eq('id', payload.id).maybeSingle();
-        if (!error && data) {
-          const persisted = normalizeCard(data);
-          const store = getLocalStore();
-          store.cards = [...store.cards.filter(c => c.id !== persisted.id), persisted];
-          saveLocalStore(store);
-          return persisted;
-        }
-      } catch (error: any) {
-        lastError = error;
-      }
-      await wait(500 * (attempt + 1));
-    }
-
-    const message = String(lastError?.message || lastError || 'Falha de comunicação com o Supabase.');
-    throw new Error(`Falha ao criar card no Supabase: ${message}`);
+    const persisted = normalizeCard(data);
+    const store = getLocalStore();
+    store.cards = [...store.cards.filter(c => c.id !== persisted.id), persisted];
+    saveLocalStore(store);
+    return persisted;
   },
 
   async updateCard(cardId: string, updates: Partial<KanbanV2Card>) {
@@ -350,80 +303,18 @@ export const kanbanV2 = {
 
   subscribe(_hotelId: string | undefined, handlers: { onInsert: (card: KanbanV2Card) => void; onUpdate: (card: KanbanV2Card) => void; onDelete: (card: KanbanV2Card) => void; onStatus: (status: string) => void }) {
     const hotelId = KANBAN_TENANT_ID;
-    handlers.onStatus('CONNECTING');
-
-    const emitUpsert = (row: any) => {
-      const card = normalizeCard(row);
-      // onInsert inclui cards ainda desconhecidos; onUpdate mantém os já existentes sincronizados.
-      handlers.onInsert(card);
-      handlers.onUpdate(card);
-    };
-
-    const handleCustomEvent = (e: Event) => {
-      const custom = e as CustomEvent<LocalStoreData>;
-      if (custom.detail?.cards) custom.detail.cards.forEach(emitUpsert);
-    };
-    const handleStorageEvent = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        try {
-          const parsed = JSON.parse(e.newValue);
-          if (Array.isArray(parsed?.cards)) parsed.cards.forEach(emitUpsert);
-        } catch {}
-      }
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener(EVENT_BUS_NAME, handleCustomEvent);
-      window.addEventListener('storage', handleStorageEvent);
-    }
-
+    handlers.onStatus('SUBSCRIBED');
+    const handleCustomEvent = (e: Event) => { const custom = e as CustomEvent<LocalStoreData>; if (custom.detail?.cards) custom.detail.cards.forEach(card => handlers.onUpdate(normalizeCard(card))); };
+    const handleStorageEvent = (e: StorageEvent) => { if (e.key === STORAGE_KEY && e.newValue) { try { const parsed = JSON.parse(e.newValue); if (Array.isArray(parsed?.cards)) parsed.cards.forEach((card: any) => handlers.onUpdate(normalizeCard(card))); } catch {} } };
+    if (typeof window !== 'undefined') { window.addEventListener(EVENT_BUS_NAME, handleCustomEvent); window.addEventListener('storage', handleStorageEvent); }
     let channel: any = null;
-    let reconcileBusy = false;
-    let reconcileTimer: ReturnType<typeof setInterval> | null = null;
-
-    const reconcileFromDatabase = async () => {
-      if (reconcileBusy) return;
-      reconcileBusy = true;
-      try {
-        const { data, error } = await supabase
-          .from('kanban_cards')
-          .select('*')
-          .eq('hotel_id', hotelId)
-          .eq('is_archived', false)
-          .order('ordem')
-          .order('created_at');
-        if (!error && Array.isArray(data)) data.forEach(emitUpsert);
-      } catch {}
-      finally { reconcileBusy = false; }
-    };
-
     try {
       channel = supabase.channel(`kanban-v2-${hotelId}`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => emitUpsert(payload.new))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => emitUpsert(payload.new))
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => handlers.onInsert(normalizeCard(payload.new)))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => handlers.onUpdate(normalizeCard(payload.new)))
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'kanban_cards', filter: `hotel_id=eq.${hotelId}` }, payload => handlers.onDelete(normalizeCard(payload.old)))
-        .subscribe(status => {
-          if (status === 'SUBSCRIBED') handlers.onStatus('SUBSCRIBED');
-          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') handlers.onStatus('LOCAL');
-        });
-    } catch {
-      handlers.onStatus('LOCAL');
-    }
-
-    // Reconciliation DB-first: o websocket continua sendo o caminho principal,
-    // e este polling leve recupera INSERTs perdidos sem exigir F5.
-    if (typeof window !== 'undefined') {
-      void reconcileFromDatabase();
-      reconcileTimer = window.setInterval(() => { void reconcileFromDatabase(); }, 3000);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener(EVENT_BUS_NAME, handleCustomEvent);
-        window.removeEventListener('storage', handleStorageEvent);
-      }
-      if (reconcileTimer) clearInterval(reconcileTimer);
-      if (channel) void supabase.removeChannel(channel);
-    };
+        .subscribe(status => { if (status === 'SUBSCRIBED') handlers.onStatus('SUBSCRIBED'); else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') handlers.onStatus('LOCAL'); });
+    } catch { handlers.onStatus('LOCAL'); }
+    return () => { if (typeof window !== 'undefined') { window.removeEventListener(EVENT_BUS_NAME, handleCustomEvent); window.removeEventListener('storage', handleStorageEvent); } if (channel) void supabase.removeChannel(channel); };
   },
 };
