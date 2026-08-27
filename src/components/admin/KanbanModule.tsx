@@ -23,6 +23,9 @@ import {
 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Board, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
+import { fetchUserOperationalSectorsState } from '../../services/userSectorService';
+import { defaultKanbanVisibilityScope, filterKanbanCardsForUser } from '../../domain/kanbanAccess';
+import { OperationalSectorId, isOperationalSectorId } from '../../domain/operationalSectors';
 
 const DEPARTMENTS: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; badgeBg: string; text: string; border: string }[] = [
   { id: 'operacao', label: 'Operação Geral', icon: Building2, badgeBg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-200' },
@@ -48,6 +51,12 @@ export const KanbanModule: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [draggingId, setDraggingId] = useState<string | null>(null);
+
+  // Visibilidade seletiva por usuário e setor. Nunca restringe a visão enquanto
+  // a infraestrutura/atribuição não estiver confirmada pelo banco.
+  const [userSectorIds, setUserSectorIds] = useState<OperationalSectorId[]>([]);
+  const [visibilityStatus, setVisibilityStatus] = useState<'loading' | 'active' | 'fallback'>('loading');
+  const [visibilityMessage, setVisibilityMessage] = useState('');
 
   // Modal de Criação / Edição de Card
   const [modalOpen, setModalOpen] = useState(false);
@@ -94,12 +103,92 @@ export const KanbanModule: React.FC = () => {
     return cleanup;
   }, []);
 
-  const activeBoard = boards.find(b => b.id === activeBoardId);
+  const userRole = currentUser?.tipo_usuario || 'recepcionista';
+  const hasFullKanbanVisibility = userRole === 'admin' || userRole === 'gerente';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!currentUser?.id) {
+      setUserSectorIds([]);
+      setVisibilityStatus('fallback');
+      setVisibilityMessage('Usuário atual não identificado. A visão completa foi mantida por segurança operacional.');
+      return () => { cancelled = true; };
+    }
+
+    if (hasFullKanbanVisibility) {
+      setUserSectorIds([]);
+      setVisibilityStatus('active');
+      setVisibilityMessage('Visão gerencial: todos os setores e responsáveis.');
+      return () => { cancelled = true; };
+    }
+
+    setVisibilityStatus('loading');
+    setVisibilityMessage('Carregando setores autorizados…');
+
+    void fetchUserOperationalSectorsState(currentUser.id).then(state => {
+      if (cancelled) return;
+
+      if (state.available && state.assignment.sectorIds.length > 0) {
+        setUserSectorIds(state.assignment.sectorIds);
+        setVisibilityStatus('active');
+        setVisibilityMessage('Visão seletiva ativa: seus setores e cards atribuídos diretamente a você.');
+        return;
+      }
+
+      setUserSectorIds([]);
+      setVisibilityStatus('fallback');
+      setVisibilityMessage(
+        state.available
+          ? 'Nenhum setor foi vinculado ao seu usuário. A visão completa foi mantida temporariamente até a configuração do perfil.'
+          : 'A estrutura de setores ainda não está disponível no banco. A visão completa foi mantida temporariamente para não ocultar tarefas.',
+      );
+    });
+
+    return () => { cancelled = true; };
+  }, [currentUser?.id, hasFullKanbanVisibility]);
+
+  const selectiveVisibilityActive = !hasFullKanbanVisibility
+    && visibilityStatus === 'active'
+    && userSectorIds.length > 0
+    && Boolean(currentUser?.id);
+
+  const accessCards = useMemo(() => {
+    const activeCards = cards.filter(card => !card.is_archived);
+    if (!selectiveVisibilityActive || !currentUser?.id) return activeCards;
+
+    return filterKanbanCardsForUser(activeCards, {
+      userId: currentUser.id,
+      role: userRole,
+      sectorIds: userSectorIds,
+      scope: defaultKanbanVisibilityScope(userRole),
+    });
+  }, [cards, currentUser?.id, selectiveVisibilityActive, userRole, userSectorIds]);
+
+  const visibleBoards = useMemo(() => {
+    if (!selectiveVisibilityActive) return boards;
+
+    return boards.filter(board => {
+      const boardSector = isOperationalSectorId(board.departamento) ? board.departamento : null;
+      const belongsToUserSector = boardSector !== null && userSectorIds.includes(boardSector);
+      const hasVisibleAssignedCard = accessCards.some(card => card.board_id === board.id);
+      return belongsToUserSector || hasVisibleAssignedCard;
+    });
+  }, [boards, selectiveVisibilityActive, userSectorIds, accessCards]);
+
+  useEffect(() => {
+    if (visibleBoards.length === 0) return;
+    if (!visibleBoards.some(board => board.id === activeBoardId)) {
+      setActiveBoardId(visibleBoards[0].id);
+    }
+  }, [visibleBoards, activeBoardId]);
+
+  const activeBoard = visibleBoards.find(b => b.id === activeBoardId) || boards.find(b => b.id === activeBoardId);
   const boardColumns = useMemo(() => columns.filter(c => c.board_id === activeBoardId).sort((a, b) => a.ordem - b.ordem), [columns, activeBoardId]);
   
   const boardCards = useMemo(() => {
-    return cards
-      .filter(c => c.board_id === activeBoardId && !c.is_archived)
+    return accessCards
+      .filter(c => c.board_id === activeBoardId)
       .filter(c => {
         if (filterUser !== 'todos') {
           const assignedUser = c.assigned_to as any;
@@ -119,7 +208,7 @@ export const KanbanModule: React.FC = () => {
         return true;
       })
       .sort((a, b) => a.ordem - b.ordem);
-  }, [cards, activeBoardId, filterUser, filterRoom]);
+  }, [accessCards, activeBoardId, filterUser, filterRoom]);
 
   // Abertura do Modal para Novo Card
   const handleOpenCreateModal = (targetColId?: string) => {
@@ -277,6 +366,14 @@ export const KanbanModule: React.FC = () => {
                   {status === 'SUBSCRIBED' ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
                   {status === 'SUBSCRIBED' ? 'Tempo Real Ativo' : 'Sincronizando…'}
                 </span>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                  selectiveVisibilityActive || hasFullKanbanVisibility
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>
+                  <UserIcon className="w-3.5 h-3.5" />
+                  {hasFullKanbanVisibility ? 'Visão completa' : selectiveVisibilityActive ? 'Meus setores + atribuídos' : 'Visão temporária completa'}
+                </span>
               </div>
 
               <div className="flex items-center gap-3 mt-3 text-xs text-slate-500 font-medium">
@@ -350,14 +447,21 @@ export const KanbanModule: React.FC = () => {
           </div>
         )}
 
+        {!hasFullKanbanVisibility && visibilityStatus !== 'active' && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-900 p-3.5 flex items-start gap-3 shadow-xs">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="text-xs font-semibold leading-relaxed">{visibilityMessage}</div>
+          </div>
+        )}
+
         {/* ABAS DOS QUADROS OPERACIONAIS (SETORES) */}
-        {boards.length > 0 && (
+        {visibleBoards.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
-            {boards.map(board => {
+            {visibleBoards.map(board => {
               const deptMeta = getDepartmentMeta(board.departamento);
               const DeptIcon = deptMeta.icon;
               const isActive = activeBoardId === board.id;
-              const boardCount = cards.filter(c => c.board_id === board.id && !c.is_archived).length;
+              const boardCount = accessCards.filter(c => c.board_id === board.id).length;
 
               return (
                 <button 
