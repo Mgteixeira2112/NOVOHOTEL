@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Check, Clock3, GripVertical, LayoutDashboard, Plus, RefreshCw, Wifi, WifiOff, X } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
-import { KANBAN_TENANT_ID, kanbanRealtime, KanbanV2Board, KanbanV2Card, KanbanV2Column } from '../../services/kanbanRealtime';
+import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Board, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 
 const departmentName = (value?: string) => ({ recepcao: 'Recepção', governanca: 'Governança', cozinha: 'Cozinha', manutencao: 'Manutenção', financeiro: 'Financeiro', almoxarifado: 'Almoxarifado', operacao: 'Operação' } as Record<string, string>)[value || ''] || value || 'Operação';
 
 export const KanbanModule: React.FC = () => {
-  const { currentUser } = useHotel();
+  const { hotelConfig, currentUser } = useHotel();
   const [boards, setBoards] = useState<KanbanV2Board[]>([]);
   const [columns, setColumns] = useState<KanbanV2Column[]>([]);
   const [cards, setCards] = useState<KanbanV2Card[]>([]);
@@ -21,17 +21,19 @@ export const KanbanModule: React.FC = () => {
   const [newDescription, setNewDescription] = useState('');
   const [newPriority, setNewPriority] = useState('normal');
 
+  // O Kanban usa o tenant fixo reconstruído no Supabase. Não bloqueamos o carregamento
+  // pelo hotelConfig local, pois ele pode conter um id visual/demonstrativo diferente.
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const result = await kanbanRealtime.load(KANBAN_TENANT_ID);
+      const result = await kanbanV2.load(KANBAN_TENANT_ID);
       setBoards(result.boards);
       setColumns(result.columns);
       setCards(result.cards);
       setActiveBoardId(current => result.boards.some(b => b.id === current) ? current : (result.boards[0]?.id || ''));
     } catch (e: any) {
-      setError(e?.message || 'Não foi possível carregar os Kanbans operacionais do Supabase.');
+      setError(e?.message || 'Não foi possível carregar o Kanban.');
     } finally {
       setLoading(false);
     }
@@ -40,9 +42,9 @@ export const KanbanModule: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    const cleanup = kanbanRealtime.subscribe(KANBAN_TENANT_ID, {
+    const cleanup = kanbanV2.subscribe(KANBAN_TENANT_ID, {
       onInsert: card => setCards(current => current.some(c => c.id === card.id) ? current : [...current, card]),
-      onUpdate: card => setCards(current => current.some(c => c.id === card.id) ? current.map(c => c.id === card.id ? card : c) : [...current, card]),
+      onUpdate: card => setCards(current => current.map(c => c.id === card.id ? card : c)),
       onDelete: card => setCards(current => current.filter(c => c.id !== card.id)),
       onStatus: next => setStatus(next),
     });
@@ -58,7 +60,7 @@ export const KanbanModule: React.FC = () => {
     setSaving(true);
     setError('');
     try {
-      const card = await kanbanRealtime.createCard({
+      const card = await kanbanV2.createCard({
         hotelId: KANBAN_TENANT_ID,
         boardId: activeBoardId,
         columnId: boardColumns[0].id,
@@ -84,7 +86,8 @@ export const KanbanModule: React.FC = () => {
     setSaving(true);
     setError('');
     try {
-      const persisted = await kanbanRealtime.moveCard(KANBAN_TENANT_ID, card.id, targetColumnId);
+      const persisted = await kanbanV2.moveCard(KANBAN_TENANT_ID, card.id, targetColumnId);
+      // Só alteramos a UI depois da confirmação do UPDATE no PostgreSQL.
       setCards(current => current.map(c => c.id === persisted.id ? persisted : c));
     } catch (e: any) {
       setError(e?.message || 'Falha ao mover card. A alteração não foi salva.');
@@ -105,7 +108,7 @@ export const KanbanModule: React.FC = () => {
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <div className="w-11 h-11 rounded-2xl bg-slate-900 text-white grid place-items-center"><LayoutDashboard className="w-5 h-5" /></div>
-                <div><h1 className="text-2xl font-black text-slate-950 tracking-tight">Operação</h1><p className="text-sm text-slate-500">Kanbans operacionais em tempo real</p></div>
+                <div><h1 className="text-2xl font-black text-slate-950 tracking-tight">Operação</h1><p className="text-sm text-slate-500">Kanban operacional em tempo real</p></div>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold ${status === 'SUBSCRIBED' ? 'bg-emerald-50 text-emerald-700' : status === 'CONNECTING' ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-700'}`}>
                   {status === 'SUBSCRIBED' ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
                   {status === 'SUBSCRIBED' ? 'Tempo real conectado' : status === 'CONNECTING' ? 'Conectando' : 'Sincronização Ativa'}
