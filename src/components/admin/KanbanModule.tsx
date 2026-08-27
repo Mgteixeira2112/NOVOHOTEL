@@ -64,6 +64,8 @@ export const KanbanModule: React.FC = () => {
   const [userSectorIds, setUserSectorIds] = useState<OperationalSectorId[]>([]);
   const [visibilityStatus, setVisibilityStatus] = useState<'loading' | 'active' | 'fallback'>('loading');
   const [visibilityMessage, setVisibilityMessage] = useState('');
+  const [responsibleSectorMap, setResponsibleSectorMap] = useState<Record<string, OperationalSectorId[]>>({});
+  const [responsibleDirectoryAvailable, setResponsibleDirectoryAvailable] = useState(false);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCard, setEditingCard] = useState<KanbanV2Card | null>(null);
@@ -152,6 +154,35 @@ export const KanbanModule: React.FC = () => {
     return () => { cancelled = true; };
   }, [currentUser?.id, hasFullKanbanVisibility]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const activeUsers = users.filter(user => user.ativo && user.id);
+
+    if (activeUsers.length === 0) {
+      setResponsibleSectorMap({});
+      setResponsibleDirectoryAvailable(false);
+      return () => { cancelled = true; };
+    }
+
+    void Promise.all(activeUsers.map(async user => ({
+      userId: user.id,
+      state: await fetchUserOperationalSectorsState(user.id),
+    }))).then(results => {
+      if (cancelled) return;
+      const directory: Record<string, OperationalSectorId[]> = {};
+      let available = false;
+      results.forEach(({ userId, state }) => {
+        if (!state.available) return;
+        available = true;
+        directory[userId] = state.assignment.sectorIds;
+      });
+      setResponsibleSectorMap(directory);
+      setResponsibleDirectoryAvailable(available);
+    });
+
+    return () => { cancelled = true; };
+  }, [users]);
+
   const selectiveVisibilityActive = !hasFullKanbanVisibility
     && visibilityStatus === 'active'
     && userSectorIds.length > 0
@@ -189,6 +220,25 @@ export const KanbanModule: React.FC = () => {
 
   const activeBoard = visibleBoards.find(b => b.id === activeBoardId) || boards.find(b => b.id === activeBoardId);
   const boardColumns = useMemo(() => columns.filter(c => c.board_id === activeBoardId).sort((a, b) => a.ordem - b.ordem), [columns, activeBoardId]);
+  const selectedDepartmentBoard = useMemo(
+    () => boards.find(board => board.departamento === formDepartment) || activeBoard,
+    [boards, formDepartment, activeBoard],
+  );
+  const modalColumns = useMemo(
+    () => columns.filter(column => column.board_id === selectedDepartmentBoard?.id).sort((a, b) => a.ordem - b.ordem),
+    [columns, selectedDepartmentBoard?.id],
+  );
+  const departmentChanged = Boolean(
+    editingCard && (editingCard.departamento || 'operacao') !== formDepartment,
+  );
+  const responsibleUsers = useMemo(() => {
+    const activeUsers = users.filter(user => user.ativo);
+    if (!responsibleDirectoryAvailable || !isOperationalSectorId(formDepartment)) return activeUsers;
+
+    return activeUsers
+      .filter(user => responsibleSectorMap[user.id]?.includes(formDepartment) || user.id === formUserId)
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  }, [users, responsibleDirectoryAvailable, responsibleSectorMap, formDepartment, formUserId]);
 
   const actionAccessContext = useMemo(() => ({
     userId: currentUser?.id || '',
@@ -236,6 +286,21 @@ export const KanbanModule: React.FC = () => {
       .sort((a, b) => a.ordem - b.ordem);
   }, [accessCards, activeBoardId, filterUser, filterRoom]);
 
+  const handleDepartmentChange = (department: string) => {
+    if (!hasFullKanbanVisibility || !canEditModalCard) return;
+    setFormDepartment(department);
+    const targetBoard = boards.find(board => board.departamento === department);
+    const firstColumn = columns
+      .filter(column => column.board_id === targetBoard?.id)
+      .sort((a, b) => a.ordem - b.ordem)[0];
+    if (firstColumn) setFormColumnId(firstColumn.id);
+
+    if (responsibleDirectoryAvailable && isOperationalSectorId(department) && formUserId) {
+      const selectedUserSectors = responsibleSectorMap[formUserId] || [];
+      if (!selectedUserSectors.includes(department)) setFormUserId('');
+    }
+  };
+
   const handleOpenCreateModal = (targetColId?: string) => {
     if (!canCreateInActiveBoard) {
       setError('Seu perfil não possui permissão para criar tarefas neste setor.');
@@ -246,7 +311,7 @@ export const KanbanModule: React.FC = () => {
     setFormDescription('');
     setFormPriority('normal');
     setFormDepartment(activeBoard?.departamento || 'operacao');
-    setFormUserId(currentUser?.id || '');
+    setFormUserId(hasFullKanbanVisibility ? '' : (currentUser?.id || ''));
     setFormRoomNumber('');
     setFormColumnId(targetColId || boardColumns[0]?.id || '');
     setModalOpen(true);
@@ -283,9 +348,11 @@ export const KanbanModule: React.FC = () => {
     setSaving(true);
     setError('');
 
-    const targetColumn = formColumnId || boardColumns[0]?.id;
+    const targetColumn = modalColumns.some(column => column.id === formColumnId)
+      ? formColumnId
+      : modalColumns[0]?.id;
     if (!targetColumn) {
-      setError('Selecione uma coluna válida.');
+      setError('Selecione uma coluna válida para o setor informado.');
       setSaving(false);
       return;
     }
@@ -304,10 +371,10 @@ export const KanbanModule: React.FC = () => {
         const canAssign = canPerformKanbanAction(actionAccessContext, 'assign', editingCard);
         const canMove = canPerformKanbanAction(actionAccessContext, 'move', editingCard);
         const effectiveAssignedPayload = canAssign ? assignedPayload : editingCard.assigned_to;
-        const effectiveColumnId = canMove ? targetColumn : editingCard.column_id;
         const effectiveDepartment = hasFullKanbanVisibility
           ? formDepartment
           : (editingCard.departamento || activeBoard?.departamento || 'operacao');
+        const changingDepartment = (editingCard.departamento || 'operacao') !== effectiveDepartment;
 
         let persisted = await kanbanCardGovernance.updateCard(editingCard, {
           titulo: formTitle.trim(),
@@ -317,11 +384,10 @@ export const KanbanModule: React.FC = () => {
           assigned_to: effectiveAssignedPayload,
           room_number: formRoomNumber.trim() || null,
           location: formRoomNumber ? `Quarto ${formRoomNumber}` : 'Geral',
-          column_id: effectiveColumnId,
         }, { userId: currentUser?.id });
 
-        if (editingCard.column_id !== effectiveColumnId) {
-          persisted = await kanbanCardGovernance.moveCard(editingCard, effectiveColumnId, { userId: currentUser?.id });
+        if (!changingDepartment && canMove && editingCard.column_id !== targetColumn) {
+          persisted = await kanbanCardGovernance.moveCard(persisted, targetColumn, { userId: currentUser?.id });
         }
 
         setCards(prev => prev.map(c => c.id === persisted.id ? persisted : c));
@@ -329,14 +395,18 @@ export const KanbanModule: React.FC = () => {
         const effectiveDepartment = hasFullKanbanVisibility
           ? formDepartment
           : (activeBoard?.departamento || formDepartment);
+        const targetBoard = hasFullKanbanVisibility
+          ? selectedDepartmentBoard
+          : activeBoard;
 
+        if (!targetBoard) throw new Error('O setor selecionado não possui um quadro operacional configurado.');
         if (!canCreateKanbanCardInSector(actionAccessContext, effectiveDepartment)) {
           throw new Error('Seu perfil não possui permissão para criar tarefas neste setor.');
         }
 
         const newCard = await kanbanCardGovernance.createCard({
           hotelId: KANBAN_TENANT_ID,
-          boardId: activeBoardId,
+          boardId: targetBoard.id,
           columnId: targetColumn,
           titulo: formTitle.trim(),
           descricao: formDescription.trim() || undefined,
@@ -667,7 +737,7 @@ export const KanbanModule: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1"><Tag className="w-3.5 h-3.5 text-slate-500" /> Setor / Departamento *</label>
-                  <select value={formDepartment} onChange={e => setFormDepartment(e.target.value)} disabled={!canEditModalCard || !hasFullKanbanVisibility} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500">
+                  <select value={formDepartment} onChange={e => handleDepartmentChange(e.target.value)} disabled={!canEditModalCard || !hasFullKanbanVisibility} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500">
                     {DEPARTMENTS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
                   </select>
                 </div>
@@ -682,10 +752,13 @@ export const KanbanModule: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1"><UserIcon className="w-3.5 h-3.5 text-slate-500" /> Usuário Responsável</label>
-                  <select value={formUserId} onChange={e => setFormUserId(e.target.value)} disabled={!canAssignModalCard} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500" title={canAssignModalCard ? 'Alterar responsável' : 'Atribuição de responsável é restrita à gestão'}>
-                    <option value="">-- Não atribuído --</option>
-                    {users.filter(u => u.ativo).map(u => <option key={u.id} value={u.id}>{u.nome} ({u.tipo_usuario})</option>)}
+                  <select value={formUserId} onChange={e => setFormUserId(e.target.value)} disabled={!canAssignModalCard} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500" title={canAssignModalCard ? 'Alterar responsável' : 'Atribuição de responsável é restrita ao perfil autorizado'}>
+                    <option value="">-- Sem responsável --</option>
+                    {responsibleUsers.map(u => <option key={u.id} value={u.id}>{u.nome} ({u.tipo_usuario})</option>)}
                   </select>
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    {responsibleDirectoryAvailable ? 'Lista filtrada pelos usuários vinculados ao setor selecionado.' : 'Setores de usuários indisponíveis: exibindo lista completa temporariamente.'}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-1 flex items-center gap-1"><DoorClosed className="w-3.5 h-3.5 text-slate-500" /> Quarto (Acomodação)</label>
@@ -696,12 +769,15 @@ export const KanbanModule: React.FC = () => {
                 </div>
               </div>
 
-              {boardColumns.length > 0 && (
+              {modalColumns.length > 0 && (
                 <div>
                   <label className="block text-xs font-black text-slate-700 mb-1">Coluna (Status no Quadro)</label>
-                  <select value={formColumnId} onChange={e => setFormColumnId(e.target.value)} disabled={!canMoveModalCard} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500" title={canMoveModalCard ? 'Alterar status da tarefa' : 'Sem permissão para alterar o status'}>
-                    {boardColumns.map(col => <option key={col.id} value={col.id}>{col.nome}</option>)}
+                  <select value={formColumnId} onChange={e => setFormColumnId(e.target.value)} disabled={!canMoveModalCard || departmentChanged} className="w-full h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 disabled:bg-slate-50 disabled:text-slate-500" title={departmentChanged ? 'Ao trocar de setor, o card inicia na primeira coluna do novo quadro.' : canMoveModalCard ? 'Alterar status da tarefa' : 'Sem permissão para alterar o status'}>
+                    {modalColumns.map(col => <option key={col.id} value={col.id}>{col.nome}</option>)}
                   </select>
+                  {departmentChanged && (
+                    <p className="mt-1 text-[10px] font-semibold text-amber-700">Ao salvar a troca de setor, o card entrará na primeira etapa do novo quadro. Depois, o status poderá ser alterado normalmente.</p>
+                  )}
                 </div>
               )}
             </div>
