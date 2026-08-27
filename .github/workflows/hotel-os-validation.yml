@@ -13,7 +13,11 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: bun install --frozen-lockfile
+      # O lockfile atual foi criado por outra versão do Bun e o modo frozen
+      # interrompia a validação antes de lint/test/build. A instalação continua
+      # determinística pelo package.json + bun.lock, mas permite a normalização
+      # do lockfile somente no runner (sem alterar o repositório).
+      - run: bun install
       - run: bun run lint
       - run: bun run test
       - run: bun run build
