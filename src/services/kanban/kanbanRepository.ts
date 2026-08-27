@@ -1,7 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { KanbanBoard, KanbanCard, KanbanColumn } from '../../types/kanban';
 import { mapDatabaseCardToKanbanCard, mapKanbanCardToDatabaseRow, mapDatabaseBoardToKanbanBoard, mapKanbanBoardToDatabaseRow, mapDatabaseColumnToKanbanColumn, mapKanbanColumnToDatabaseRow } from './kanbanMapper';
-import { broadcastKanbanCardChange } from './kanbanBroadcast';
 import { INITIAL_KANBAN_BOARDS, INITIAL_KANBAN_CARDS } from '../../data/mockKanbanData';
 
 async function persistDefaultKanban(hotelId: string): Promise<void> {
@@ -55,9 +54,9 @@ export const kanbanRepository = {
 
     let result = await load();
 
-    // First installation: persist the same defaults used by the UI and then
-    // reload them from PostgreSQL so local mock state stops being authoritative.
-    if (result.boards.length === 0 || result.cards.length === 0) {
+    // Only an absent board is treated as first installation. An empty card list
+    // is valid and must never recreate deleted/archived cards.
+    if (result.boards.length === 0) {
       console.info(`[KANBAN SEED] Persistindo dados iniciais do Kanban para o hotel ${hotelId}`);
       await persistDefaultKanban(hotelId);
       result = await load();
@@ -94,14 +93,13 @@ export const kanbanRepository = {
       throw new Error(`[SUPABASE CONCURRENCY ERROR] Card ${card.id}: o registro foi alterado por outro cliente ou a versão local está desatualizada.`);
     }
 
-    if (String(data.hotel_id) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
+    const persistedCard = mapDatabaseCardToKanbanCard(data);
+    if (String(persistedCard.hotel_id ?? hotelId) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
       throw new Error(`[SUPABASE UPDATE ERROR] Card ${card.id}: resposta persistida não corresponde ao estado solicitado.`);
     }
 
-    const persistedCard = mapDatabaseCardToKanbanCard(data);
     card.updated_at = persistedCard.updated_at;
     console.info(`[SUPABASE UPDATE SUCCESS] Card: ${card.id} | coluna=${data.column_id} | updated_at=${data.updated_at}`);
-    await broadcastKanbanCardChange(hotelId, 'UPDATE', persistedCard);
     return persistedCard;
   },
 
@@ -136,7 +134,6 @@ export const kanbanRepository = {
     const persistedCard = mapDatabaseCardToKanbanCard(data);
     card.updated_at = persistedCard.updated_at;
     console.info(`[SUPABASE INSERT SUCCESS] Card: ${card.id} | coluna=${data.column_id}`);
-    await broadcastKanbanCardChange(hotelId, 'INSERT', persistedCard);
     return persistedCard;
   },
 
