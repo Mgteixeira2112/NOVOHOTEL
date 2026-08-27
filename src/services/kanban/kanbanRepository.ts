@@ -23,15 +23,36 @@ export const kanbanRepository = {
 
   async updateCard(hotelId: string, card: KanbanCard): Promise<void> {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para updateCard');
-    const payload = mapKanbanCardToDatabaseRow(card, hotelId);
+
+    // Toda mutação gera uma nova versão temporal. Nunca reutilizar o updated_at
+    // do objeto local, pois isso permite que eventos Realtime antigos pareçam atuais.
+    const mutationUpdatedAt = new Date().toISOString();
+    const payload = mapKanbanCardToDatabaseRow({ ...card, updated_at: mutationUpdatedAt }, hotelId);
     const { id: _id, hotel_id: _hotelId, ...updatePayload } = payload;
-    updatePayload.updated_at = card.updated_at || new Date().toISOString();
-    const { data, error } = await supabase.from('kanban_cards').update(updatePayload).eq('id', card.id).eq('hotel_id', hotelId).select('*').single();
-    if (error) { console.error('[SUPABASE UPDATE ERROR] Card:', card.id, error); throw error; }
+    updatePayload.updated_at = mutationUpdatedAt;
+
+    const { data, error } = await supabase
+      .from('kanban_cards')
+      .update(updatePayload)
+      .eq('id', card.id)
+      .eq('hotel_id', hotelId)
+      .select('*')
+      .single();
+
+    if (error) {
+      console.error('[SUPABASE UPDATE ERROR] Card:', card.id, error);
+      throw error;
+    }
     if (!data) throw new Error(`[SUPABASE UPDATE ERROR] Card ${card.id}: nenhum registro foi atualizado.`);
-    if (String(data.hotel_id) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
+
+    if (
+      String(data.hotel_id) !== String(hotelId) ||
+      String(data.column_id) !== String(card.column_id) ||
+      String(data.board_id) !== String(card.board_id)
+    ) {
       throw new Error(`[SUPABASE UPDATE ERROR] Card ${card.id}: resposta persistida não corresponde ao estado solicitado.`);
     }
+
     const persistedCard = mapDatabaseCardToKanbanCard(data);
     console.info(`[SUPABASE UPDATE SUCCESS] Card: ${card.id} | coluna=${data.column_id} | updated_at=${data.updated_at}`);
     await broadcastKanbanCardChange(hotelId, 'UPDATE', persistedCard);
@@ -39,17 +60,34 @@ export const kanbanRepository = {
 
   async upsertCard(hotelId: string, card: KanbanCard): Promise<void> {
     if (!hotelId || !card?.id) throw new Error('[KANBAN REPOSITORY] hotelId e card.id são obrigatórios para upsertCard');
-    const { data: existing, error: lookupError } = await supabase.from('kanban_cards').select('id').eq('id', card.id).eq('hotel_id', hotelId).maybeSingle();
-    if (lookupError) { console.error('[SUPABASE LOOKUP ERROR] Card:', card.id, lookupError); throw lookupError; }
+    const { data: existing, error: lookupError } = await supabase
+      .from('kanban_cards')
+      .select('id')
+      .eq('id', card.id)
+      .eq('hotel_id', hotelId)
+      .maybeSingle();
+    if (lookupError) {
+      console.error('[SUPABASE LOOKUP ERROR] Card:', card.id, lookupError);
+      throw lookupError;
+    }
     if (existing) {
       await this.updateCard(hotelId, card);
       return;
     }
-    const payload = mapKanbanCardToDatabaseRow(card, hotelId);
+
+    const mutationUpdatedAt = new Date().toISOString();
+    const payload = mapKanbanCardToDatabaseRow({ ...card, updated_at: mutationUpdatedAt }, hotelId);
     const { data, error } = await supabase.from('kanban_cards').insert(payload).select('*').single();
-    if (error) { console.error('[SUPABASE INSERT ERROR] Card:', card.id, error); throw error; }
+    if (error) {
+      console.error('[SUPABASE INSERT ERROR] Card:', card.id, error);
+      throw error;
+    }
     if (!data) throw new Error(`[SUPABASE INSERT ERROR] Card ${card.id}: Supabase não retornou o registro criado.`);
-    if (String(data.hotel_id) !== String(hotelId) || String(data.column_id) !== String(card.column_id) || String(data.board_id) !== String(card.board_id)) {
+    if (
+      String(data.hotel_id) !== String(hotelId) ||
+      String(data.column_id) !== String(card.column_id) ||
+      String(data.board_id) !== String(card.board_id)
+    ) {
       throw new Error(`[SUPABASE INSERT ERROR] Card ${card.id}: resposta persistida não corresponde ao estado solicitado.`);
     }
     const persistedCard = mapDatabaseCardToKanbanCard(data);
