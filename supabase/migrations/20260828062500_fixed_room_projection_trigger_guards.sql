@@ -16,8 +16,6 @@ begin
     return new;
   end if;
 
-  -- Fixed room projections are created/updated by the room synchronizer itself.
-  -- Only an actual column move of an existing fixed card is operational intent.
   if coalesce((new.metadata->>'fixed_room_projection')::boolean, false) then
     if tg_op = 'INSERT' then return new; end if;
     if old.column_id is not distinct from new.column_id then return new; end if;
@@ -72,7 +70,6 @@ begin
     v_fixed_old := coalesce((old.metadata->>'fixed_room_projection')::boolean, false);
   end if;
 
-  -- Creating/deleting a projection or refreshing its mirrored metadata is not a room-state event.
   if tg_op = 'INSERT' and v_fixed_new then return new; end if;
   if tg_op = 'DELETE' and v_fixed_old then return old; end if;
   if tg_op = 'UPDATE' and v_fixed_new and v_fixed_old
@@ -92,5 +89,16 @@ begin
   end if;
 
   return coalesce(new, old);
+end;
+$$;
+
+-- Backfill only after the feedback guards above are active.
+do $$
+declare
+  v_room record;
+begin
+  for v_room in select id from public.quartos loop
+    perform public.sync_fixed_room_projection_cards(v_room.id::text);
+  end loop;
 end;
 $$;
