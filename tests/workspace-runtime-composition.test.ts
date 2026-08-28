@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 const runtimeSource = readFileSync('src/workspace-engine/WorkspaceRuntime.tsx', 'utf8');
 const canvasSource = readFileSync('src/workspace-engine/WidgetDrivenWorkspace.tsx', 'utf8');
 const catalogSource = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
+const appSource = readFileSync('src/App.tsx', 'utf8');
 
 test('WorkspaceRuntime usa sempre o canvas dirigido pela composição de widgets', () => {
   assert.match(runtimeSource, /<WidgetDrivenWorkspace definition=\{definition\}/);
@@ -14,13 +15,21 @@ test('WorkspaceRuntime usa sempre o canvas dirigido pela composição de widgets
   assert.doesNotMatch(runtimeSource, /ReceptionWorkspaceShared/);
 });
 
-test('canvas renderiza somente widgets normalizados da definição recebida', () => {
+test('canvas renderiza somente widgets ativos, visíveis e na ordem da definição', () => {
   assert.match(canvasSource, /normalizeWorkspaceWidgets\(definition\.widgets\)/);
+  assert.match(canvasSource, /widget\.enabled !== false && widget\.permissions\?\.view !== false/);
   assert.match(canvasSource, /widgets\.map\(widget =>/);
   assert.match(canvasSource, /data-widget-id=\{widget\.id\}/);
 });
 
-test('normalização exclui widgets desativados e preserva ordem configurada', () => {
-  assert.match(catalogSource, /filter\(widget => widget\.enabled !== false\)/);
+test('normalização preserva widgets desativados e mantém ordem configurada', () => {
+  assert.doesNotMatch(catalogSource, /filter\(widget => widget\.enabled !== false\)/);
+  assert.match(catalogSource, /enabled: widget\.enabled !== false/);
   assert.match(catalogSource, /sort\(\(a, b\) => \(a\.order \?\? 0\) - \(b\.order \?\? 0\)\)/);
+});
+
+test('roteador operacional reage às alterações salvas pela Fábrica', () => {
+  assert.match(appSource, /subscribeWorkspaceConfig/);
+  assert.match(appSource, /setWorkspaceRevision\(current => current \+ 1\)/);
+  assert.match(appSource, /resolveWorkspaceForSectors\(sectorIds, hotelId\)/);
 });
