@@ -10,7 +10,7 @@ export const WORKSPACE_BOARD_OPTIONS = [
   { id: 'kanban-board-cozinha', sector: 'cozinha' as OperationalSectorId, label: 'Cozinha & Room Service' },
 ] as const;
 
-export const defaultBoardForSector = (sector: OperationalSectorId) =>
+export const defaultBoardForSector = (sector: OperationalSectorId): string =>
   WORKSPACE_BOARD_OPTIONS.find(option => option.sector === sector)?.id || 'kanban-default-board';
 
 const slug = (value: string) => value
@@ -57,7 +57,7 @@ export const duplicateWorkspaceDefinition = (source: WorkspaceDefinition): Works
 export const setWorkspaceSectorAndBoard = (
   definition: WorkspaceDefinition,
   sector: OperationalSectorId,
-  boardId = defaultBoardForSector(sector),
+  boardId: string = defaultBoardForSector(sector),
 ): WorkspaceDefinition => ({
   ...definition,
   sectors: [sector],
