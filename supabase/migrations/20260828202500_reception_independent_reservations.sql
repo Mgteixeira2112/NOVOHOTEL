@@ -97,7 +97,7 @@ begin
   end if;
 
   v_nights := greatest(1, v_reservation.checkout - v_reservation.checkin);
-  v_rate := coalesce(v_room.valor_diaria, v_room.preco_diaria, 0);
+  v_rate := coalesce(v_room.valor_diaria, 0);
   v_total := (v_rate * v_nights) + coalesce(v_reservation.valor_taxas, 0) + coalesce(v_reservation.valor_consumo, 0);
 
   update public.reservas
