@@ -23,7 +23,8 @@ export interface WidgetDrivenWorkspaceProps {
 /** Universal canvas. Business functionality enters only through registered widgets. */
 export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ definition }) => {
   const { currentUser, logout } = useHotel();
-  const widgets = normalizeWorkspaceWidgets(definition.widgets).filter(widget => widget.permissions?.view !== false);
+  const widgets = normalizeWorkspaceWidgets(definition.widgets)
+    .filter(widget => widget.enabled !== false && widget.permissions?.view !== false);
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950" data-workspace-runtime="widget-driven" data-workspace-id={definition.id}>
