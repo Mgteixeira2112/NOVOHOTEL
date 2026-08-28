@@ -2,47 +2,12 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Play, Trash2 } from 'lucide-react';
 import { WorkspaceWidgetDefinition } from '../../workspace-engine/types';
 import { WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
-
-export type KanbanAutomationEvent = 'card_created';
-export type KanbanAutomationAction = 'create_card';
-
-export interface KanbanAutomationRule {
-  id: string;
-  name: string;
-  enabled: boolean;
-  event: KanbanAutomationEvent;
-  condition: {
-    field: string;
-    operator: 'equals';
-    value: string;
-  };
-  action: {
-    type: KanbanAutomationAction;
-    targetBoardId: string;
-  };
-}
-
-interface KanbanWidgetAutomationSettings {
-  version: 1;
-  rules: KanbanAutomationRule[];
-}
+import { KanbanAutomationRule, readKanbanAutomationSettings } from '../../workspace-engine/widgets/kanbanWidgetAutomation';
 
 interface Props {
   widget: WorkspaceWidgetDefinition;
   onChange: (patch: Partial<WorkspaceWidgetDefinition>) => void;
 }
-
-const emptySettings: KanbanWidgetAutomationSettings = { version: 1, rules: [] };
-
-const readSettings = (widget: WorkspaceWidgetDefinition): KanbanWidgetAutomationSettings => {
-  const raw = widget.settings?.kanbanAutomation;
-  if (!raw || typeof raw !== 'object') return emptySettings;
-  const candidate = raw as Partial<KanbanWidgetAutomationSettings>;
-  return {
-    version: 1,
-    rules: Array.isArray(candidate.rules) ? candidate.rules : [],
-  };
-};
 
 const makeRule = (sourceBoardId?: string): KanbanAutomationRule => ({
   id: `rule-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -57,7 +22,7 @@ const makeRule = (sourceBoardId?: string): KanbanAutomationRule => ({
 });
 
 export const KanbanWidgetAutomationEditor: React.FC<Props> = ({ widget, onChange }) => {
-  const settings = useMemo(() => readSettings(widget), [widget]);
+  const settings = useMemo(() => readKanbanAutomationSettings(widget), [widget]);
   const [simulation, setSimulation] = useState<Record<string, string>>({});
 
   const commit = (rules: KanbanAutomationRule[]) => {
