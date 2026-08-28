@@ -1,20 +1,63 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 
 export type WorkspaceLayout = 'operational' | 'management';
+
+/**
+ * Every visible or interactive element rendered inside a Workspace must be
+ * represented by one of these widget types. Domain pages are not a Workspace
+ * composition primitive anymore; they are only temporary migration adapters.
+ */
 export type WorkspaceWidgetType =
   | 'metrics'
-  | 'kanban-cards'
+  | 'task-kanban'
+  | 'room-map'
+  | 'room-details'
+  | 'arrivals'
+  | 'departures'
   | 'alerts'
   | 'quick-actions'
-  | 'rooms-list'
   | 'reservations-list'
-  | 'checkins'
   | 'maintenance'
   | 'orders'
   | 'team'
-  | 'shortcuts';
+  | 'shortcuts'
+  // Legacy aliases kept while existing saved definitions are migrated.
+  | 'kanban-cards'
+  | 'rooms-list'
+  | 'checkins';
+
 export type WorkspaceScope = 'mine' | 'sector';
 export type WorkspaceWidgetSpan = 1 | 2 | 3 | 4 | 'full';
+export type WorkspaceWidgetDataSource =
+  | 'kanban'
+  | 'rooms'
+  | 'reservations'
+  | 'guests'
+  | 'maintenance'
+  | 'orders'
+  | 'users'
+  | 'composite';
+
+export interface WorkspaceWidgetPermissions {
+  view?: boolean;
+  create?: boolean;
+  edit?: boolean;
+  move?: boolean;
+  assign?: boolean;
+  archive?: boolean;
+  delete?: boolean;
+}
+
+export interface WorkspaceWidgetActions {
+  checkin?: boolean;
+  checkout?: boolean;
+  transferRoom?: boolean;
+  createTask?: boolean;
+  editRoom?: boolean;
+  requestGovernance?: boolean;
+  requestMaintenance?: boolean;
+  [action: string]: boolean | undefined;
+}
 
 export interface WorkspaceWidgetDefinition {
   id: string;
@@ -24,6 +67,11 @@ export interface WorkspaceWidgetDefinition {
   order?: number;
   span?: WorkspaceWidgetSpan;
   enabled?: boolean;
+  dataSource?: WorkspaceWidgetDataSource;
+  filters?: Record<string, unknown>;
+  actions?: WorkspaceWidgetActions;
+  permissions?: WorkspaceWidgetPermissions;
+  settings?: Record<string, unknown>;
 }
 
 export interface WorkspaceDefinition {
