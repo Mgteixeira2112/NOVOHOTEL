@@ -27,16 +27,27 @@ export interface KanbanWidgetAutomationSettings {
   rules: KanbanAutomationRule[];
 }
 
+export interface KanbanAutomationRelation {
+  version: 1;
+  relationId: string;
+  sourceWidgetId: string;
+  sourceBoardId: string;
+  sourceCardId: string;
+  ruleId: string;
+  targetBoardId: string;
+}
+
 export interface KanbanAutomationExecutionResult {
   ruleId: string;
   ruleName: string;
   status: 'created' | 'skipped' | 'error';
   message: string;
   targetCardId?: string;
+  relationId?: string;
 }
 
 const emptySettings: KanbanWidgetAutomationSettings = { version: 1, rules: [] };
-const AUTOMATION_NOTE_PREFIX = '[workspace-kanban-automation]';
+const AUTOMATION_NOTE_PREFIX = '[workspace-kanban-automation:v1]';
 const processingKeys = new Set<string>();
 
 export const readKanbanAutomationSettings = (widget: WorkspaceWidgetDefinition): KanbanWidgetAutomationSettings => {
@@ -66,8 +77,32 @@ export const kanbanAutomationRuleMatches = (rule: KanbanAutomationRule, card: Ka
   return normalized(readCardField(card, rule.condition.field)) === expected;
 };
 
-const automationMarker = (sourceCardId: string, ruleId: string) => `${AUTOMATION_NOTE_PREFIX} source=${sourceCardId} rule=${ruleId}`;
-const isAutomationGeneratedCard = (card: KanbanV2Card) => typeof card.notes === 'string' && card.notes.startsWith(AUTOMATION_NOTE_PREFIX);
+const relationIdFor = (sourceCardId: string, ruleId: string, targetBoardId: string) =>
+  `${sourceCardId}:${ruleId}:${targetBoardId}`;
+
+const relationNote = (relation: KanbanAutomationRelation) =>
+  `${AUTOMATION_NOTE_PREFIX} relation=${relation.relationId} sourceWidget=${relation.sourceWidgetId} sourceBoard=${relation.sourceBoardId} sourceCard=${relation.sourceCardId} rule=${relation.ruleId} targetBoard=${relation.targetBoardId}`;
+
+export const readKanbanAutomationRelation = (card: KanbanV2Card): KanbanAutomationRelation | null => {
+  const firstLine = typeof card.notes === 'string' ? card.notes.split('\n')[0] : '';
+  if (!firstLine.startsWith(AUTOMATION_NOTE_PREFIX)) return null;
+  const values = Object.fromEntries(firstLine.split(' ').slice(1).map(part => {
+    const separator = part.indexOf('=');
+    return separator > 0 ? [part.slice(0, separator), part.slice(separator + 1)] : [part, ''];
+  }));
+  if (!values.relation || !values.sourceWidget || !values.sourceBoard || !values.sourceCard || !values.rule || !values.targetBoard) return null;
+  return {
+    version: 1,
+    relationId: values.relation,
+    sourceWidgetId: values.sourceWidget,
+    sourceBoardId: values.sourceBoard,
+    sourceCardId: values.sourceCard,
+    ruleId: values.rule,
+    targetBoardId: values.targetBoard,
+  };
+};
+
+const isAutomationGeneratedCard = (card: KanbanV2Card) => readKanbanAutomationRelation(card) !== null;
 
 export async function executeKanbanWidgetCardCreatedAutomations(input: {
   widget: WorkspaceWidgetDefinition;
@@ -91,16 +126,24 @@ export async function executeKanbanWidgetCardCreatedAutomations(input: {
       continue;
     }
 
-    const processKey = `${card.id}:${rule.id}`;
+    const relation: KanbanAutomationRelation = {
+      version: 1,
+      relationId: relationIdFor(card.id, rule.id, targetBoardId),
+      sourceWidgetId: widget.id,
+      sourceBoardId: card.board_id,
+      sourceCardId: card.id,
+      ruleId: rule.id,
+      targetBoardId,
+    };
+    const processKey = relation.relationId;
     if (processingKeys.has(processKey)) {
-      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'skipped', message: 'Esta execução já está em processamento.' });
+      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'skipped', message: 'Esta execução já está em processamento.', relationId: relation.relationId });
       continue;
     }
 
-    const marker = automationMarker(card.id, rule.id);
-    const existing = store.cards.find(item => item.board_id === targetBoardId && item.notes?.includes(marker));
+    const existing = store.cards.find(item => readKanbanAutomationRelation(item)?.relationId === relation.relationId);
     if (existing) {
-      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'skipped', message: 'Card relacionado já existe no Kanban de destino.', targetCardId: existing.id });
+      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'skipped', message: 'Card relacionado já existe no Kanban de destino.', targetCardId: existing.id, relationId: relation.relationId });
       continue;
     }
 
@@ -108,7 +151,7 @@ export async function executeKanbanWidgetCardCreatedAutomations(input: {
       .filter(column => column.board_id === targetBoardId)
       .sort((a, b) => a.ordem - b.ordem)[0];
     if (!targetColumn) {
-      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'error', message: 'Kanban de destino não possui coluna inicial configurada.' });
+      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'error', message: 'Kanban de destino não possui coluna inicial configurada.', relationId: relation.relationId });
       continue;
     }
 
@@ -125,12 +168,12 @@ export async function executeKanbanWidgetCardCreatedAutomations(input: {
         room_number: card.room_number || undefined,
         location: card.location || undefined,
         guest_name: card.guest_name || undefined,
-        notes: `${marker}\nOrigem: ${card.board_id} / ${card.id}`,
+        notes: `${relationNote(relation)}\nOrigem: ${card.board_id} / ${card.id}`,
       }, { userId });
       store.cards.push(created);
-      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'created', message: `Card criado em ${targetBoard?.label || targetBoardId}.`, targetCardId: created.id });
+      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'created', message: `Card criado em ${targetBoard?.label || targetBoardId}.`, targetCardId: created.id, relationId: relation.relationId });
     } catch (error: any) {
-      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'error', message: error?.message || 'Não foi possível executar a automação.' });
+      results.push({ ruleId: rule.id, ruleName: rule.name, status: 'error', message: error?.message || 'Não foi possível executar a automação.', relationId: relation.relationId });
     } finally {
       processingKeys.delete(processKey);
     }
