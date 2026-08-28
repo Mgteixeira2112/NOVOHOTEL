@@ -21,8 +21,8 @@ test('reserva pode nascer sem quarto e ser vinculada depois', () => {
   assert.match(widget, /Vincular quarto/);
   assert.match(widget, /Desvincular/);
   assert.match(migration, /reception_create_unassigned_reservation/);
-  assert.match(migration, /quarto_id, p_checkin/);
-  assert.match(migration, /v_reservation_id, v_code, v_guest\.id, null/);
+  assert.match(migration, /id, codigo, hospede_id, quarto_id, checkin, checkout/);
+  assert.match(migration, /v_reservation_id, v_code, v_guest\.id, null, p_checkin, p_checkout/);
   assert.match(migration, /reception_bind_reservation_room/);
   assert.match(migration, /reception_unbind_reservation_room/);
 });
