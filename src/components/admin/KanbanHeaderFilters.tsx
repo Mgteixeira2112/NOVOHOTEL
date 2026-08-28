@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ArchiveRestore, CalendarClock, DoorClosed, RefreshCw, Search, User as UserIcon, X } from 'lucide-react';
+import { ArchiveRestore, CalendarClock, DoorClosed, Search, User as UserIcon, X } from 'lucide-react';
 import { KanbanV2Column } from '../../services/kanbanV2';
 import { buildKanbanTemporalSearch, parseKanbanTemporalSearch } from '../../domain/kanbanFilters';
 
@@ -18,7 +18,6 @@ interface KanbanHeaderFiltersProps {
   columns: KanbanV2Column[];
   canManageArchive: boolean;
   hasFilters: boolean;
-  loading?: boolean;
   onSearch: (value: string) => void;
   onDepartment: (value: string) => void;
   onUser: (value: string) => void;
@@ -26,7 +25,6 @@ interface KanbanHeaderFiltersProps {
   onColumn: (value: string) => void;
   onPriority: (value: string) => void;
   onClear: () => void;
-  onRefresh: () => void;
   onOpenArchive?: () => void;
 }
 
@@ -82,7 +80,6 @@ export const KanbanHeaderFilters: React.FC<KanbanHeaderFiltersProps> = props => 
         </select>
 
         {props.hasFilters && <button type="button" onClick={props.onClear} className="h-10 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-600 flex items-center gap-1.5"><X className="w-3.5 h-3.5" /> Limpar</button>}
-        <button type="button" onClick={props.onRefresh} disabled={props.loading} className="h-10 px-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 flex items-center gap-1.5 disabled:opacity-50"><RefreshCw className={`w-3.5 h-3.5 ${props.loading ? 'animate-spin' : ''}`} /> Atualizar</button>
         {props.canManageArchive && <button type="button" onClick={props.onOpenArchive} className="h-10 px-3 rounded-xl border border-amber-200 bg-amber-50 hover:bg-amber-100 text-xs font-black text-amber-800 flex items-center gap-1.5"><ArchiveRestore className="w-3.5 h-3.5" /> Arquivo administrativo</button>}
       </div>
 
