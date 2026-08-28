@@ -1,14 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, BedDouble, CalendarDays, LogOut, Search, Wifi } from 'lucide-react';
+import { AlertTriangle, BedDouble, CalendarDays, LogOut, Search, Settings2, Wifi } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { kanbanCardGovernance } from '../../services/kanbanCardGovernanceService';
 import { WorkspaceDefinition, WorkspaceScope } from '../../workspace-engine/types';
 import { OperationalWorkCenter } from '../../workspace-engine/OperationalWorkCenter';
+import { RoomsModule } from '../../components/admin/RoomsModule';
 import { ReceptionKanbanBoard } from './ReceptionKanbanBoard';
 
 const BOARD_ID = 'kanban-board-recepcao';
-type PanelKey = 'arrivals' | 'rooms' | 'alerts';
+type PanelKey = 'arrivals' | 'rooms' | 'alerts' | 'rooms-admin';
 const assignedUserId = (card: KanbanV2Card) => (card as any).assigned_user_id || (card.assigned_to as any)?.id || '';
 const assignedName = (card: KanbanV2Card) => (card.assigned_to as any)?.name || (card.assigned_to as any)?.nome || 'Sem responsável';
 const normalize = (value?: string | null) => String(value || '').trim().toLowerCase();
@@ -71,15 +72,31 @@ export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinitio
     { key: 'arrivals' as const, icon: CalendarDays, label: 'Chegadas e saídas', value: arrivals.length + departures.length, detail: `${arrivals.length} chegadas · ${departures.length} saídas` },
     { key: 'rooms' as const, icon: BedDouble, label: 'Quartos', value: roomAlerts.length, detail: `${rooms.length} cadastrados · ${roomAlerts.length} requerem atenção` },
     { key: 'alerts' as const, icon: AlertTriangle, label: 'Alertas da recepção', value: taskAlerts.length, detail: `${taskAlerts.length} tarefas prioritárias ou sem responsável` },
+    { key: 'rooms-admin' as const, icon: Settings2, label: 'Administrar quartos', value: rooms.length, detail: 'Cadastrar, editar, excluir, publicar e configurar quartos' },
   ];
 
-  const panelTitle = (key: PanelKey) => key === 'arrivals' ? 'Chegadas e saídas de hoje' : key === 'rooms' ? 'Situação dos quartos' : 'Alertas da recepção';
+  const panelTitle = (key: PanelKey) => {
+    if (key === 'arrivals') return 'Chegadas e saídas de hoje';
+    if (key === 'rooms') return 'Situação dos quartos';
+    if (key === 'rooms-admin') return 'Administração de quartos';
+    return 'Alertas da recepção';
+  };
+
   const renderPanel = (key: PanelKey) => {
+    if (key === 'rooms-admin') return <div className="space-y-4">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+        <strong className="font-black">Gestão integrada de acomodações.</strong> Nesta etapa o acesso está disponível para todos os usuários do Workspace da Recepção. A restrição por perfil será adicionada posteriormente sem alterar este módulo.
+      </div>
+      <RoomsModule />
+    </div>;
+
     if (key === 'arrivals') return <div className="grid gap-4 lg:grid-cols-2">
       <div><h3 className="mb-3 text-xs font-black uppercase text-slate-500">Chegadas · {arrivals.length}</h3><div className="space-y-2">{arrivals.map(r => { const guest = guestFor(r); const room = roomFor(r); return <div key={r.id} className="rounded-2xl border border-slate-200 p-3"><strong className="text-xs">{guest?.nome || 'Hóspede não identificado'}</strong><p className="mt-1 text-[10px] text-slate-500">Quarto {room?.numero || '—'} · {r.codigo || r.id}</p><p className="mt-1 text-[10px] text-slate-500">Quarto: {room?.status || '—'} · Governança: {room?.status_governanca || room?.status_housekeeping || '—'}</p></div>; })}{arrivals.length === 0 && <p className="text-xs text-slate-400">Nenhuma chegada prevista.</p>}</div></div>
       <div><h3 className="mb-3 text-xs font-black uppercase text-slate-500">Saídas · {departures.length}</h3><div className="space-y-2">{departures.map(r => { const guest = guestFor(r); const room = roomFor(r); return <div key={r.id} className="rounded-2xl border border-slate-200 p-3"><strong className="text-xs">{guest?.nome || 'Hóspede não identificado'}</strong><p className="mt-1 text-[10px] text-slate-500">Quarto {room?.numero || '—'} · {r.status}</p></div>; })}{departures.length === 0 && <p className="text-xs text-slate-400">Nenhuma saída prevista.</p>}</div></div>
     </div>;
+
     if (key === 'rooms') return <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{rooms.map(room => <div key={room.id} className="rounded-2xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-2"><strong className="text-xs">Quarto {room.numero}</strong><span className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-black">{room.status}</span></div><p className="mt-2 text-[10px] text-slate-500">Governança: {room.status_governanca || room.status_housekeeping || 'Não informado'}</p></div>)}</div>;
+
     return <div className="space-y-2">{taskAlerts.map(card => <div key={card.id} className="rounded-2xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-2"><strong className="text-xs">{card.titulo}</strong><span className="rounded-lg bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-700">{card.prioridade}</span></div><p className="mt-1 text-[10px] text-slate-500">{assignedName(card)}{card.room_number ? ` · Quarto ${card.room_number}` : ''}</p></div>)}{taskAlerts.length === 0 && <p className="text-xs text-slate-400">Nenhum alerta operacional.</p>}</div>;
   };
 
