@@ -18,6 +18,7 @@ interface KanbanHeaderFiltersProps {
   columns: KanbanV2Column[];
   canManageArchive: boolean;
   hasFilters: boolean;
+  loading?: boolean;
   onSearch: (value: string) => void;
   onDepartment: (value: string) => void;
   onUser: (value: string) => void;
@@ -25,6 +26,7 @@ interface KanbanHeaderFiltersProps {
   onColumn: (value: string) => void;
   onPriority: (value: string) => void;
   onClear: () => void;
+  onRefresh?: () => void;
   onOpenArchive?: () => void;
 }
 
