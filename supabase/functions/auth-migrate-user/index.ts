@@ -53,10 +53,12 @@ Deno.serve(async (req: Request) => {
     return json(401, { error: "INVALID_CREDENTIALS" });
   }
 
-  // Usuário já migrado: Supabase Auth passa a ser a única autoridade da senha.
   if (legacyUser.auth_user_id) {
     const { data: signIn, error: signInError } = await publicClient.auth.signInWithPassword({ email, password });
-    if (signInError || !signIn.session) return json(401, { error: "INVALID_CREDENTIALS" });
+    if (signInError || !signIn.session || signIn.user.id !== legacyUser.auth_user_id) {
+      return json(401, { error: "INVALID_CREDENTIALS" });
+    }
+    await admin.from("usuarios").update({ auth_frontend_verified_at: new Date().toISOString() }).eq("id", legacyUser.id);
     return json(200, {
       access_token: signIn.session.access_token,
       refresh_token: signIn.session.refresh_token,
@@ -66,7 +68,6 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Compatibilidade temporária: valida a senha legada somente no primeiro corte.
   if (!legacyUser.senha || String(legacyUser.senha) !== password) {
     return json(401, { error: "INVALID_CREDENTIALS" });
   }
@@ -84,7 +85,7 @@ Deno.serve(async (req: Request) => {
 
   const { error: linkError } = await admin
     .from("usuarios")
-    .update({ auth_user_id: created.user.id, senha: null })
+    .update({ auth_user_id: created.user.id })
     .eq("id", legacyUser.id)
     .is("auth_user_id", null);
 
@@ -94,7 +95,13 @@ Deno.serve(async (req: Request) => {
   }
 
   const { data: signIn, error: signInError } = await publicClient.auth.signInWithPassword({ email, password });
-  if (signInError || !signIn.session) return json(500, { error: "AUTH_SESSION_CREATE_FAILED" });
+  if (signInError || !signIn.session) {
+    await admin.from("usuarios").update({ auth_user_id: null }).eq("id", legacyUser.id).eq("auth_user_id", created.user.id);
+    await admin.auth.admin.deleteUser(created.user.id);
+    return json(500, { error: "AUTH_SESSION_CREATE_FAILED" });
+  }
+
+  await admin.from("usuarios").update({ auth_frontend_verified_at: new Date().toISOString() }).eq("id", legacyUser.id);
 
   return json(200, {
     access_token: signIn.session.access_token,
