@@ -1,0 +1,53 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const runtimeSource = readFileSync('src/workspace-engine/WorkspaceRuntime.tsx', 'utf8');
+const canvasSource = readFileSync('src/workspace-engine/WidgetDrivenWorkspace.tsx', 'utf8');
+const catalogSource = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
+const appSource = readFileSync('src/App.tsx', 'utf8');
+const editorSource = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'utf8');
+const storeSource = readFileSync('src/workspace-engine/workspaceConfigStore.ts', 'utf8');
+
+test('WorkspaceRuntime usa sempre o canvas dirigido pela composição de widgets', () => {
+  assert.match(runtimeSource, /<WidgetDrivenWorkspace definition=\{definition\}/);
+  assert.doesNotMatch(runtimeSource, /getWorkspaceAdapter/);
+  assert.doesNotMatch(runtimeSource, /GenericOperationalWorkspace/);
+  assert.doesNotMatch(runtimeSource, /GovernancaWorkspace/);
+  assert.doesNotMatch(runtimeSource, /ReceptionWorkspaceShared/);
+});
+
+test('canvas renderiza somente widgets ativos, visíveis e na ordem da definição', () => {
+  assert.match(canvasSource, /normalizeWorkspaceWidgets\(definition\.widgets\)/);
+  assert.match(canvasSource, /widget\.enabled !== false && widget\.permissions\?\.view !== false/);
+  assert.match(canvasSource, /widgets\.map\(widget =>/);
+  assert.match(canvasSource, /data-widget-id=\{widget\.id\}/);
+});
+
+test('normalização preserva widgets desativados e mantém ordem configurada', () => {
+  assert.doesNotMatch(catalogSource, /filter\(widget => widget\.enabled !== false\)/);
+  assert.match(catalogSource, /enabled: widget\.enabled !== false/);
+  assert.match(catalogSource, /sort\(\(a, b\) => \(a\.order \?\? 0\) - \(b\.order \?\? 0\)\)/);
+});
+
+test('roteador operacional reage às alterações salvas pela Fábrica', () => {
+  assert.match(appSource, /subscribeWorkspaceConfig/);
+  assert.match(appSource, /setWorkspaceRevision\(current => current \+ 1\)/);
+  assert.match(appSource, /resolveWorkspaceForSectors\(sectorIds, hotelId\)/);
+});
+
+test('Fábrica altera composição e persistência dispara atualização do runtime', () => {
+  assert.match(editorSource, /updateWidget\(widget\.id, \{ enabled: widget\.enabled === false \}\)/);
+  assert.match(editorSource, /widgets: selected\.widgets\.filter\(widget => widget\.id !== widgetId\)/);
+  assert.match(editorSource, /widgets: widgets\.map\(\(widget, order\) => \(\{ \.\.\.widget, order: \(order \+ 1\) \* 10 \}\)\)/);
+  assert.match(storeSource, /current\[definition\.id\] = normalized/);
+  assert.match(storeSource, /window\.dispatchEvent\(new CustomEvent\(EVENT_NAME/);
+});
+
+test('F5 não substitui composição local mais nova por versão remota pendente', () => {
+  assert.match(storeSource, /PENDING_SYNC_KEY/);
+  assert.match(storeSource, /setPendingSync\(hotelId, definition\.id, true\)/);
+  assert.match(storeSource, /if \(!error\) setPendingSync\(hotelId, definition\.id, false\)/);
+  assert.match(storeSource, /for \(const workspaceId of pendingIds\)/);
+  assert.match(storeSource, /reconciled\[workspaceId\] = localOverrides\[workspaceId\]/);
+});

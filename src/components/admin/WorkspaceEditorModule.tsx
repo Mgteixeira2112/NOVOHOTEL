@@ -7,6 +7,7 @@ import { WorkspaceDefinition, WorkspaceWidgetDefinition, WorkspaceWidgetSpan, Wo
 import { createWorkspaceWidget, getWidgetAvailability, getWidgetCatalogItem, normalizeWorkspaceWidgets, WorkspaceWidgetReadiness, workspaceWidgetCatalog } from '../../workspace-engine/widgetCatalog';
 import { createWorkspaceDefinition, defaultBoardForSector, duplicateWorkspaceDefinition, setWorkspaceSectorAndBoard, WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, resetWorkspaceOverride, saveWorkspaceOverride } from '../../workspace-engine/workspaceConfigStore';
+import { KanbanWidgetAutomationEditor } from './KanbanWidgetAutomationEditor';
 
 const spanOptions: WorkspaceWidgetSpan[] = [1, 2, 3, 4, 'full'];
 const categoryLabels = { operacao: 'Operação', dados: 'Dados do hotel', equipe: 'Equipe', atalhos: 'Atalhos' } as const;
@@ -193,6 +194,7 @@ export const WorkspaceEditorModule: React.FC = () => {
                   <button onClick={() => removeWidget(widget.id)} className="h-9 w-9 grid place-items-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700" title="Remover widget"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
+              {widget.type === 'task-kanban' && <KanbanWidgetAutomationEditor widget={widget} onChange={patch => updateWidget(widget.id, patch)} />}
             </div>;
           })}
         </div>

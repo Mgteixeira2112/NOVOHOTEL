@@ -80,15 +80,19 @@ export const createWorkspaceWidget = (
   };
 };
 
+/**
+ * Normaliza a definição persistida sem apagar widgets desativados.
+ * A decisão de exibição pertence ao runtime, não à persistência da Fábrica.
+ */
 export const normalizeWorkspaceWidgets = (widgets: WorkspaceWidgetDefinition[]) =>
   widgets
-    .filter(widget => widget.enabled !== false)
     .map((widget, index) => {
       const catalog = getWidgetCatalogItem(widget.type);
       return {
         ...widget,
         order: widget.order ?? index,
         span: widget.span ?? catalog?.defaultSpan ?? 'full',
+        enabled: widget.enabled !== false,
         dataSource: widget.dataSource ?? catalog?.defaultDataSource,
         filters: widget.filters ?? {},
         actions: widget.actions ?? {},
