@@ -44,6 +44,7 @@ interface ReceptionRoomsKanbanProps {
   allowDeleteRoom?: boolean;
   onMove: (card: KanbanV2Card, columnId: string) => void;
   onCheckin: (reservation: Reserva) => void;
+  onStartCheckin?: (room: Quarto) => void;
   onCheckout: (reservation: Reserva) => void;
   onTransfer: (reservation: Reserva, toRoomId: string) => void;
 }
@@ -158,7 +159,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
   showGuest = true, showReservationDates = true, showRoomType = true, showFloor = true, showStatus = true,
   statusChangeAllowedRoomIds,
   allowCheckin = true, allowCheckout = true, allowTransferRoom = true, allowEditRoom = true, allowDeleteRoom = true,
-  onMove, onCheckin, onCheckout, onTransfer,
+  onMove, onCheckin, onStartCheckin, onCheckout, onTransfer,
 }) => {
   const { roomTypes, updateRoom, deleteRoom } = useHotel();
   const [selectedRoom, setSelectedRoom] = useState<Quarto | null>(null);
@@ -258,11 +259,14 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
             {visibleRows.map(({ room, card, reservation, guest }) => {
               const theme = STATUS_THEME[card.column_id] || STATUS_THEME['room-col-outros'];
               const checkedIn = reservation?.status === 'checkin_realizado';
-              const busy = savingId === card.id || (!!reservation && stayActionId === reservation.id);
+              const canStartEmptyCheckin = card.column_id === 'room-col-disponivel' && !!onStartCheckin;
+              const busy = savingId === card.id || stayActionId === reservation?.id || stayActionId === `room:${room.id}`;
               const roomType = roomTypes.find(type => type.id === room.tipo_quarto_id);
               const isReserved = !!reservation && !checkedIn;
               const subtitle = [showRoomType ? (roomType?.nome || room.nome || 'Acomodação') : '', showFloor ? `Andar ${room.andar}` : ''].filter(Boolean).join(' · ');
-              const canPrimaryAction = !!reservation && (checkedIn ? allowCheckout : allowCheckin);
+              const canPrimaryAction = checkedIn
+                ? !!reservation && allowCheckout
+                : allowCheckin && (!!reservation || canStartEmptyCheckin);
 
               return <article key={card.id} role="button" tabIndex={0} onClick={() => openRoom(room)}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openRoom(room); }}
@@ -280,8 +284,12 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
                 </div>}
 
                 <div className="mt-2 flex items-center gap-2">
-                  {canPrimaryAction && reservation && <button type="button" disabled={busy} onClick={event => { event.stopPropagation(); checkedIn ? onCheckout(reservation) : onCheckin(reservation); }}
-                    className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg text-[9px] font-black transition disabled:opacity-50 ${checkedIn ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : isReserved ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
+                  {canPrimaryAction && <button type="button" disabled={busy} onClick={event => {
+                    event.stopPropagation();
+                    if (checkedIn && reservation) onCheckout(reservation);
+                    else if (reservation) onCheckin(reservation);
+                    else onStartCheckin?.(room);
+                  }} className={`flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg text-[9px] font-black transition disabled:opacity-50 ${checkedIn ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : isReserved ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
                     {checkedIn ? <LogOut className="h-3.5 w-3.5" /> : <LogIn className="h-3.5 w-3.5" />}{checkedIn ? 'CHECK-OUT' : 'CHECK-IN'}<ArrowRight className="h-3.5 w-3.5" />
                   </button>}
                   <button type="button" onClick={event => { event.stopPropagation(); openRoom(room); }} className={`${canPrimaryAction ? 'grid h-8 w-8' : 'flex h-8 flex-1'} place-items-center items-center justify-center gap-1.5 rounded-lg border border-slate-200 text-[9px] font-black text-slate-500 hover:bg-slate-50`} aria-label={`Detalhes do quarto ${room.numero}`}><Info className="h-3.5 w-3.5" />{!canPrimaryAction && <span>DETALHES</span>}</button>
@@ -298,7 +306,8 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
           const { room, card, reservation, guest, column } = selectedRow;
           const theme = STATUS_THEME[card.column_id] || STATUS_THEME['room-col-outros'];
           const checkedIn = reservation?.status === 'checkin_realizado';
-          const reservationBusy = !!reservation && stayActionId === reservation.id;
+          const canStartEmptyCheckin = card.column_id === 'room-col-disponivel' && !!onStartCheckin;
+          const reservationBusy = stayActionId === reservation?.id || stayActionId === `room:${room.id}`;
           const stay = stayInfo(reservation);
           const roomType = roomTypes.find(type => type.id === room.tipo_quarto_id);
           const availableDestinations = rooms.filter(item => item.id !== room.id && String(item.status).toLowerCase() === 'disponivel' && !linkedReservation(item, reservations));
@@ -316,7 +325,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
               <div className="mt-4 grid grid-cols-4 gap-2 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-slate-500"><span className="grid place-items-center"><Wifi className="h-4 w-4" /></span><span className="grid place-items-center"><Snowflake className="h-4 w-4" /></span><span className="grid place-items-center"><Tv className="h-4 w-4" /></span><span className="flex items-center justify-center gap-1"><Users className="h-4 w-4" /><b className="text-[10px]">{room.capacidade}</b></span></div>
 
               {(allowCheckin || allowCheckout) && <div className="mt-4 grid grid-cols-2 gap-2">
-                {allowCheckin && <button type="button" disabled={!reservation || checkedIn || reservationBusy} onClick={() => reservation && onCheckin(reservation)} className="flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-[10px] font-black text-white transition hover:bg-emerald-700 disabled:bg-emerald-50 disabled:text-emerald-300"><LogIn className="h-4 w-4" />CHECK-IN</button>}
+                {allowCheckin && <button type="button" disabled={checkedIn || reservationBusy || (!reservation && !canStartEmptyCheckin)} onClick={() => reservation ? onCheckin(reservation) : onStartCheckin?.(room)} className="flex h-10 items-center justify-center gap-2 rounded-xl bg-emerald-600 text-[10px] font-black text-white transition hover:bg-emerald-700 disabled:bg-emerald-50 disabled:text-emerald-300"><LogIn className="h-4 w-4" />CHECK-IN</button>}
                 {allowCheckout && <button type="button" disabled={!reservation || !checkedIn || reservationBusy} onClick={() => reservation && onCheckout(reservation)} className="flex h-10 items-center justify-center gap-2 rounded-xl bg-rose-600 text-[10px] font-black text-white transition hover:bg-rose-700 disabled:bg-rose-50 disabled:text-rose-300"><LogOut className="h-4 w-4" />CHECK-OUT</button>}
               </div>}
 
