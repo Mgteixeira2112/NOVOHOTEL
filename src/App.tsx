@@ -15,6 +15,7 @@ import { FloatingWhatsapp } from './components/landing/FloatingWhatsapp';
 import { BookingModal } from './components/booking/BookingModal';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminLogin } from './components/auth/AdminLogin';
+import { SupabaseAuthSessionBridge } from './components/auth/SupabaseAuthSessionBridge';
 import { SecurityVerificationModal } from './components/security/SecurityVerificationModal';
 import { ConnectionStatus } from './components/device/ConnectionStatus';
 import { fetchUserOperationalSectorsState } from './services/userSectorService';
@@ -68,6 +69,7 @@ const MainContent: React.FC = () => {
   const { currentView, isAuthenticated } = useHotel();
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 selection:bg-amber-500 selection:text-stone-950 font-sans">
+      <SupabaseAuthSessionBridge />
       {currentView === 'landing' ? (
         <div className="flex flex-col min-h-screen relative">
           <Navbar /><main className="flex-1"><HeroSection /><RoomsShowcase /><AmenitiesSection /><AboutSection /><LocationSection /><TestimonialsSection /><FaqSection /><ContactSection /></main><Footer /><FloatingWhatsapp />
