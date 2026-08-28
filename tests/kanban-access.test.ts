@@ -70,6 +70,16 @@ test('operacional pode editar, mover, atribuir e arquivar somente cards visívei
   assert.equal(canPerformKanbanAction(context, 'delete', cards[3]), false);
 });
 
+test('qualquer usuário autenticado pode trocar responsável de card que consegue visualizar', () => {
+  const financeiro = {
+    userId: 'fin-1', role: 'financeiro', sectorIds: ['manutencao'] as const, scope: 'sector' as const,
+  };
+  assert.equal(defaultKanbanCapabilities('financeiro').assign, false);
+  assert.equal(canPerformKanbanAction(financeiro, 'assign', cards[0]), true);
+  assert.equal(canPerformKanbanAction(financeiro, 'edit', cards[0]), false);
+  assert.equal(canPerformKanbanAction(financeiro, 'assign', cards[3]), false);
+});
+
 test('admin e gerente podem atribuir e excluir cards ativos', () => {
   const admin = { userId: 'admin-1', role: 'admin', sectorIds: [], scope: 'all' as const };
   const gerente = { userId: 'ger-1', role: 'gerente', sectorIds: [], scope: 'all' as const };
