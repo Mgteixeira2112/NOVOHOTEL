@@ -3,8 +3,9 @@ import { useHotel } from '../../context/HotelContext';
 import { OPERATIONAL_SECTORS } from '../../domain/operationalSectors';
 import { supabase } from '../../lib/supabase';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
-import { Reserva } from '../../types';
+import { Quarto, Reserva } from '../../types';
 import { ReceptionRoomsKanban } from '../../modules/recepcao/ReceptionRoomsKanban';
+import { receptionGuestStayService } from '../../modules/recepcao/receptionGuestStayService';
 import { RECEPTION_ROOMS_BOARD_ID, receptionRoomKanbanService } from '../../modules/recepcao/receptionRoomKanbanService';
 import { receptionStayService } from '../../modules/recepcao/receptionStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
@@ -12,6 +13,15 @@ import { readRoomMapWidgetPresentation, roomMapActionEnabled } from './roomMapWi
 
 const GOVERNANCE_BOARD_ID = 'kanban-board-governanca';
 const GOVERNANCE_RELEASED_COLUMN_ID = 'gov-col-liberado';
+
+const dateInput = (offsetDays = 0) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offsetDays);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 type GovernanceRoomCard = {
   room_id?: string | null;
@@ -26,6 +36,11 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
   const [governanceReleasedRoomIds, setGovernanceReleasedRoomIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [stayActionId, setStayActionId] = useState<string | null>(null);
+  const [checkinRoom, setCheckinRoom] = useState<Quarto | null>(null);
+  const [checkinGuestId, setCheckinGuestId] = useState('');
+  const [checkinDate, setCheckinDate] = useState(dateInput(0));
+  const [checkoutDate, setCheckoutDate] = useState(dateInput(1));
+  const [checkinGuestCount, setCheckinGuestCount] = useState(1);
   const [error, setError] = useState('');
   const presentation = readRoomMapWidgetPresentation(widget);
   const visibleStatusSet = useMemo(
@@ -122,6 +137,46 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
     finally { setStayActionId(null); }
   };
 
+  const startCheckin = (room: Quarto) => {
+    setCheckinRoom(room);
+    setCheckinGuestId('');
+    setCheckinDate(dateInput(0));
+    setCheckoutDate(dateInput(1));
+    setCheckinGuestCount(1);
+    setError('');
+  };
+
+  const confirmNewCheckin = async () => {
+    if (!checkinRoom || stayActionId) return;
+    if (!checkinGuestId) { setError('Selecione um hóspede para iniciar o check-in.'); return; }
+    if (!checkinDate || !checkoutDate || checkoutDate <= checkinDate) { setError('A saída prevista deve ser posterior à entrada.'); return; }
+    if (checkinGuestCount < 1 || checkinGuestCount > Number(checkinRoom.capacidade || 1)) {
+      setError(`A quantidade de hóspedes deve respeitar a capacidade do quarto (${checkinRoom.capacidade || 1}).`);
+      return;
+    }
+
+    const actionId = `room:${checkinRoom.id}`;
+    setStayActionId(actionId);
+    setError('');
+    try {
+      const created = await receptionGuestStayService.createReservationForGuest({
+        guestId: checkinGuestId,
+        roomId: checkinRoom.id,
+        checkin: checkinDate,
+        checkout: checkoutDate,
+        guests: checkinGuestCount,
+        actorUserId: currentUser?.id,
+      });
+      await receptionStayService.checkin(created.reservation_id, currentUser?.id);
+      await refresh();
+      setCheckinRoom(null);
+    } catch (e: any) {
+      setError(e?.message || 'Não foi possível iniciar a hospedagem.');
+    } finally {
+      setStayActionId(null);
+    }
+  };
+
   const checkout = async (reservation: Reserva) => {
     if (stayActionId) return;
     if (!window.confirm(`Confirmar check-out da reserva ${reservation.codigo || reservation.id}? O quarto seguirá para A Limpar na Governança.`)) return;
@@ -166,8 +221,49 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
       allowDeleteRoom={roomMapActionEnabled(widget, 'deleteRoom')}
       onMove={move}
       onCheckin={checkin}
+      onStartCheckin={startCheckin}
       onCheckout={checkout}
       onTransfer={transfer}
     />
+
+    {checkinRoom && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/65 p-4" onMouseDown={event => { if (event.target === event.currentTarget && !stayActionId) setCheckinRoom(null); }}>
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Iniciar hospedagem</p>
+          <h3 className="mt-1 text-xl font-black text-slate-950">Check-in · Quarto {checkinRoom.numero}</h3>
+          <p className="mt-1 text-[11px] text-slate-500">Selecione o hóspede e confirme o período. As liberações de Governança e Manutenção continuam sendo validadas pelo sistema.</p>
+        </div>
+
+        <div className="space-y-4 p-5">
+          <label className="block text-[10px] font-black uppercase text-slate-500">Hóspede *
+            <select value={checkinGuestId} onChange={event => setCheckinGuestId(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-800">
+              <option value="">Selecionar hóspede</option>
+              {guests.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(guest => <option key={guest.id} value={guest.id}>{guest.nome} · {guest.documento}</option>)}
+            </select>
+          </label>
+
+          {guests.length === 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-[10px] font-bold text-amber-800">Nenhum hóspede cadastrado. Cadastre primeiro no Widget Hóspedes.</div>}
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-[10px] font-black uppercase text-slate-500">Entrada *
+              <input type="date" value={checkinDate} onChange={event => setCheckinDate(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-xs font-bold" />
+            </label>
+            <label className="text-[10px] font-black uppercase text-slate-500">Saída prevista *
+              <input type="date" value={checkoutDate} min={checkinDate} onChange={event => setCheckoutDate(event.target.value)} className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-xs font-bold" />
+            </label>
+          </div>
+
+          <label className="block text-[10px] font-black uppercase text-slate-500">Quantidade de hóspedes
+            <input type="number" min={1} max={Number(checkinRoom.capacidade || 1)} value={checkinGuestCount} onChange={event => setCheckinGuestCount(Number(event.target.value))} className="mt-1 h-11 w-full rounded-xl border border-slate-200 px-3 text-xs font-bold" />
+            <span className="mt-1 block text-[9px] normal-case text-slate-400">Capacidade máxima: {checkinRoom.capacidade || 1} hóspede(s).</span>
+          </label>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-200 p-5">
+          <button type="button" disabled={!!stayActionId} onClick={() => setCheckinRoom(null)} className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-black text-slate-600 disabled:opacity-40">Cancelar</button>
+          <button type="button" disabled={!!stayActionId || !checkinGuestId || guests.length === 0} onClick={() => void confirmNewCheckin()} className="h-10 rounded-xl bg-emerald-600 px-5 text-xs font-black text-white hover:bg-emerald-700 disabled:bg-emerald-100 disabled:text-emerald-400">{stayActionId ? 'PROCESSANDO...' : 'CONFIRMAR CHECK-IN'}</button>
+        </div>
+      </div>
+    </div>}
   </div>;
 };
