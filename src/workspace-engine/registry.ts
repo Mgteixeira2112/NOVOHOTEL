@@ -26,10 +26,12 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
     layout: 'operational',
     defaultScope: 'mine',
     widgets: normalizeWorkspaceWidgets([
-      { id: 'recepcao-checkins', type: 'checkins', title: 'Chegadas e saídas', order: 10, span: 2, enabled: true },
-      { id: 'recepcao-quartos', type: 'rooms-list', title: 'Quartos', order: 20, span: 2, enabled: true },
-      { id: 'recepcao-alertas', type: 'alerts', title: 'Alertas da recepção', order: 30, span: 2, enabled: true },
-      { id: 'recepcao-kanban', type: 'kanban-cards', boardId: 'kanban-board-recepcao', title: 'Central de atendimento', order: 40, span: 'full', enabled: true },
+      { id: 'recepcao-metrics', type: 'metrics', title: 'Resumo operacional', order: 10, span: 'full', enabled: true },
+      { id: 'recepcao-chegadas', type: 'arrivals', title: 'Chegadas de hoje', order: 20, span: 1, enabled: true },
+      { id: 'recepcao-saidas', type: 'departures', title: 'Saídas de hoje', order: 30, span: 1, enabled: true },
+      { id: 'recepcao-alertas', type: 'alerts', title: 'Alertas da recepção', order: 40, span: 2, enabled: true },
+      { id: 'recepcao-quartos', type: 'room-map', title: 'Mapa de quartos', order: 50, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transfer: true } },
+      { id: 'recepcao-kanban', type: 'task-kanban', boardId: 'kanban-board-recepcao', title: 'Kanban de tarefas', order: 60, span: 'full', enabled: true, dataSource: 'kanban' },
     ]),
   },
 ];
