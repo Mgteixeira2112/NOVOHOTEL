@@ -5,7 +5,7 @@ import { OPERATIONAL_SECTORS, OperationalSectorId } from '../../domain/operation
 import { getAllWorkspaceDefinitions, workspaceRegistry } from '../../workspace-engine/registry';
 import { WorkspaceDefinition, WorkspaceWidgetDefinition, WorkspaceWidgetSpan, WorkspaceWidgetType } from '../../workspace-engine/types';
 import { createWorkspaceWidget, getWidgetCatalogItem, normalizeWorkspaceWidgets, workspaceWidgetCatalog } from '../../workspace-engine/widgetCatalog';
-import { createWorkspaceDefinition, duplicateWorkspaceDefinition, setWorkspaceSectorAndBoard, WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
+import { createWorkspaceDefinition, defaultBoardForSector, duplicateWorkspaceDefinition, setWorkspaceSectorAndBoard, WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, resetWorkspaceOverride, saveWorkspaceOverride } from '../../workspace-engine/workspaceConfigStore';
 
 const spanOptions: WorkspaceWidgetSpan[] = [1, 2, 3, 4, 'full'];
@@ -24,7 +24,7 @@ export const WorkspaceEditorModule: React.FC = () => {
   const selected = definitions.find(item => item.id === selectedId);
   const isBaseWorkspace = !!selected && workspaceRegistry.some(item => item.id === selected.id);
   const selectedSector = selected?.sectors[0] || 'operacao';
-  const selectedBoard = selected?.widgets.find(widget => widget.type === 'kanban-cards')?.boardId || 'kanban-default-board';
+  const selectedBoard = selected?.widgets.find(widget => widget.type === 'task-kanban')?.boardId || defaultBoardForSector(selectedSector);
 
   useEffect(() => {
     let cancelled = false;
