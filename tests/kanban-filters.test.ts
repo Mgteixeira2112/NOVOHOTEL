@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'bun:test';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import { hasActiveKanbanFilters, matchesKanbanFilters } from '../src/domain/kanbanFilters';
 
 const baseCard: any = {
@@ -28,27 +29,25 @@ const defaults = {
   archiveView: 'active' as const,
 };
 
-describe('kanban complete filters', () => {
-  it('combines search, sector, responsible, room, column and priority', () => {
-    expect(matchesKanbanFilters(baseCard, {
-      ...defaults,
-      search: 'enxoval',
-      department: 'governanca',
-      user: 'user-1',
-      room: '203',
-      columnId: 'gov-col-em-limpeza',
-      priority: 'alta',
-    })).toBe(true);
-  });
+test('filtros combinam busca, setor, responsável, acomodação, status e prioridade', () => {
+  assert.equal(matchesKanbanFilters(baseCard, {
+    ...defaults,
+    search: 'enxoval',
+    department: 'governanca',
+    user: 'user-1',
+    room: '203',
+    columnId: 'gov-col-em-limpeza',
+    priority: 'alta',
+  }), true);
+});
 
-  it('keeps archived cards out of the active view and allows administrative archive view', () => {
-    const archived = { ...baseCard, is_archived: true };
-    expect(matchesKanbanFilters(archived, defaults)).toBe(false);
-    expect(matchesKanbanFilters(archived, { ...defaults, archiveView: 'archived' })).toBe(true);
-  });
+test('visão ativa não inclui arquivados e visão administrativa pode consultá-los', () => {
+  const archived = { ...baseCard, is_archived: true };
+  assert.equal(matchesKanbanFilters(archived, defaults), false);
+  assert.equal(matchesKanbanFilters(archived, { ...defaults, archiveView: 'archived' }), true);
+});
 
-  it('detects active filters', () => {
-    expect(hasActiveKanbanFilters(defaults)).toBe(false);
-    expect(hasActiveKanbanFilters({ ...defaults, search: '203' })).toBe(true);
-  });
+test('detecta filtros ativos', () => {
+  assert.equal(hasActiveKanbanFilters(defaults), false);
+  assert.equal(hasActiveKanbanFilters({ ...defaults, search: '203' }), true);
 });
