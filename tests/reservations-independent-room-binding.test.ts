@@ -22,9 +22,8 @@ test('reserva nasce com quarto compatível por capacidade, camas e período', ()
 
   assert.match(widget, /Esquema de camas/);
   assert.match(widget, /Quarto compatível e disponível/);
-  assert.match(widget, /room\.capacidade/);
-  assert.match(widget, /room\.cama/);
-  assert.match(widget, /activeReservationStatuses/);
+  assert.match(widget, /findAvailableRooms/);
+  assert.match(widget, /Consultando reservas e bloqueios no Supabase/);
   assert.doesNotMatch(widget, /Criar reserva sem quarto/);
   assert.doesNotMatch(widget, /Vincular quarto/);
 
@@ -34,6 +33,23 @@ test('reserva nasce com quarto compatível por capacidade, camas e período', ()
   assert.match(migration, /v_room\.cama/);
   assert.match(migration, /reserva conflitante no período/);
   assert.match(migration, /v_room\.id/);
+});
+
+test('motor de disponibilidade protege inventário no banco', () => {
+  const service = read('src/modules/recepcao/receptionGuestStayService.ts');
+  const migration = read('supabase/migrations/20260828225500_reservation_inventory_engine.sql');
+
+  assert.match(service, /reception_find_available_rooms/);
+  assert.match(migration, /create extension if not exists btree_gist/);
+  assert.match(migration, /reservas_quarto_periodo_ativo_excl/);
+  assert.match(migration, /exclude using gist/);
+  assert.match(migration, /daterange\(checkin, checkout, '\[\)'\) with &&/);
+  assert.match(migration, /reception_find_available_rooms/);
+  assert.match(migration, /from public\.bloqueios/);
+  assert.match(migration, /trg_validate_reservation_inventory/);
+  assert.match(migration, /trg_validate_room_block_inventory/);
+  assert.match(migration, /for update/);
+  assert.match(migration, /when exclusion_violation/);
 });
 
 test('fluxo transitório de reserva sem quarto é removido do banco', () => {
