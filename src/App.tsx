@@ -17,9 +17,10 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminLogin } from './components/auth/AdminLogin';
 import { SecurityVerificationModal } from './components/security/SecurityVerificationModal';
 import { ConnectionStatus } from './components/device/ConnectionStatus';
-import { GovernancaWorkspace } from './modules/governanca/GovernancaWorkspace';
 import { fetchUserOperationalSectorsState } from './services/userSectorService';
 import { OperationalSectorId } from './domain/operationalSectors';
+import { resolveWorkspaceForSectors } from './workspace-engine/registry';
+import { WorkspaceRuntime } from './workspace-engine/WorkspaceRuntime';
 
 const AuthenticatedWorkspaceRouter: React.FC = () => {
   const { currentUser } = useHotel();
@@ -47,7 +48,9 @@ const AuthenticatedWorkspaceRouter: React.FC = () => {
 
   if (management) return <AdminLayout />;
   if (loading) return <div className="min-h-screen grid place-items-center bg-slate-100 text-slate-600 text-sm font-bold">Carregando ambiente operacional…</div>;
-  if (sectorIds.includes('governanca')) return <GovernancaWorkspace />;
+
+  const workspace = resolveWorkspaceForSectors(sectorIds);
+  if (workspace) return <WorkspaceRuntime definition={workspace} />;
   return <AdminLayout />;
 };
 
