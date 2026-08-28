@@ -9,12 +9,8 @@ export type CreateGuestReservationInput = {
   actorUserId?: string;
 };
 
-export type CreateUnassignedReservationInput = Omit<CreateGuestReservationInput, 'roomId'>;
-
-export type BindReservationRoomInput = {
-  reservationId: string;
-  roomId: string;
-  actorUserId?: string;
+export type CreateReservationWithRoomInput = CreateGuestReservationInput & {
+  bedScheme: string;
 };
 
 export type CreateReceptionGuestInput = {
@@ -97,12 +93,14 @@ export const receptionGuestStayService = {
     };
   },
 
-  async createUnassignedReservation(input: CreateUnassignedReservationInput) {
-    const { data, error } = await supabase.rpc('reception_create_unassigned_reservation', {
+  async createReservationWithRoom(input: CreateReservationWithRoomInput) {
+    const { data, error } = await supabase.rpc('reception_create_reservation_with_room', {
       p_guest_id: input.guestId,
+      p_room_id: input.roomId,
       p_checkin: input.checkin,
       p_checkout: input.checkout,
       p_guests: input.guests,
+      p_bed_scheme: input.bedScheme,
       p_actor_user_id: input.actorUserId || null,
     });
     if (error) throw error;
@@ -111,34 +109,12 @@ export const receptionGuestStayService = {
       reservation_id: string;
       reservation_code: string;
       guest_id: string;
-      room_id: null;
+      room_id: string;
+      bed_scheme: string;
       checkin: string;
       checkout: string;
       guests: number;
-    };
-  },
-
-  async bindReservationToRoom(input: BindReservationRoomInput) {
-    const { data, error } = await supabase.rpc('reception_bind_reservation_room', {
-      p_reservation_id: input.reservationId,
-      p_room_id: input.roomId,
-      p_actor_user_id: input.actorUserId || null,
-    });
-    if (error) throw error;
-    return data as {
-      ok: boolean;
-      reservation_id: string;
-      room_id: string;
       total: number;
     };
-  },
-
-  async unbindReservationFromRoom(reservationId: string, actorUserId?: string) {
-    const { data, error } = await supabase.rpc('reception_unbind_reservation_room', {
-      p_reservation_id: reservationId,
-      p_actor_user_id: actorUserId || null,
-    });
-    if (error) throw error;
-    return data as { ok: boolean; reservation_id: string; room_id: null };
   },
 };
