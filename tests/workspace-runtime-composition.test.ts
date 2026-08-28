@@ -40,14 +40,23 @@ test('Fábrica altera composição e persistência dispara atualização do runt
   assert.match(editorSource, /updateWidget\(widget\.id, \{ enabled: widget\.enabled === false \}\)/);
   assert.match(editorSource, /widgets: selected\.widgets\.filter\(widget => widget\.id !== widgetId\)/);
   assert.match(editorSource, /widgets: widgets\.map\(\(widget, order\) => \(\{ \.\.\.widget, order: \(order \+ 1\) \* 10 \}\)\)/);
-  assert.match(storeSource, /current\[definition\.id\] = normalized/);
-  assert.match(storeSource, /window\.dispatchEvent\(new CustomEvent\(EVENT_NAME/);
+  assert.match(storeSource, /replaceMemoryOverrides/);
+  assert.match(storeSource, /dispatchWorkspaceConfigChanged/);
 });
 
-test('F5 não substitui composição local mais nova por versão remota pendente', () => {
-  assert.match(storeSource, /PENDING_SYNC_KEY/);
-  assert.match(storeSource, /setPendingSync\(hotelId, definition\.id, true\)/);
-  assert.match(storeSource, /if \(!error\) setPendingSync\(hotelId, definition\.id, false\)/);
-  assert.match(storeSource, /for \(const workspaceId of pendingIds\)/);
-  assert.match(storeSource, /reconciled\[workspaceId\] = localOverrides\[workspaceId\]/);
+test('Workspace usa Supabase como única persistência e não usa localStorage', () => {
+  assert.doesNotMatch(storeSource, /localStorage/);
+  assert.doesNotMatch(storeSource, /sessionStorage/);
+  assert.match(storeSource, /workspace_engine_configs/);
+  assert.match(storeSource, /const overridesByHotel = new Map/);
+});
+
+test('runtime só recebe nova definição depois de confirmação do Supabase', () => {
+  const upsertIndex = storeSource.indexOf("supabase.from('workspace_engine_configs').upsert");
+  const memoryIndex = storeSource.indexOf('replaceMemoryOverrides(hotelId, current)');
+  const dispatchIndex = storeSource.indexOf('dispatchWorkspaceConfigChanged(definition.id, hotelId)');
+  assert.ok(upsertIndex >= 0);
+  assert.ok(memoryIndex > upsertIndex);
+  assert.ok(dispatchIndex > memoryIndex);
+  assert.match(storeSource, /if \(error\) return \{ persisted: false, error: error\.message \}/);
 });
