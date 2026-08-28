@@ -76,8 +76,9 @@ export const hydrateWorkspaceOverridesFromSupabase = async (
     replaceMemoryOverrides(resolvedHotelId, overrides);
     return { source: 'supabase' as const, overrides, error: null };
   } catch (error: any) {
+    // Mantém apenas o último snapshot confirmado da sessão; não existe fallback persistido no navegador.
     return {
-      source: 'memory' as const,
+      source: 'local' as const,
       overrides: loadWorkspaceOverrides(resolvedHotelId),
       error: error?.message || 'Não foi possível carregar a configuração do Supabase.',
     };
