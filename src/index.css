@@ -39,6 +39,18 @@
 @media (min-width: 1024px) { .pos-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (min-width: 1280px) { .pos-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 
+/* Kanban operacional: no desktop, as quatro etapas do quadro cabem na largura disponível. */
+@media (min-width: 1024px) {
+  main.grid[style*="grid-template-columns"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    overflow-x: visible !important;
+  }
+
+  main.grid[style*="grid-template-columns"] > section {
+    min-width: 0;
+  }
+}
+
 @media (max-width: 767px) {
   .mobile-stack { display: flex; flex-direction: column; }
   .mobile-full { width: 100%; }
