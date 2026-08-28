@@ -7,7 +7,9 @@ import { WorkspaceDefinition, WorkspaceWidgetDefinition, WorkspaceWidgetSpan, Wo
 import { createWorkspaceWidget, getWidgetAvailability, getWidgetCatalogItem, normalizeWorkspaceWidgets, WorkspaceWidgetReadiness, workspaceWidgetCatalog } from '../../workspace-engine/widgetCatalog';
 import { createWorkspaceDefinition, defaultBoardForSector, duplicateWorkspaceDefinition, setWorkspaceSectorAndBoard, WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, resetWorkspaceOverride, saveWorkspaceOverride } from '../../workspace-engine/workspaceConfigStore';
+import { defaultRoomMapActionsForSector } from '../../workspace-engine/widgets/roomMapWidgetPresentation';
 import { KanbanWidgetAutomationEditor } from './KanbanWidgetAutomationEditor';
+import { RoomMapWidgetEditor } from './RoomMapWidgetEditor';
 
 const spanOptions: WorkspaceWidgetSpan[] = [1, 2, 3, 4, 'full'];
 const categoryLabels = { operacao: 'Operação', dados: 'Dados do hotel', equipe: 'Equipe', atalhos: 'Atalhos' } as const;
@@ -71,7 +73,8 @@ export const WorkspaceEditorModule: React.FC = () => {
       return;
     }
     const maxOrder = selected.widgets.reduce((max, widget) => Math.max(max, widget.order ?? 0), 0);
-    const widget = createWorkspaceWidget(type, { boardId: selectedBoard, order: maxOrder + 10 });
+    const created = createWorkspaceWidget(type, { boardId: selectedBoard, order: maxOrder + 10 });
+    const widget = type === 'room-map' ? { ...created, actions: defaultRoomMapActionsForSector(selectedSector) } : created;
     updateSelected({ widgets: [...selected.widgets, widget] });
     setMessage(`${getWidgetCatalogItem(type)?.label || type} adicionado. Salve o Workspace para sincronizar.`);
   };
@@ -195,6 +198,7 @@ export const WorkspaceEditorModule: React.FC = () => {
                 </div>
               </div>
               {widget.type === 'task-kanban' && <KanbanWidgetAutomationEditor widget={widget} onChange={patch => updateWidget(widget.id, patch)} />}
+              {widget.type === 'room-map' && <RoomMapWidgetEditor widget={widget} onChange={patch => updateWidget(widget.id, patch)} />}
             </div>;
           })}
         </div>
