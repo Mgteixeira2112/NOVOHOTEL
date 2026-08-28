@@ -124,7 +124,6 @@ export const GovernancaWorkspace: React.FC = () => {
     if (card.column_id === GOVERNANCA_STAGES.working) {
       return <button disabled={savingId === card.id} onClick={() => void move(card, GOVERNANCA_STAGES.inspection)} className="w-full h-10 rounded-xl bg-amber-500 text-slate-950 text-xs font-black flex items-center justify-center gap-2 disabled:opacity-40"><ClipboardCheck className="w-4 h-4" /> Enviar para inspeção</button>;
     }
-    if (card.column_id === GOVERNANANCA_STAGES.inspection) return null;
     return null;
   };
 
