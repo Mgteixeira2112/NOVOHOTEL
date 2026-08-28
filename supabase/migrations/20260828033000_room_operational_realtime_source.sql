@@ -33,6 +33,7 @@ AS $$
 DECLARE
   v_status text;
   v_responsavel text;
+  v_completed_transition boolean;
 BEGIN
   IF NEW.board_id <> 'kanban-board-governanca' OR NEW.room_number IS NULL OR btrim(NEW.room_number) = '' THEN
     RETURN NEW;
@@ -60,14 +61,15 @@ BEGIN
      LIMIT 1;
   END IF;
 
+  v_completed_transition := NEW.column_id = 'gov-col-liberado'
+    AND (TG_OP = 'INSERT' OR OLD.column_id IS DISTINCT FROM NEW.column_id);
+
   UPDATE public.quartos q
      SET status_housekeeping = v_status,
          status_governanca = v_status,
          responsavel_limpeza = COALESCE(v_responsavel, q.responsavel_limpeza),
          ultima_limpeza = CASE
-           WHEN NEW.column_id = 'gov-col-liberado'
-             AND OLD.column_id IS DISTINCT FROM NEW.column_id
-           THEN COALESCE(NEW.completed_at, now())
+           WHEN v_completed_transition THEN COALESCE(NEW.completed_at, now())
            ELSE q.ultima_limpeza
          END,
          updated_at = now()
