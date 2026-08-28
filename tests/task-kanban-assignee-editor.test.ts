@@ -1,26 +1,24 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import { describe, expect, it } from 'vitest';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
-const source = fs.readFileSync(path.resolve(process.cwd(), 'src/workspace-engine/widgets/TaskKanbanWidget.tsx'), 'utf8');
+const source = readFileSync('src/workspace-engine/widgets/TaskKanbanWidget.tsx', 'utf8');
 
-describe('TaskKanbanWidget editor de responsável', () => {
-  it('usa usuários do HotelContext e diretório de setores', () => {
-    expect(source).toContain('const { rooms, users, currentUser } = useHotel();');
-    expect(source).toContain('responsibleSectorMap');
-    expect(source).toContain('fetchUserOperationalSectorsState(user.id)');
-    expect(source).toContain('responsibleUsers');
-  });
+test('TaskKanbanWidget usa usuários do HotelContext e diretório de setores', () => {
+  assert.match(source, /const \{ rooms, users, currentUser \} = useHotel\(\);/);
+  assert.match(source, /responsibleSectorMap/);
+  assert.match(source, /fetchUserOperationalSectorsState\(user\.id\)/);
+  assert.match(source, /responsibleUsers/);
+});
 
-  it('persiste o responsável no assigned_to usando o mesmo payload do kanban principal', () => {
-    expect(source).toContain('const assignedPayload = selectedUser ?');
-    expect(source).toContain('assigned_to: canAssign(editingCard) ? assignedPayload : editingCard.assigned_to');
-  });
+test('TaskKanbanWidget persiste responsável em assigned_to', () => {
+  assert.match(source, /const assignedPayload = selectedUser \?/);
+  assert.match(source, /assigned_to: canAssign\(editingCard\) \? assignedPayload : editingCard\.assigned_to/);
+});
 
-  it('mantém no modal os campos do padrão operacional', () => {
-    expect(source).toContain('Setor / Departamento');
-    expect(source).toContain('Usuário Responsável');
-    expect(source).toContain('Quarto (Acomodação)');
-    expect(source).toContain('Coluna (Status no Quadro)');
-  });
+test('TaskKanbanWidget mantém os campos do padrão operacional no modal', () => {
+  assert.match(source, /Setor \/ Departamento/);
+  assert.match(source, /Usuário Responsável/);
+  assert.match(source, /Quarto \(Acomodação\)/);
+  assert.match(source, /Coluna \(Status no Quadro\)/);
 });
