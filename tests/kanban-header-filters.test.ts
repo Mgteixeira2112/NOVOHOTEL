@@ -8,6 +8,6 @@ test('clean kanban filters expose the complete administrative controls', () => {
   expect(source).toContain('Todos os setores');
   expect(source).toContain('Todos os status');
   expect(source).toContain('Todas as prioridades');
-  expect(source).toContain('Arquivados');
-  expect(source).toContain('Consulta administrativa');
+  expect(source).toContain('Arquivo administrativo');
+  expect(source).toContain('Limpar');
 });
