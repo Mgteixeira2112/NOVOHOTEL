@@ -17,11 +17,12 @@ test('Supabase Auth bridge não ativa RLS restritiva antes do corte de frontend'
   assert.doesNotMatch(migration, /enable row level security/i);
 });
 
-test('migração de credencial é server-side e limpa senha legada', () => {
+test('migração de credencial é server-side e preserva senha legada durante rollout', () => {
   assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(edge, /admin\.auth\.admin\.createUser/);
-  assert.match(edge, /senha: null/);
   assert.match(edge, /INVALID_CREDENTIALS/);
+  assert.match(edge, /auth_frontend_verified_at/);
+  assert.doesNotMatch(edge, /senha:\s*null/);
   assert.doesNotMatch(edge, /password:\s*legacyUser\.senha/);
 });
 
