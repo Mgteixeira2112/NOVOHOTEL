@@ -51,7 +51,7 @@ begin
   v_reservation_id := 'res-' || substr(md5(clock_timestamp()::text || random()::text || p_guest_id || p_room_id), 1, 24);
   v_code := 'RES-' || upper(substr(md5(v_reservation_id || clock_timestamp()::text), 1, 8));
   v_nights := greatest(1, p_checkout - p_checkin);
-  v_rate := coalesce(v_room.valor_diaria, v_room.preco_diaria, 0);
+  v_rate := coalesce(v_room.valor_diaria, 0);
   v_total := v_rate * v_nights;
 
   insert into public.reservas (
