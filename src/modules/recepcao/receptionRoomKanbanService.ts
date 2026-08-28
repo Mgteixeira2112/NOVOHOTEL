@@ -45,6 +45,21 @@ async function resolveRoomId(card: KanbanV2Card): Promise<string> {
   return resolved;
 }
 
+async function assertGovernanceReleased(roomId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('kanban_cards')
+    .select('column_id')
+    .eq('id', `room-gov-${roomId}`)
+    .eq('board_id', 'kanban-board-governanca')
+    .eq('is_archived', false)
+    .maybeSingle();
+
+  if (error) throw new Error(`Não foi possível confirmar o status da Governança: ${error.message}`);
+  if (!data || data.column_id !== 'gov-col-liberado') {
+    throw new Error('Status bloqueado no Mapa de Quartos: a Governança ainda não liberou o quarto. O Mapa acompanha o status da Governança e não pode modificá-lo.');
+  }
+}
+
 export const receptionRoomKanbanService = {
   async moveRoomCard(card: KanbanV2Card, targetColumnId: string, userId?: string | null) {
     const roomStatus = ROOM_COLUMN_STATUS[targetColumnId];
@@ -53,10 +68,16 @@ export const receptionRoomKanbanService = {
     // Resolve o vínculo estável antes de tocar no motor Kanban. Isso evita que
     // cards antigos de cache sejam movidos apenas localmente sem persistir o quarto.
     const roomId = await resolveRoomId(card);
+
+    // O Mapa de Quartos é consumidor do estado da Governança enquanto o quarto
+    // não estiver liberado. A validação acontece antes de mover qualquer card ou
+    // atualizar public.quartos para impedir que o Widget reposicione a Governança.
+    await assertGovernanceReleased(roomId);
+
     const moved = await kanbanCardGovernance.moveCard(card, targetColumnId, { userId });
 
     // O quarto é a fonte operacional. Os triggers do banco projetam este estado
-    // para o Kanban de Quartos e, quando aplicável, para o fluxo de Governança.
+    // para o Kanban de Quartos somente depois que a Governança devolveu o controle.
     const { data, error } = await supabase
       .from('quartos')
       .update({ status: roomStatus })
