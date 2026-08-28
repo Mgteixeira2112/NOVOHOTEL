@@ -48,9 +48,6 @@ export function defaultKanbanCapabilities(role: string): KanbanCapabilities {
     return { view: true, create: true, edit: true, move: true, assign: true, delete: true };
   }
 
-  // Perfis operacionais podem administrar integralmente os cards que já fazem
-  // parte do seu escopo autorizado. A visibilidade por setor/responsável continua
-  // sendo a barreira que impede operar tarefas fora da fila permitida.
   if (role === 'recepcionista' || role === 'governanca' || role === 'cozinha_only') {
     return { view: true, create: true, edit: true, move: true, assign: true, delete: true };
   }
@@ -68,59 +65,42 @@ export function canViewKanbanCard(context: KanbanAccessContext, card: KanbanAcce
   const isInSector = cardSector !== null && context.sectorIds.includes(cardSector);
 
   switch (context.scope) {
-    case 'all':
-      return true;
-    case 'sector':
-      return isInSector;
-    case 'assigned':
-      return isAssigned;
-    case 'sector_or_assigned':
-      return isInSector || isAssigned;
-    default:
-      return false;
+    case 'all': return true;
+    case 'sector': return isInSector;
+    case 'assigned': return isAssigned;
+    case 'sector_or_assigned': return isInSector || isAssigned;
+    default: return false;
   }
 }
 
-export function filterKanbanCardsForUser<T extends KanbanAccessCard>(
-  cards: T[],
-  context: KanbanAccessContext,
-): T[] {
+export function filterKanbanCardsForUser<T extends KanbanAccessCard>(cards: T[], context: KanbanAccessContext): T[] {
   return cards.filter(card => canViewKanbanCard(context, card));
 }
 
-/**
- * Permissão efetiva de uma ação sobre um card.
- *
- * - admin/gerente possuem controle integral;
- * - perfis operacionais podem editar, mover, atribuir e arquivar somente cards
- *   que já pertencem ao seu escopo de setor/responsabilidade;
- * - cards arquivados/excluídos nunca podem ser alterados pelo fluxo operacional ativo.
- */
 export function canPerformKanbanAction(
   context: KanbanAccessContext,
   action: KanbanAction,
   card?: KanbanAccessCard | null,
 ): boolean {
+  if (action === 'create') {
+    const capabilities = defaultKanbanCapabilities(context.role);
+    return capabilities.create && Boolean(context.userId);
+  }
+
+  if (!card || card.is_archived || card.deleted_at || !context.userId) return false;
+
+  // Regra temporária operacional: qualquer usuário autenticado que consiga ver
+  // o card pode trocar seu responsável. As demais ações continuam respeitando
+  // as capacidades específicas do perfil.
+  if (action === 'assign') return canViewKanbanCard(context, card);
+
   const capabilities = defaultKanbanCapabilities(context.role);
   if (!capabilities[action]) return false;
-
-  if (action === 'create') return Boolean(context.userId);
-  if (!card) return false;
-
   if (action === 'view') return canViewKanbanCard(context, card);
-  if (card.is_archived || card.deleted_at) return false;
-
   if (context.role === 'admin' || context.role === 'gerente') return true;
-
-  // A operação só modifica cards que já fazem parte da sua fila autorizada.
   return canViewKanbanCard(context, card);
 }
 
-/**
- * Restringe a criação a setores vinculados ao usuário quando a configuração
- * setorial estiver disponível. Um array vazio preserva o comportamento legado
- * de fallback até a associação de setores estar pronta no banco.
- */
 export function canCreateKanbanCardInSector(
   context: KanbanAccessContext,
   sector: string | null | undefined,
