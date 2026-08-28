@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BedDouble, CalendarDays, Edit3, Trash2, UserRound, X } from 'lucide-react';
+import { ArrowRightLeft, BedDouble, Edit3, LogIn, LogOut, Trash2, UserRound, X } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { Hospede, Quarto, Reserva } from '../../types';
@@ -11,7 +11,11 @@ interface ReceptionRoomsKanbanProps {
   reservations: Reserva[];
   guests: Hospede[];
   savingId?: string | null;
+  stayActionId?: string | null;
   onMove: (card: KanbanV2Card, columnId: string) => void;
+  onCheckin: (reservation: Reserva) => void;
+  onCheckout: (reservation: Reserva) => void;
+  onTransfer: (reservation: Reserva, toRoomId: string) => void;
 }
 
 const STATUS_THEME: Record<string, { card: string; badge: string; accent: string; column: string; header: string }> = {
@@ -30,8 +34,16 @@ function roomId(card: KanbanV2Card) {
   return typeof metadata.room_id === 'string' ? metadata.room_id : '';
 }
 
-function currentReservation(room: Quarto, reservations: Reserva[]) {
-  return reservations.find(reservation => reservation.quarto_id === room.id && reservation.status === 'checkin_realizado') || null;
+function linkedReservation(room: Quarto, reservations: Reserva[]) {
+  const candidates = reservations.filter(reservation =>
+    reservation.quarto_id === room.id && ['checkin_realizado', 'confirmada', 'pendente'].includes(reservation.status),
+  );
+  return candidates.sort((a, b) => {
+    const priority = (status: string) => status === 'checkin_realizado' ? 0 : status === 'confirmada' ? 1 : 2;
+    const diff = priority(a.status) - priority(b.status);
+    if (diff) return diff;
+    return String(a.data_checkin || a.checkin || '').localeCompare(String(b.data_checkin || b.checkin || ''));
+  })[0] || null;
 }
 
 function parseDate(value?: string) {
@@ -57,7 +69,6 @@ function stayInfo(reservation: Reserva | null) {
   const checkin = parseDate(checkinValue);
   const checkout = parseDate(checkoutValue);
   if (!checkin || !checkout) return { nights: null, currentDay: null, checkinValue, checkoutValue };
-
   const dayMs = 86_400_000;
   const nights = Math.max(1, Math.ceil((checkout.getTime() - checkin.getTime()) / dayMs));
   const now = new Date();
@@ -77,28 +88,21 @@ const Detail: React.FC<{ label: string; value: React.ReactNode }> = ({ label, va
 </div>;
 
 export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
-  columns,
-  cards,
-  rooms,
-  reservations,
-  guests,
-  savingId,
-  onMove,
+  columns, cards, rooms, reservations, guests, savingId, stayActionId, onMove, onCheckin, onCheckout, onTransfer,
 }) => {
   const { roomTypes, updateRoom, deleteRoom } = useHotel();
   const [selectedRoom, setSelectedRoom] = useState<Quarto | null>(null);
   const [editingRoom, setEditingRoom] = useState<Quarto | null>(null);
   const [draft, setDraft] = useState<Partial<Quarto>>({});
+  const [transferTarget, setTransferTarget] = useState('');
 
   const cardsWithRooms = useMemo(
     () => cards.filter(card => rooms.some(room => room.id === roomId(card) || String(room.numero) === String(card.room_number))),
     [cards, rooms],
   );
 
-  const openEditor = (room: Quarto) => {
-    setEditingRoom(room);
-    setDraft({ ...room });
-  };
+  const openRoom = (room: Quarto) => { setTransferTarget(''); setSelectedRoom(room); };
+  const openEditor = (room: Quarto) => { setEditingRoom(room); setDraft({ ...room }); };
 
   const saveRoom = () => {
     if (!editingRoom) return;
@@ -112,15 +116,13 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
       valor_diaria: dailyRate,
       preco_diaria: dailyRate,
     });
-    setEditingRoom(null);
-    setSelectedRoom(null);
+    setEditingRoom(null); setSelectedRoom(null);
   };
 
   const removeRoom = (room: Quarto) => {
     if (!window.confirm(`Excluir definitivamente o Quarto ${room.numero}?`)) return;
     if (!window.confirm(`Confirme novamente a exclusão do Quarto ${room.numero}.`)) return;
-    deleteRoom(room.id);
-    setSelectedRoom(null);
+    deleteRoom(room.id); setSelectedRoom(null);
   };
 
   return <>
@@ -129,7 +131,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
         <div>
           <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Mapa operacional · Quartos</p>
           <h2 className="text-lg font-black text-slate-950">Kanban de quartos</h2>
-          <p className="mt-1 text-[11px] text-slate-500">Visão compacta em uma única linha. Clique no card para abrir todas as informações e ações do quarto.</p>
+          <p className="mt-1 text-[11px] text-slate-500">O card é fixo por quarto. Reserva associa o hóspede; check-in ocupa; check-out desvincula e envia o quarto à Governança.</p>
         </div>
         <span className="shrink-0 text-[10px] font-bold text-slate-400">{cardsWithRooms.length} quartos</span>
       </div>
@@ -138,71 +140,51 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
         {columns.map(column => {
           const theme = STATUS_THEME[column.id] || STATUS_THEME['room-col-outros'];
           const columnCards = cardsWithRooms.filter(card => card.column_id === column.id);
-
           return <div key={column.id} className={`min-w-0 rounded-2xl border ${theme.column}`}>
-            <div className={`rounded-t-2xl px-2 py-2 ${theme.header}`}>
-              <div className="flex min-w-0 items-center justify-between gap-1">
-                <strong className={`min-w-0 truncate text-[9px] font-black uppercase tracking-tight ${theme.accent}`} title={column.nome}>{column.nome}</strong>
-                <span className={`grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1 text-[9px] font-black ${theme.badge}`}>{columnCards.length}</span>
-              </div>
-            </div>
+            <div className={`rounded-t-2xl px-2 py-2 ${theme.header}`}><div className="flex min-w-0 items-center justify-between gap-1">
+              <strong className={`min-w-0 truncate text-[9px] font-black uppercase tracking-tight ${theme.accent}`} title={column.nome}>{column.nome}</strong>
+              <span className={`grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1 text-[9px] font-black ${theme.badge}`}>{columnCards.length}</span>
+            </div></div>
 
             <div className="space-y-2 p-1.5">
               {columnCards.map(card => {
                 const room = rooms.find(item => item.id === roomId(card)) || rooms.find(item => String(item.numero) === String(card.room_number));
                 if (!room) return null;
-                const reservation = currentReservation(room, reservations);
+                const reservation = linkedReservation(room, reservations);
                 const guest = reservation ? guests.find(item => item.id === reservation.hospede_id) : null;
                 const stay = stayInfo(reservation);
-                const busy = savingId === card.id;
+                const busy = savingId === card.id || (!!reservation && stayActionId === reservation.id);
+                const checkedIn = reservation?.status === 'checkin_realizado';
 
-                return <article
-                  key={card.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedRoom(room)}
-                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setSelectedRoom(room); }}
-                  className={`cursor-pointer rounded-xl border p-2 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${theme.card}`}
-                >
-                  <div className="flex items-center justify-between gap-1">
-                    <div className="flex min-w-0 items-center gap-1">
-                      <BedDouble className={`h-3.5 w-3.5 shrink-0 ${theme.accent}`} />
-                      <strong className="truncate text-[11px] font-black text-slate-950">Q. {room.numero}</strong>
-                    </div>
-                    <span className={`h-2 w-2 shrink-0 rounded-full ${theme.badge.split(' ')[0]}`} title={column.nome} />
-                  </div>
+                return <article key={card.id} role="button" tabIndex={0}
+                  onClick={() => openRoom(room)}
+                  onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') openRoom(room); }}
+                  className={`cursor-pointer rounded-xl border p-2 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${theme.card}`}>
+                  <div className="flex items-center justify-between gap-1"><div className="flex min-w-0 items-center gap-1">
+                    <BedDouble className={`h-3.5 w-3.5 shrink-0 ${theme.accent}`} /><strong className="truncate text-[11px] font-black text-slate-950">Q. {room.numero}</strong>
+                  </div><span className={`h-2 w-2 shrink-0 rounded-full ${theme.badge.split(' ')[0]}`} title={column.nome} /></div>
 
-                  <div className={`mt-1.5 rounded-lg px-1.5 py-1 text-center text-[8px] font-black uppercase ${theme.badge}`}>
-                    {column.nome}
-                  </div>
+                  <div className={`mt-1.5 rounded-lg px-1.5 py-1 text-center text-[8px] font-black uppercase ${theme.badge}`}>{column.nome}</div>
 
-                  {guest ? <div className="mt-2 rounded-lg border border-blue-200 bg-white/80 p-1.5">
-                    <div className="flex min-w-0 items-center gap-1 text-[9px] font-black text-blue-900">
-                      <UserRound className="h-3 w-3 shrink-0" />
-                      <span className="truncate" title={guest.nome}>{guest.nome}</span>
-                    </div>
-                    <div className="mt-1 grid grid-cols-2 gap-1 text-[8px] font-bold text-slate-600">
-                      <span>IN {shortDate(stay?.checkinValue)}</span>
-                      <span>OUT {shortDate(stay?.checkoutValue)}</span>
-                    </div>
-                    {stay?.nights && <div className="mt-1 rounded-md bg-blue-100 px-1 py-1 text-center text-[8px] font-black text-blue-800">
-                      {stay.nights} noite{stay.nights > 1 ? 's' : ''} · dia {stay.currentDay}/{stay.nights}
-                    </div>}
-                  </div> : <div className="mt-2 rounded-lg border border-white/80 bg-white/70 px-1.5 py-2 text-center text-[8px] font-bold text-slate-500">Sem hóspede no quarto</div>}
+                  {guest && reservation ? <div className="mt-2 rounded-lg border border-blue-200 bg-white/80 p-1.5">
+                    <div className="flex min-w-0 items-center gap-1 text-[9px] font-black text-blue-900"><UserRound className="h-3 w-3 shrink-0" /><span className="truncate" title={guest.nome}>{guest.nome}</span></div>
+                    <div className="mt-1 rounded-md bg-blue-100 px-1 py-0.5 text-center text-[7px] font-black uppercase text-blue-800">{checkedIn ? 'Hospedado' : 'Reservado'}</div>
+                    <div className="mt-1 grid grid-cols-2 gap-1 text-[8px] font-bold text-slate-600"><span>IN {shortDate(stay?.checkinValue)}</span><span>OUT {shortDate(stay?.checkoutValue)}</span></div>
+                    {stay?.nights && <div className="mt-1 rounded-md bg-blue-50 px-1 py-1 text-center text-[8px] font-black text-blue-800">{stay.nights} noite{stay.nights > 1 ? 's' : ''}</div>}
+                  </div> : <div className="mt-2 rounded-lg border border-white/80 bg-white/70 px-1.5 py-2 text-center text-[8px] font-bold text-slate-500">Sem reserva associada</div>}
 
-                  <select
-                    value={card.column_id}
-                    disabled={busy}
-                    onClick={event => event.stopPropagation()}
-                    onChange={event => onMove(card, event.target.value)}
-                    className="mt-2 h-7 w-full min-w-0 rounded-lg border border-white bg-white/90 px-1 text-[8px] font-black text-slate-700 outline-none disabled:opacity-60"
-                    aria-label={`Alterar status do quarto ${room.numero}`}
-                  >
+                  {reservation && <button type="button" disabled={busy}
+                    onClick={event => { event.stopPropagation(); checkedIn ? onCheckout(reservation) : onCheckin(reservation); }}
+                    className={`mt-2 flex h-7 w-full items-center justify-center gap-1 rounded-lg text-[8px] font-black text-white disabled:opacity-60 ${checkedIn ? 'bg-orange-600' : 'bg-blue-600'}`}>
+                    {checkedIn ? <LogOut className="h-3 w-3" /> : <LogIn className="h-3 w-3" />}{checkedIn ? 'Check-out' : 'Check-in'}
+                  </button>}
+
+                  <select value={card.column_id} disabled={busy} onClick={event => event.stopPropagation()} onChange={event => onMove(card, event.target.value)}
+                    className="mt-2 h-7 w-full min-w-0 rounded-lg border border-white bg-white/90 px-1 text-[8px] font-black text-slate-700 outline-none disabled:opacity-60" aria-label={`Alterar status do quarto ${room.numero}`}>
                     {columns.map(option => <option key={option.id} value={option.id}>{option.nome}</option>)}
                   </select>
                 </article>;
               })}
-
               {columnCards.length === 0 && <div className="grid min-h-[72px] place-items-center rounded-xl border border-dashed border-slate-200 bg-white/55 p-1 text-center text-[8px] text-slate-400">Vazio</div>}
             </div>
           </div>;
@@ -211,63 +193,49 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
     </section>
 
     {selectedRoom && !editingRoom && (() => {
-      const reservation = currentReservation(selectedRoom, reservations);
+      const reservation = linkedReservation(selectedRoom, reservations);
       const guest = reservation ? guests.find(item => item.id === reservation.hospede_id) : null;
       const roomType = roomTypes.find(type => type.id === selectedRoom.tipo_quarto_id);
       const stay = stayInfo(reservation);
       const card = cardsWithRooms.find(item => roomId(item) === selectedRoom.id || String(item.room_number) === String(selectedRoom.numero));
       const column = columns.find(item => item.id === card?.column_id);
       const theme = STATUS_THEME[column?.id || 'room-col-outros'] || STATUS_THEME['room-col-outros'];
+      const checkedIn = reservation?.status === 'checkin_realizado';
+      const reservationBusy = !!reservation && stayActionId === reservation.id;
+      const availableDestinations = rooms.filter(room => room.id !== selectedRoom.id && String(room.status).toLowerCase() === 'disponivel' && !linkedReservation(room, reservations));
 
       return <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/60 p-3 sm:p-6" onMouseDown={event => { if (event.target === event.currentTarget) setSelectedRoom(null); }}>
         <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl">
           <div className={`sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 ${theme.header}`}>
-            <div>
-              <p className={`text-[10px] font-black uppercase tracking-wider ${theme.accent}`}>Quarto {selectedRoom.numero} · {column?.nome || selectedRoom.status}</p>
-              <h3 className="text-lg font-black text-slate-950">{selectedRoom.nome || roomType?.nome || 'Acomodação'}</h3>
-            </div>
+            <div><p className={`text-[10px] font-black uppercase tracking-wider ${theme.accent}`}>Quarto {selectedRoom.numero} · {column?.nome || selectedRoom.status}</p><h3 className="text-lg font-black text-slate-950">{selectedRoom.nome || roomType?.nome || 'Acomodação'}</h3></div>
             <button type="button" onClick={() => setSelectedRoom(null)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500"><X className="h-4 w-4" /></button>
           </div>
 
           <div className="space-y-5 p-5">
-            {guest && reservation && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div><p className="text-[9px] font-black uppercase text-blue-600">Ocupante atual</p><h4 className="text-base font-black text-blue-950">{guest.nome}</h4><p className="mt-1 text-xs text-blue-700">{guest.telefone || 'Sem telefone'} · {guest.email || 'Sem e-mail'}</p></div>
-                {stay?.nights && <div className="rounded-xl bg-blue-600 px-4 py-2 text-center text-white"><b className="block text-lg">{stay.nights}</b><span className="text-[9px] font-black uppercase">noites · dia {stay.currentDay}/{stay.nights}</span></div>}
+            {guest && reservation ? <section className="rounded-2xl border border-blue-200 bg-blue-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[9px] font-black uppercase text-blue-600">{checkedIn ? 'Ocupante atual' : 'Reserva associada ao quarto'}</p><h4 className="text-base font-black text-blue-950">{guest.nome}</h4><p className="mt-1 text-xs text-blue-700">{guest.telefone || 'Sem telefone'} · {guest.email || 'Sem e-mail'} · {reservation.codigo || reservation.id}</p></div>{stay?.nights && <div className="rounded-xl bg-blue-600 px-4 py-2 text-center text-white"><b className="block text-lg">{stay.nights}</b><span className="text-[9px] font-black uppercase">noites</span></div>}</div>
+              <div className="mt-4 grid gap-2 sm:grid-cols-2"><Detail label="Check-in" value={fullDate(stay?.checkinValue)} /><Detail label="Check-out" value={fullDate(stay?.checkoutValue)} /></div>
+              <div className="mt-4 grid gap-2 md:grid-cols-[1fr_auto_auto]">
+                <select value={transferTarget} onChange={e => setTransferTarget(e.target.value)} disabled={reservationBusy} className="h-10 rounded-xl border border-blue-200 bg-white px-3 text-xs font-bold text-slate-700">
+                  <option value="">Trocar para outro quarto...</option>{availableDestinations.map(room => <option key={room.id} value={room.id}>Quarto {room.numero} · {room.nome || ''}</option>)}
+                </select>
+                <button type="button" disabled={!transferTarget || reservationBusy} onClick={() => transferTarget && onTransfer(reservation, transferTarget)} className="flex h-10 items-center justify-center gap-2 rounded-xl border border-blue-300 bg-white px-4 text-xs font-black text-blue-700 disabled:opacity-50"><ArrowRightLeft className="h-4 w-4" />Trocar quarto</button>
+                <button type="button" disabled={reservationBusy} onClick={() => checkedIn ? onCheckout(reservation) : onCheckin(reservation)} className={`flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-xs font-black text-white disabled:opacity-50 ${checkedIn ? 'bg-orange-600' : 'bg-blue-600'}`}>{checkedIn ? <LogOut className="h-4 w-4" /> : <LogIn className="h-4 w-4" />}{checkedIn ? 'Check-out' : 'Check-in'}</button>
               </div>
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <Detail label="Check-in" value={fullDate(stay?.checkinValue)} />
-                <Detail label="Check-out" value={fullDate(stay?.checkoutValue)} />
-              </div>
-            </section>}
+            </section> : <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800">Nenhuma reserva ativa associada a este card. Ao criar uma reserva para este quarto, o hóspede aparecerá aqui automaticamente.</section>}
 
             <section className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <Detail label="Status" value={column?.nome || selectedRoom.status} />
-              <Detail label="Tipo" value={roomType?.nome || selectedRoom.tipo_quarto_id} />
-              <Detail label="Andar" value={`${selectedRoom.andar}º andar`} />
-              <Detail label="Capacidade" value={`${selectedRoom.capacidade} hóspede(s)`} />
-              <Detail label="Diária" value={money(selectedRoom.valor_diaria ?? selectedRoom.preco_diaria)} />
-              <Detail label="Tamanho" value={selectedRoom.tamanho_m2 ? `${selectedRoom.tamanho_m2} m²` : 'Não informado'} />
-              <Detail label="Vista" value={selectedRoom.vista} />
-              <Detail label="Cama" value={selectedRoom.cama} />
-              <Detail label="Governança" value={selectedRoom.status_governanca || selectedRoom.status_housekeeping} />
-              <Detail label="Responsável limpeza" value={selectedRoom.responsavel_limpeza} />
-              <Detail label="Última limpeza" value={fullDate(selectedRoom.ultima_limpeza)} />
-              <Detail label="Bateria fechadura" value={typeof selectedRoom.fechadura_bateria === 'number' ? `${selectedRoom.fechadura_bateria}%` : 'Não informado'} />
-              <Detail label="PIN" value={selectedRoom.fechadura_pin} />
-              <Detail label="Fotos" value={String(selectedRoom.fotos?.length || 0)} />
-              <Detail label="Cadastro" value={selectedRoom.ativo ? 'Ativo' : 'Inativo'} />
-              <Detail label="Manutenção" value={selectedRoom.status_manutencao_motivo} />
+              <Detail label="Status" value={column?.nome || selectedRoom.status} /><Detail label="Tipo" value={roomType?.nome || selectedRoom.tipo_quarto_id} /><Detail label="Andar" value={`${selectedRoom.andar}º andar`} /><Detail label="Capacidade" value={`${selectedRoom.capacidade} hóspede(s)`} />
+              <Detail label="Diária" value={money(selectedRoom.valor_diaria ?? selectedRoom.preco_diaria)} /><Detail label="Tamanho" value={selectedRoom.tamanho_m2 ? `${selectedRoom.tamanho_m2} m²` : 'Não informado'} /><Detail label="Vista" value={selectedRoom.vista} /><Detail label="Cama" value={selectedRoom.cama} />
+              <Detail label="Governança" value={selectedRoom.status_governanca || selectedRoom.status_housekeeping} /><Detail label="Responsável limpeza" value={selectedRoom.responsavel_limpeza} /><Detail label="Última limpeza" value={fullDate(selectedRoom.ultima_limpeza)} /><Detail label="Bateria fechadura" value={typeof selectedRoom.fechadura_bateria === 'number' ? `${selectedRoom.fechadura_bateria}%` : 'Não informado'} />
+              <Detail label="PIN" value={selectedRoom.fechadura_pin} /><Detail label="Fotos" value={String(selectedRoom.fotos?.length || 0)} /><Detail label="Cadastro" value={selectedRoom.ativo ? 'Ativo' : 'Inativo'} /><Detail label="Manutenção" value={selectedRoom.status_manutencao_motivo} />
             </section>
 
             {selectedRoom.descricao && <section className="rounded-2xl border border-slate-200 p-4"><p className="text-[9px] font-black uppercase text-slate-400">Descrição</p><p className="mt-2 text-xs leading-relaxed text-slate-700">{selectedRoom.descricao}</p></section>}
             {selectedRoom.comodidades?.length > 0 && <section className="rounded-2xl border border-slate-200 p-4"><p className="text-[9px] font-black uppercase text-slate-400">Comodidades</p><div className="mt-2 flex flex-wrap gap-1.5">{selectedRoom.comodidades.map(item => <span key={item} className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-bold text-slate-600">{item}</span>)}</div></section>}
             {selectedRoom.notas_internas && <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-[9px] font-black uppercase text-amber-600">Notas internas</p><p className="mt-2 text-xs text-amber-900">{selectedRoom.notas_internas}</p></section>}
 
-            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4">
-              <button type="button" onClick={() => openEditor(selectedRoom)} className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700"><Edit3 className="h-4 w-4" />Editar cadastro</button>
-              <button type="button" onClick={() => removeRoom(selectedRoom)} className="flex h-10 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700"><Trash2 className="h-4 w-4" />Excluir quarto</button>
-            </div>
+            <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4"><button type="button" onClick={() => openEditor(selectedRoom)} className="flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-700"><Edit3 className="h-4 w-4" />Editar cadastro</button><button type="button" onClick={() => removeRoom(selectedRoom)} className="flex h-10 items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 text-xs font-black text-rose-700"><Trash2 className="h-4 w-4" />Excluir quarto</button></div>
           </div>
         </div>
       </div>;
@@ -275,10 +243,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
 
     {editingRoom && <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/65 p-3 sm:p-6" onMouseDown={event => { if (event.target === event.currentTarget) setEditingRoom(null); }}>
       <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4">
-          <div><p className="text-[10px] font-black uppercase text-blue-600">Editar quarto</p><h3 className="text-lg font-black">Quarto {editingRoom.numero}</h3></div>
-          <button type="button" onClick={() => setEditingRoom(null)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200"><X className="h-4 w-4" /></button>
-        </div>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-5 py-4"><div><p className="text-[10px] font-black uppercase text-blue-600">Editar quarto</p><h3 className="text-lg font-black">Quarto {editingRoom.numero}</h3></div><button type="button" onClick={() => setEditingRoom(null)} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200"><X className="h-4 w-4" /></button></div>
         <div className="grid gap-3 p-5 sm:grid-cols-2">
           <label className="text-[10px] font-black text-slate-500">Número<input value={String(draft.numero ?? '')} onChange={e => setDraft(cur => ({ ...cur, numero: e.target.value }))} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs font-semibold" /></label>
           <label className="text-[10px] font-black text-slate-500">Nome<input value={String(draft.nome ?? '')} onChange={e => setDraft(cur => ({ ...cur, nome: e.target.value }))} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs font-semibold" /></label>
