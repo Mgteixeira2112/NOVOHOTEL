@@ -21,13 +21,15 @@ import { fetchUserOperationalSectorsState } from './services/userSectorService';
 import { OperationalSectorId } from './domain/operationalSectors';
 import { resolveWorkspaceForSectors } from './workspace-engine/registry';
 import { WorkspaceRuntime } from './workspace-engine/WorkspaceRuntime';
+import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase } from './workspace-engine/workspaceConfigStore';
 
 const AuthenticatedWorkspaceRouter: React.FC = () => {
-  const { currentUser } = useHotel();
+  const { currentUser, hotelConfig } = useHotel();
   const [sectorIds, setSectorIds] = useState<OperationalSectorId[]>([]);
   const [loading, setLoading] = useState(true);
   const role = currentUser?.tipo_usuario || '';
   const management = role === 'admin' || role === 'gerente';
+  const hotelId = hotelConfig?.id || DEFAULT_WORKSPACE_HOTEL_ID;
 
   useEffect(() => {
     let cancelled = false;
@@ -38,18 +40,21 @@ const AuthenticatedWorkspaceRouter: React.FC = () => {
     }
 
     setLoading(true);
-    void fetchUserOperationalSectorsState(currentUser.id).then(state => {
+    void Promise.all([
+      fetchUserOperationalSectorsState(currentUser.id),
+      hydrateWorkspaceOverridesFromSupabase(hotelId),
+    ]).then(([state]) => {
       if (cancelled) return;
       setSectorIds(state.available ? state.assignment.sectorIds : []);
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [currentUser?.id, management]);
+  }, [currentUser?.id, management, hotelId]);
 
   if (management) return <AdminLayout />;
   if (loading) return <div className="min-h-screen grid place-items-center bg-slate-100 text-slate-600 text-sm font-bold">Carregando ambiente operacional…</div>;
 
-  const workspace = resolveWorkspaceForSectors(sectorIds);
+  const workspace = resolveWorkspaceForSectors(sectorIds, hotelId);
   if (workspace) return <WorkspaceRuntime definition={workspace} />;
   return <AdminLayout />;
 };
