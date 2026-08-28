@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'bun:test';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import { getKanbanAutoArchiveRemainingMs, isFinalKanbanColumn, KANBAN_AUTO_ARCHIVE_DELAY_MS } from '../src/domain/kanbanArchive';
 
 const columns: any[] = [
@@ -14,19 +15,17 @@ const completedCard: any = {
   is_archived: false,
 };
 
-describe('kanban auto archive timing', () => {
-  it('recognizes the last column', () => {
-    expect(isFinalKanbanColumn(completedCard, columns)).toBe(true);
-  });
+test('reconhece a última coluna do quadro', () => {
+  assert.equal(isFinalKanbanColumn(completedCard, columns), true);
+});
 
-  it('returns the remaining time inside the five minute grace period', () => {
-    const now = new Date('2026-08-28T00:03:00.000Z').getTime();
-    expect(getKanbanAutoArchiveRemainingMs(completedCard, columns, now)).toBe(2 * 60 * 1000);
-  });
+test('calcula o período de tolerância de cinco minutos', () => {
+  const now = new Date('2026-08-28T00:03:00.000Z').getTime();
+  assert.equal(getKanbanAutoArchiveRemainingMs(completedCard, columns, now), 2 * 60 * 1000);
+  assert.equal(KANBAN_AUTO_ARCHIVE_DELAY_MS, 5 * 60 * 1000);
+});
 
-  it('returns zero when the archive delay has elapsed', () => {
-    const now = new Date('2026-08-28T00:06:00.000Z').getTime();
-    expect(getKanbanAutoArchiveRemainingMs(completedCard, columns, now)).toBe(0);
-    expect(KANBAN_AUTO_ARCHIVE_DELAY_MS).toBe(5 * 60 * 1000);
-  });
+test('retorna zero quando o período para arquivar expirou', () => {
+  const now = new Date('2026-08-28T00:06:00.000Z').getTime();
+  assert.equal(getKanbanAutoArchiveRemainingMs(completedCard, columns, now), 0);
 });
