@@ -159,7 +159,7 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
     setStayActionId(actionId);
     setError('');
     try {
-      const created = await receptionGuestStayService.createReservationForGuest({
+      await receptionGuestStayService.directCheckin({
         guestId: checkinGuestId,
         roomId: checkinRoom.id,
         checkin: checkinDate,
@@ -167,11 +167,10 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
         guests: checkinGuestCount,
         actorUserId: currentUser?.id,
       });
-      await receptionStayService.checkin(created.reservation_id, currentUser?.id);
       await refresh();
       setCheckinRoom(null);
     } catch (e: any) {
-      setError(e?.message || 'Não foi possível iniciar a hospedagem.');
+      setError(e?.message || 'Não foi possível iniciar a hospedagem. Nenhuma reserva foi criada.');
     } finally {
       setStayActionId(null);
     }
@@ -231,7 +230,7 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
         <div className="border-b border-slate-200 px-5 py-4">
           <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Iniciar hospedagem</p>
           <h3 className="mt-1 text-xl font-black text-slate-950">Check-in · Quarto {checkinRoom.numero}</h3>
-          <p className="mt-1 text-[11px] text-slate-500">Selecione o hóspede e confirme o período. As liberações de Governança e Manutenção continuam sendo validadas pelo sistema.</p>
+          <p className="mt-1 text-[11px] text-slate-500">Selecione o hóspede e confirme o período. A reserva só será criada se o check-in puder ser concluído integralmente.</p>
         </div>
 
         <div className="space-y-4 p-5">
