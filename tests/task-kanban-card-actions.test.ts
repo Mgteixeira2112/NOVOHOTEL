@@ -25,6 +25,6 @@ test('Widget Kanban mostra ações padrão no card', () => {
   assert.match(source, />Editar<\/button>/);
   assert.match(source, />Arquivar<\/button>/);
   assert.match(source, />Excluir<\/button>/);
-  assert.match(source, /Editar tarefa/);
-  assert.match(source, /Salvar alterações/);
+  assert.match(source, /Editar Tarefa Operacional/);
+  assert.match(source, /Salvar Card/);
 });
