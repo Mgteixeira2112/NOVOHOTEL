@@ -1,19 +1,36 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useHotel } from '../../context/HotelContext';
+import { OPERATIONAL_SECTORS } from '../../domain/operationalSectors';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { Reserva } from '../../types';
 import { ReceptionRoomsKanban } from '../../modules/recepcao/ReceptionRoomsKanban';
 import { RECEPTION_ROOMS_BOARD_ID, receptionRoomKanbanService } from '../../modules/recepcao/receptionRoomKanbanService';
 import { receptionStayService } from '../../modules/recepcao/receptionStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
+import { readRoomMapWidgetPresentation, roomMapActionEnabled } from './roomMapWidgetPresentation';
 
-export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget }) => {
+export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ workspace, widget }) => {
   const { currentUser, reservations, guests, rooms, syncFromSupabase } = useHotel();
   const [cards, setCards] = useState<KanbanV2Card[]>([]);
   const [columns, setColumns] = useState<KanbanV2Column[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [stayActionId, setStayActionId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const presentation = readRoomMapWidgetPresentation(widget);
+  const visibleStatusSet = useMemo(
+    () => presentation.visibleStatusIds ? new Set<string>(presentation.visibleStatusIds) : null,
+    [presentation.visibleStatusIds],
+  );
+  const displayedColumns = useMemo(
+    () => visibleStatusSet ? columns.filter(column => visibleStatusSet.has(column.id)) : columns,
+    [columns, visibleStatusSet],
+  );
+  const displayedCards = useMemo(
+    () => visibleStatusSet ? cards.filter(card => visibleStatusSet.has(card.column_id)) : cards,
+    [cards, visibleStatusSet],
+  );
+  const sectorId = workspace.sectors[0];
+  const sectorLabel = OPERATIONAL_SECTORS.find(sector => sector.id === sectorId)?.label || sectorId || 'Operação';
 
   useEffect(() => {
     let cancelled = false;
@@ -74,9 +91,32 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
     finally { setStayActionId(null); }
   };
 
-  return <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div className="mb-3"><h2 className="text-sm font-black text-slate-900">{widget.title || 'Mapa de quartos'}</h2><p className="mt-1 text-[10px] text-slate-500">Cards permanentes ligados a quartos, reservas e hóspedes.</p></div>
-    {error && <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 p-2 text-[10px] font-bold text-rose-700">{error}</div>}
-    <ReceptionRoomsKanban columns={columns} cards={cards} rooms={rooms} reservations={reservations} guests={guests} savingId={savingId} stayActionId={stayActionId} onMove={move} onCheckin={checkin} onCheckout={checkout} onTransfer={transfer} />
+  return <div className="space-y-3">
+    {error && <div className="rounded-xl border border-rose-200 bg-rose-50 p-2 text-[10px] font-bold text-rose-700">{error}</div>}
+    <ReceptionRoomsKanban
+      columns={displayedColumns}
+      cards={displayedCards}
+      rooms={rooms}
+      reservations={reservations}
+      guests={guests}
+      savingId={savingId}
+      stayActionId={stayActionId}
+      title={widget.title || 'Mapa de quartos'}
+      contextLabel={`${sectorLabel} · Mapa de quartos`}
+      showGuest={presentation.showGuest}
+      showReservationDates={presentation.showReservationDates}
+      showRoomType={presentation.showRoomType}
+      showFloor={presentation.showFloor}
+      showStatus={presentation.showStatus}
+      allowCheckin={roomMapActionEnabled(widget, 'checkin')}
+      allowCheckout={roomMapActionEnabled(widget, 'checkout')}
+      allowTransferRoom={roomMapActionEnabled(widget, 'transferRoom')}
+      allowEditRoom={roomMapActionEnabled(widget, 'editRoom')}
+      allowDeleteRoom={roomMapActionEnabled(widget, 'deleteRoom')}
+      onMove={move}
+      onCheckin={checkin}
+      onCheckout={checkout}
+      onTransfer={transfer}
+    />
   </div>;
 };
