@@ -28,6 +28,13 @@ export interface MinibarRoomSnapshot {
   needsRestock: boolean;
 }
 
+export interface MinibarRestockSource {
+  id: string;
+  code: string;
+  name: string;
+  locationType: string;
+}
+
 export interface RegisterMinibarConsumptionInput {
   hotelId: string;
   roomId: string;
