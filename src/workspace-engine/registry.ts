@@ -32,7 +32,10 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
       { id: 'recepcao-saidas', type: 'departures', title: 'Saídas de hoje', order: 30, span: 1, enabled: true },
       { id: 'recepcao-alertas', type: 'alerts', title: 'Alertas da recepção', order: 40, span: 2, enabled: true },
       { id: 'recepcao-quartos', type: 'room-map', title: 'Mapa de quartos', order: 50, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transferRoom: true } },
-      { id: 'recepcao-kanban', type: 'task-kanban', boardId: 'kanban-board-recepcao', title: 'Kanban de tarefas', order: 60, span: 'full', enabled: true, dataSource: 'kanban' },
+      { id: 'recepcao-hospedes', type: 'guests', title: 'Hóspedes', order: 60, span: 'full', enabled: true, dataSource: 'guests', permissions: { view: true, create: true, edit: true } },
+      { id: 'recepcao-reservas', type: 'reservations-list', title: 'Reservas e vínculos', order: 70, span: 'full', enabled: true, dataSource: 'reservations', permissions: { view: true, create: true, edit: true } },
+      { id: 'recepcao-estadias', type: 'active-stays', title: 'Hóspedes hospedados', order: 80, span: 'full', enabled: true, dataSource: 'composite', actions: { checkout: true } },
+      { id: 'recepcao-kanban', type: 'task-kanban', boardId: 'kanban-board-recepcao', title: 'Kanban de tarefas', order: 90, span: 'full', enabled: true, dataSource: 'kanban' },
     ]),
   },
 ];
