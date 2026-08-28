@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { hasActiveKanbanFilters, matchesKanbanFilters } from '../src/domain/kanbanFilters';
+import { buildKanbanTemporalSearch, hasActiveKanbanFilters, matchesKanbanFilters, parseKanbanTemporalSearch } from '../src/domain/kanbanFilters';
 
 const baseCard: any = {
   id: 'card-1',
@@ -17,6 +17,8 @@ const baseCard: any = {
   assigned_user_id: 'user-1',
   is_archived: false,
   ordem: 0,
+  created_at: '2026-08-27T20:00:00-03:00',
+  updated_at: '2026-08-27T21:15:00-03:00',
 };
 
 const defaults = {
@@ -47,7 +49,31 @@ test('visão ativa não inclui arquivados e visão administrativa pode consultá
   assert.equal(matchesKanbanFilters(archived, { ...defaults, archiveView: 'archived' }), true);
 });
 
-test('detecta filtros ativos', () => {
+test('filtra cards por intervalo de criação e última alteração sem mudar o motor do kanban', () => {
+  const search = buildKanbanTemporalSearch('', {
+    createdFrom: '2026-08-27T19:00', createdTo: '2026-08-27T20:30',
+    updatedFrom: '2026-08-27T21:00', updatedTo: '2026-08-27T21:30',
+  });
+  assert.equal(matchesKanbanFilters(baseCard, { ...defaults, search }), true);
+
+  const outside = buildKanbanTemporalSearch('', {
+    createdFrom: '2026-08-27T20:30', createdTo: '', updatedFrom: '', updatedTo: '',
+  });
+  assert.equal(matchesKanbanFilters(baseCard, { ...defaults, search: outside }), false);
+});
+
+test('preserva busca textual junto dos filtros temporais', () => {
+  const search = buildKanbanTemporalSearch('enxoval', {
+    createdFrom: '2026-08-27T19:00', createdTo: '', updatedFrom: '', updatedTo: '',
+  });
+  const parsed = parseKanbanTemporalSearch(search);
+  assert.equal(parsed.text, 'enxoval');
+  assert.equal(parsed.temporal.createdFrom, '2026-08-27T19:00');
+  assert.equal(matchesKanbanFilters(baseCard, { ...defaults, search }), true);
+});
+
+test('detecta filtros ativos, inclusive data e hora', () => {
   assert.equal(hasActiveKanbanFilters(defaults), false);
   assert.equal(hasActiveKanbanFilters({ ...defaults, search: '203' }), true);
+  assert.equal(hasActiveKanbanFilters({ ...defaults, search: buildKanbanTemporalSearch('', { createdFrom: '2026-08-27T19:00', createdTo: '', updatedFrom: '', updatedTo: '' }) }), true);
 });
