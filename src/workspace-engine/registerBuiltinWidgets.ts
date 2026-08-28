@@ -4,6 +4,7 @@ import { ReceptionRoomMapWidget } from './widgets/ReceptionRoomMapWidget';
 import { ArrivalsWidget, DeparturesWidget, ReceptionAlertsWidget, ReceptionSummaryWidget } from './widgets/ReceptionInfoWidgets';
 import { ActiveStaysWidget, GuestsWidget } from './widgets/ReceptionGuestStayWidgets';
 import { ReservationsWidget } from './widgets/ReservationsWidget';
+import { OccupancyCalendarWidget } from './widgets/OccupancyCalendarWidget';
 
 let registered = false;
 
@@ -14,6 +15,7 @@ export const registerBuiltinWorkspaceWidgets = () => {
   registerWorkspaceWidgetRenderer('room-map', ReceptionRoomMapWidget);
   registerWorkspaceWidgetRenderer('guests', GuestsWidget);
   registerWorkspaceWidgetRenderer('reservations-list', ReservationsWidget);
+  registerWorkspaceWidgetRenderer('occupancy-calendar', OccupancyCalendarWidget);
   registerWorkspaceWidgetRenderer('active-stays', ActiveStaysWidget);
   registerWorkspaceWidgetRenderer('arrivals', ArrivalsWidget);
   registerWorkspaceWidgetRenderer('departures', DeparturesWidget);
