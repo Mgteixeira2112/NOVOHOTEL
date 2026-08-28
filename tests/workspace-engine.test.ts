@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { workspaceRegistry } from '../src/workspace-engine/registry';
-import { canonicalWidgetType, createWorkspaceWidget, normalizeWorkspaceWidgets, workspaceWidgetCatalog } from '../src/workspace-engine/widgetCatalog';
+import { canonicalWidgetType, createWorkspaceWidget, getWidgetCatalogItem, normalizeWorkspaceWidgets, workspaceWidgetCatalog } from '../src/workspace-engine/widgetCatalog';
 import { validateWorkspaceDefinition } from '../src/workspace-engine/validation';
 
 test('normaliza widgets por ordem e remove widgets desativados', () => {
@@ -16,16 +16,17 @@ test('normaliza widgets por ordem e remove widgets desativados', () => {
   assert.deepEqual(widgets[0].permissions, { view: true });
 });
 
-test('biblioteca registra widgets canônicos para compor workspaces operacionais', () => {
+test('biblioteca visível registra apenas widgets canônicos para compor workspaces operacionais', () => {
   const types = workspaceWidgetCatalog.map(item => item.type);
   for (const required of [
     'metrics', 'task-kanban', 'room-map', 'room-details', 'arrivals', 'departures',
     'alerts', 'quick-actions', 'reservations-list', 'maintenance', 'orders', 'team', 'shortcuts',
   ]) assert.ok(types.includes(required as any), `widget canônico ausente: ${required}`);
 
-  assert.equal(workspaceWidgetCatalog.find(item => item.type === 'kanban-cards')?.legacy, true);
-  assert.equal(workspaceWidgetCatalog.find(item => item.type === 'rooms-list')?.legacy, true);
-  assert.equal(workspaceWidgetCatalog.find(item => item.type === 'checkins')?.legacy, true);
+  for (const legacy of ['kanban-cards', 'rooms-list', 'checkins']) {
+    assert.equal(types.includes(legacy as any), false, `widget legado não deve aparecer na Fábrica: ${legacy}`);
+    assert.equal(getWidgetCatalogItem(legacy as any)?.legacy, true, `compatibilidade interna ausente: ${legacy}`);
+  }
 });
 
 test('aliases legados resolvem para widgets canônicos durante a migração', () => {
@@ -42,6 +43,12 @@ test('cria widget de biblioteca com contrato completo e board quando obrigatóri
   assert.equal(widget.enabled, true);
   assert.equal(widget.dataSource, 'kanban');
   assert.deepEqual(widget.permissions, { view: true });
+});
+
+test('Fábrica rejeita criação direta de aliases legados', () => {
+  assert.throws(() => createWorkspaceWidget('kanban-cards', { boardId: 'board-1' }), /legado/);
+  assert.throws(() => createWorkspaceWidget('rooms-list'), /legado/);
+  assert.throws(() => createWorkspaceWidget('checkins'), /legado/);
 });
 
 test('workspace de governança é uma definição declarativa válida', () => {
