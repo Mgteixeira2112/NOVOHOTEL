@@ -12,8 +12,61 @@ export interface KanbanCardFilters {
   archiveView: KanbanArchiveView;
 }
 
+export interface KanbanTemporalFilters {
+  createdFrom: string;
+  createdTo: string;
+  updatedFrom: string;
+  updatedTo: string;
+}
+
+const TEMPORAL_TOKEN = /\[kanban-time:([^\]]+)\]/g;
+
 function normalized(value?: string | null): string {
   return (value || '').trim().toLocaleLowerCase('pt-BR');
+}
+
+function decodeTemporalValue(value?: string): string {
+  if (!value) return '';
+  try { return decodeURIComponent(value); } catch { return ''; }
+}
+
+export function parseKanbanTemporalSearch(search: string): { text: string; temporal: KanbanTemporalFilters } {
+  const temporal: KanbanTemporalFilters = { createdFrom: '', createdTo: '', updatedFrom: '', updatedTo: '' };
+  const text = search.replace(TEMPORAL_TOKEN, (_, payload: string) => {
+    payload.split('&').forEach(part => {
+      const [key, rawValue] = part.split('=');
+      const value = decodeTemporalValue(rawValue);
+      if (key === 'cf') temporal.createdFrom = value;
+      if (key === 'ct') temporal.createdTo = value;
+      if (key === 'uf') temporal.updatedFrom = value;
+      if (key === 'ut') temporal.updatedTo = value;
+    });
+    return '';
+  }).trim();
+  return { text, temporal };
+}
+
+export function buildKanbanTemporalSearch(text: string, temporal: KanbanTemporalFilters): string {
+  const parts = [
+    ['cf', temporal.createdFrom], ['ct', temporal.createdTo],
+    ['uf', temporal.updatedFrom], ['ut', temporal.updatedTo],
+  ].filter(([, value]) => Boolean(value)).map(([key, value]) => `${key}=${encodeURIComponent(value)}`);
+  return [text.trim(), parts.length ? `[kanban-time:${parts.join('&')}]` : ''].filter(Boolean).join(' ');
+}
+
+function withinDateRange(value: string | null | undefined, from: string, to: string): boolean {
+  if (!from && !to) return true;
+  const timestamp = value ? new Date(value).getTime() : Number.NaN;
+  if (!Number.isFinite(timestamp)) return false;
+  if (from) {
+    const fromTimestamp = new Date(from).getTime();
+    if (Number.isFinite(fromTimestamp) && timestamp < fromTimestamp) return false;
+  }
+  if (to) {
+    const toTimestamp = new Date(to).getTime();
+    if (Number.isFinite(toTimestamp) && timestamp > toTimestamp) return false;
+  }
+  return true;
 }
 
 export function matchesKanbanFilters(card: KanbanV2Card, filters: KanbanCardFilters): boolean {
@@ -44,7 +97,11 @@ export function matchesKanbanFilters(card: KanbanV2Card, filters: KanbanCardFilt
   if (filters.columnId !== 'todos' && card.column_id !== filters.columnId) return false;
   if (filters.priority !== 'todos' && (card.prioridade || 'normal') !== filters.priority) return false;
 
-  const query = normalized(filters.search);
+  const parsedSearch = parseKanbanTemporalSearch(filters.search);
+  if (!withinDateRange(card.created_at, parsedSearch.temporal.createdFrom, parsedSearch.temporal.createdTo)) return false;
+  if (!withinDateRange(card.updated_at, parsedSearch.temporal.updatedFrom, parsedSearch.temporal.updatedTo)) return false;
+
+  const query = normalized(parsedSearch.text);
   if (query) {
     const assigned = card.assigned_to as any;
     const haystack = [
@@ -62,8 +119,11 @@ export function matchesKanbanFilters(card: KanbanV2Card, filters: KanbanCardFilt
 }
 
 export function hasActiveKanbanFilters(filters: KanbanCardFilters): boolean {
+  const parsedSearch = parseKanbanTemporalSearch(filters.search);
+  const hasTemporalFilter = Object.values(parsedSearch.temporal).some(Boolean);
   return Boolean(
-    filters.search.trim()
+    parsedSearch.text.trim()
+      || hasTemporalFilter
       || filters.department !== 'todos'
       || filters.user !== 'todos'
       || filters.room !== 'todos'
