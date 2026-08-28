@@ -15,27 +15,52 @@ export type CreateReceptionGuestInput = {
   email: string;
   telefone: string;
   dataNascimento?: string;
+  endereco?: string;
   cidade?: string;
   estado?: string;
+  cep?: string;
+  nacionalidade?: string;
+  notasPreferencias?: string;
+  vip?: boolean;
 };
+
+export type UpdateReceptionGuestInput = CreateReceptionGuestInput;
+
+const guestPayload = (input: CreateReceptionGuestInput) => ({
+  nome: input.nome.trim(),
+  documento: input.documento.trim(),
+  email: input.email.trim(),
+  telefone: input.telefone.trim(),
+  data_nascimento: input.dataNascimento || null,
+  endereco: input.endereco?.trim() || null,
+  cidade: input.cidade?.trim() || null,
+  estado: input.estado?.trim() || null,
+  cep: input.cep?.trim() || null,
+  nacionalidade: input.nacionalidade?.trim() || 'Brasileiro',
+  notas_preferencias: input.notasPreferencias?.trim() || null,
+  vip: input.vip === true,
+});
 
 export const receptionGuestStayService = {
   async createGuest(input: CreateReceptionGuestInput) {
     const id = `guest-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     const payload = {
       id,
-      nome: input.nome.trim(),
-      documento: input.documento.trim(),
-      email: input.email.trim(),
-      telefone: input.telefone.trim(),
-      data_nascimento: input.dataNascimento || null,
-      cidade: input.cidade?.trim() || null,
-      estado: input.estado?.trim() || null,
-      nacionalidade: 'Brasileiro',
-      vip: false,
+      ...guestPayload(input),
       total_estadias: 0,
     };
     const { data, error } = await supabase.from('hospedes').insert(payload).select('*').single();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateGuest(guestId: string, input: UpdateReceptionGuestInput) {
+    const { data, error } = await supabase
+      .from('hospedes')
+      .update(guestPayload(input))
+      .eq('id', guestId)
+      .select('*')
+      .single();
     if (error) throw error;
     return data;
   },
