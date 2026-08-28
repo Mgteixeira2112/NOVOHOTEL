@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { workspaceRegistry } from '../src/workspace-engine/registry';
-import { normalizeWorkspaceWidgets } from '../src/workspace-engine/widgetCatalog';
+import { createWorkspaceWidget, normalizeWorkspaceWidgets, workspaceWidgetCatalog } from '../src/workspace-engine/widgetCatalog';
 import { validateWorkspaceDefinition } from '../src/workspace-engine/validation';
 
 test('normaliza widgets por ordem e remove widgets desativados', () => {
@@ -13,6 +13,22 @@ test('normaliza widgets por ordem e remove widgets desativados', () => {
 
   assert.deepEqual(widgets.map(widget => widget.id), ['a', 'b']);
   assert.equal(widgets[0].span, 2);
+});
+
+test('biblioteca registra os blocos hoteleiros do construtor', () => {
+  const types = workspaceWidgetCatalog.map(item => item.type);
+  assert.deepEqual(types, [
+    'metrics', 'kanban-cards', 'alerts', 'quick-actions', 'rooms-list',
+    'reservations-list', 'checkins', 'maintenance', 'orders', 'team', 'shortcuts',
+  ]);
+});
+
+test('cria widget de biblioteca com id próprio e board quando obrigatório', () => {
+  const widget = createWorkspaceWidget('kanban-cards', { boardId: 'board-1', order: 70 });
+  assert.match(widget.id, /^widget-kanban-cards-/);
+  assert.equal(widget.boardId, 'board-1');
+  assert.equal(widget.order, 70);
+  assert.equal(widget.enabled, true);
 });
 
 test('workspace de governança é uma definição declarativa válida', () => {
