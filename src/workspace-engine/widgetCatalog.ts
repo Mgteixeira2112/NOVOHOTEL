@@ -11,7 +11,7 @@ export interface WorkspaceWidgetCatalogItem {
   legacy?: boolean;
 }
 
-export const workspaceWidgetCatalog: WorkspaceWidgetCatalogItem[] = [
+const allWorkspaceWidgetCatalog: WorkspaceWidgetCatalogItem[] = [
   { type: 'metrics', label: 'Indicadores', description: 'Resumo de volumes e estados do fluxo operacional.', category: 'operacao', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite' },
   { type: 'task-kanban', label: 'Kanban de tarefas', description: 'Quadro operacional de tarefas vinculado a um board, consumindo o motor Kanban sem alterá-lo.', category: 'operacao', requiresBoard: true, defaultSpan: 'full', defaultDataSource: 'kanban' },
   { type: 'room-map', label: 'Mapa de quartos', description: 'Cards permanentes dos quartos, status operacional, hóspede e reserva associada.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite' },
@@ -26,21 +26,26 @@ export const workspaceWidgetCatalog: WorkspaceWidgetCatalogItem[] = [
   { type: 'team', label: 'Equipe', description: 'Pessoas, responsáveis e distribuição de trabalho.', category: 'equipe', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'users' },
   { type: 'shortcuts', label: 'Atalhos', description: 'Links e acessos rápidos a rotinas frequentes.', category: 'atalhos', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite' },
 
-  // Saved definitions using these aliases continue to work while the migration
-  // maps them to the canonical widget types above.
+  // Compatibilidade interna para definições já persistidas. Estes aliases não
+  // fazem mais parte da biblioteca visível da Fábrica de Workspaces.
   { type: 'kanban-cards', label: 'Kanban (legado)', description: 'Compatibilidade temporária. Novas composições devem usar Kanban de tarefas.', category: 'operacao', requiresBoard: true, defaultSpan: 'full', defaultDataSource: 'kanban', legacy: true },
   { type: 'rooms-list', label: 'Quartos (legado)', description: 'Compatibilidade temporária. Novas composições devem usar Mapa de quartos.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', legacy: true },
   { type: 'checkins', label: 'Chegadas e saídas (legado)', description: 'Compatibilidade temporária. Use widgets separados de Chegadas e Saídas.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations', legacy: true },
 ];
 
+/** Biblioteca oficial apresentada pelo Criador de Workspace. */
+export const workspaceWidgetCatalog = allWorkspaceWidgetCatalog.filter(item => !item.legacy);
+
+/** Busca interna inclui aliases legados para leitura/migração segura. */
 export const getWidgetCatalogItem = (type: WorkspaceWidgetType) =>
-  workspaceWidgetCatalog.find(item => item.type === type) || null;
+  allWorkspaceWidgetCatalog.find(item => item.type === type) || null;
 
 export const createWorkspaceWidget = (
   type: WorkspaceWidgetType,
   options?: { boardId?: string; order?: number },
 ): WorkspaceWidgetDefinition => {
   const item = getWidgetCatalogItem(type);
+  if (item?.legacy) throw new Error(`Widget legado ${type} não pode ser criado pela Fábrica.`);
   const suffix = Math.random().toString(36).slice(2, 8);
   return {
     id: `widget-${type}-${Date.now().toString(36)}-${suffix}`,
