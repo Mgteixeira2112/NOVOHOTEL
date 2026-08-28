@@ -3,12 +3,14 @@ import { AlertTriangle, BedDouble, CalendarDays, LogOut, Search, Settings2, Wifi
 import { useHotel } from '../../context/HotelContext';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { kanbanCardGovernance } from '../../services/kanbanCardGovernanceService';
+import { Reserva } from '../../types';
 import { WorkspaceDefinition, WorkspaceScope } from '../../workspace-engine/types';
 import { OperationalWorkCenter } from '../../workspace-engine/OperationalWorkCenter';
 import { RoomsModule } from '../../components/admin/RoomsModule';
 import { ReceptionKanbanBoard } from './ReceptionKanbanBoard';
 import { ReceptionRoomsKanban } from './ReceptionRoomsKanban';
 import { RECEPTION_ROOMS_BOARD_ID, receptionRoomKanbanService } from './receptionRoomKanbanService';
+import { receptionStayService } from './receptionStayService';
 
 const TASK_BOARD_ID = 'kanban-board-recepcao';
 type PanelKey = 'arrivals' | 'rooms' | 'alerts' | 'rooms-admin';
@@ -19,7 +21,7 @@ const dateKey = (value?: string | null) => String(value || '').slice(0, 10);
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinition }> = ({ definition }) => {
-  const { currentUser, logout, reservations, guests, rooms } = useHotel();
+  const { currentUser, logout, reservations, guests, rooms, syncFromSupabase } = useHotel();
   const [cards, setCards] = useState<KanbanV2Card[]>([]);
   const [columns, setColumns] = useState<KanbanV2Column[]>([]);
   const [roomCards, setRoomCards] = useState<KanbanV2Card[]>([]);
@@ -29,6 +31,7 @@ export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinitio
   const [status, setStatus] = useState('CONNECTING');
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savingRoomId, setSavingRoomId] = useState<string | null>(null);
+  const [stayActionId, setStayActionId] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<PanelKey | null>(null);
   const [error, setError] = useState('');
 
@@ -42,29 +45,16 @@ export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinitio
       setRoomCards(result.cards.filter(card => card.board_id === RECEPTION_ROOMS_BOARD_ID && !card.is_archived));
     }).catch((e: any) => !cancelled && setError(e?.message || 'Não foi possível carregar a Recepção.'));
 
-    const upsertForBoard = (
-      boardId: string,
-      setter: React.Dispatch<React.SetStateAction<KanbanV2Card[]>>,
-      card: KanbanV2Card,
-    ) => setter(cur => card.board_id !== boardId || card.is_archived
+    const upsertForBoard = (boardId: string, setter: React.Dispatch<React.SetStateAction<KanbanV2Card[]>>, card: KanbanV2Card) => setter(cur => card.board_id !== boardId || card.is_archived
       ? cur.filter(item => item.id !== card.id)
       : cur.some(item => item.id === card.id)
         ? cur.map(item => item.id === card.id ? card : item)
         : [...cur, card]);
 
     const unsubscribe = kanbanV2.subscribe(KANBAN_TENANT_ID, {
-      onInsert: card => {
-        upsertForBoard(TASK_BOARD_ID, setCards, card);
-        upsertForBoard(RECEPTION_ROOMS_BOARD_ID, setRoomCards, card);
-      },
-      onUpdate: card => {
-        upsertForBoard(TASK_BOARD_ID, setCards, card);
-        upsertForBoard(RECEPTION_ROOMS_BOARD_ID, setRoomCards, card);
-      },
-      onDelete: card => {
-        setCards(cur => cur.filter(item => item.id !== card.id));
-        setRoomCards(cur => cur.filter(item => item.id !== card.id));
-      },
+      onInsert: card => { upsertForBoard(TASK_BOARD_ID, setCards, card); upsertForBoard(RECEPTION_ROOMS_BOARD_ID, setRoomCards, card); },
+      onUpdate: card => { upsertForBoard(TASK_BOARD_ID, setCards, card); upsertForBoard(RECEPTION_ROOMS_BOARD_ID, setRoomCards, card); },
+      onDelete: card => { setCards(cur => cur.filter(item => item.id !== card.id)); setRoomCards(cur => cur.filter(item => item.id !== card.id)); },
       onStatus: setStatus,
     });
     return () => { cancelled = true; unsubscribe(); };
@@ -95,15 +85,54 @@ export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinitio
 
   const moveRoomToColumn = async (card: KanbanV2Card, columnId: string) => {
     if (!currentUser?.id || savingRoomId || columnId === card.column_id) return;
+    if (columnId === 'room-col-ocupado') {
+      setError('Use o botão Check-in para ocupar o quarto.');
+      return;
+    }
     setSavingRoomId(card.id); setError('');
     try {
       const updated = await receptionRoomKanbanService.moveRoomCard(card, columnId, currentUser.id);
       setRoomCards(cur => cur.map(item => item.id === updated.id ? updated : item));
-    } catch (e: any) {
-      setError(e?.message || 'Não foi possível alterar o status do quarto.');
-    } finally {
-      setSavingRoomId(null);
-    }
+    } catch (e: any) { setError(e?.message || 'Não foi possível alterar o status do quarto.'); }
+    finally { setSavingRoomId(null); }
+  };
+
+  const refreshAfterStayAction = async () => {
+    const synced = await syncFromSupabase();
+    if (!synced.success) throw new Error(synced.message || 'A operação foi salva, mas a tela não conseguiu atualizar.');
+  };
+
+  const checkinReservation = async (reservation: Reserva) => {
+    if (stayActionId) return;
+    setStayActionId(reservation.id); setError('');
+    try {
+      await receptionStayService.checkin(reservation.id, currentUser?.id);
+      await refreshAfterStayAction();
+    } catch (e: any) { setError(e?.message || 'Não foi possível realizar o check-in.'); }
+    finally { setStayActionId(null); }
+  };
+
+  const checkoutReservation = async (reservation: Reserva) => {
+    if (stayActionId) return;
+    if (!window.confirm(`Confirmar check-out da reserva ${reservation.codigo || reservation.id}? O hóspede será desvinculado e o quarto seguirá para A Limpar na Governança.`)) return;
+    setStayActionId(reservation.id); setError('');
+    try {
+      await receptionStayService.checkout(reservation.id, currentUser?.id);
+      await refreshAfterStayAction();
+    } catch (e: any) { setError(e?.message || 'Não foi possível realizar o check-out.'); }
+    finally { setStayActionId(null); }
+  };
+
+  const transferReservation = async (reservation: Reserva, toRoomId: string) => {
+    if (stayActionId) return;
+    const destination = rooms.find(room => room.id === toRoomId);
+    if (!destination || !window.confirm(`Transferir ${reservation.codigo || reservation.id} para o Quarto ${destination.numero}? O histórico da hospedagem será preservado.`)) return;
+    setStayActionId(reservation.id); setError('');
+    try {
+      await receptionStayService.transferRoom(reservation.id, toRoomId, currentUser?.id);
+      await refreshAfterStayAction();
+    } catch (e: any) { setError(e?.message || 'Não foi possível trocar o quarto.'); }
+    finally { setStayActionId(null); }
   };
 
   const guestFor = (reservation: any) => guests.find(g => g.id === reservation.hospede_id);
@@ -115,28 +144,15 @@ export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinitio
     { key: 'rooms-admin' as const, icon: Settings2, label: 'Administrar quartos', value: rooms.length, detail: 'Cadastrar, editar, excluir, publicar e configurar quartos' },
   ];
 
-  const panelTitle = (key: PanelKey) => {
-    if (key === 'arrivals') return 'Chegadas e saídas de hoje';
-    if (key === 'rooms') return 'Situação dos quartos';
-    if (key === 'rooms-admin') return 'Administração de quartos';
-    return 'Alertas da recepção';
-  };
+  const panelTitle = (key: PanelKey) => key === 'arrivals' ? 'Chegadas e saídas de hoje' : key === 'rooms' ? 'Situação dos quartos' : key === 'rooms-admin' ? 'Administração de quartos' : 'Alertas da recepção';
 
   const renderPanel = (key: PanelKey) => {
-    if (key === 'rooms-admin') return <div className="space-y-4">
-      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-        <strong className="font-black">Gestão integrada de acomodações.</strong> Nesta etapa o acesso está disponível para todos os usuários do Workspace da Recepção. A restrição por perfil será adicionada posteriormente sem alterar este módulo.
-      </div>
-      <RoomsModule />
-    </div>;
-
+    if (key === 'rooms-admin') return <div className="space-y-4"><div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900"><strong className="font-black">Gestão integrada de acomodações.</strong> Nesta etapa o acesso está disponível para todos os usuários do Workspace da Recepção. A restrição por perfil será adicionada posteriormente sem alterar este módulo.</div><RoomsModule /></div>;
     if (key === 'arrivals') return <div className="grid gap-4 lg:grid-cols-2">
       <div><h3 className="mb-3 text-xs font-black uppercase text-slate-500">Chegadas · {arrivals.length}</h3><div className="space-y-2">{arrivals.map(r => { const guest = guestFor(r); const room = roomFor(r); return <div key={r.id} className="rounded-2xl border border-slate-200 p-3"><strong className="text-xs">{guest?.nome || 'Hóspede não identificado'}</strong><p className="mt-1 text-[10px] text-slate-500">Quarto {room?.numero || '—'} · {r.codigo || r.id}</p><p className="mt-1 text-[10px] text-slate-500">Quarto: {room?.status || '—'} · Governança: {room?.status_governanca || room?.status_housekeeping || '—'}</p></div>; })}{arrivals.length === 0 && <p className="text-xs text-slate-400">Nenhuma chegada prevista.</p>}</div></div>
       <div><h3 className="mb-3 text-xs font-black uppercase text-slate-500">Saídas · {departures.length}</h3><div className="space-y-2">{departures.map(r => { const guest = guestFor(r); const room = roomFor(r); return <div key={r.id} className="rounded-2xl border border-slate-200 p-3"><strong className="text-xs">{guest?.nome || 'Hóspede não identificado'}</strong><p className="mt-1 text-[10px] text-slate-500">Quarto {room?.numero || '—'} · {r.status}</p></div>; })}{departures.length === 0 && <p className="text-xs text-slate-400">Nenhuma saída prevista.</p>}</div></div>
     </div>;
-
     if (key === 'rooms') return <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{rooms.map(room => <div key={room.id} className="rounded-2xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-2"><strong className="text-xs">Quarto {room.numero}</strong><span className="rounded-lg bg-slate-100 px-2 py-1 text-[9px] font-black">{room.status}</span></div><p className="mt-2 text-[10px] text-slate-500">Governança: {room.status_governanca || room.status_housekeeping || 'Não informado'}</p></div>)}</div>;
-
     return <div className="space-y-2">{taskAlerts.map(card => <div key={card.id} className="rounded-2xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-2"><strong className="text-xs">{card.titulo}</strong><span className="rounded-lg bg-amber-50 px-2 py-1 text-[9px] font-black text-amber-700">{card.prioridade}</span></div><p className="mt-1 text-[10px] text-slate-500">{assignedName(card)}{card.room_number ? ` · Quarto ${card.room_number}` : ''}</p></div>)}{taskAlerts.length === 0 && <p className="text-xs text-slate-400">Nenhum alerta operacional.</p>}</div>;
   };
 
@@ -145,7 +161,6 @@ export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinitio
 
     <main className="mx-auto max-w-[1600px] space-y-5 p-4 sm:p-6">
       <OperationalWorkCenter<PanelKey> sectorName="Recepção" summary={`${occupied} hóspedes no hotel`} items={workItems} activeKey={activePanel} onOpen={setActivePanel} onClose={() => setActivePanel(null)} panelTitle={panelTitle} renderPanel={renderPanel} />
-
       {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">{error}</div>}
 
       <ReceptionRoomsKanban
@@ -155,27 +170,16 @@ export const ReceptionWorkspaceShared: React.FC<{ definition: WorkspaceDefinitio
         reservations={reservations}
         guests={guests}
         savingId={savingRoomId}
+        stayActionId={stayActionId}
         onMove={(card, columnId) => void moveRoomToColumn(card, columnId)}
+        onCheckin={reservation => void checkinReservation(reservation)}
+        onCheckout={reservation => void checkoutReservation(reservation)}
+        onTransfer={(reservation, toRoomId) => void transferReservation(reservation, toRoomId)}
       />
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-4">
-        <div className="mb-3">
-          <p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Recepção · Tarefas</p>
-          <h2 className="text-lg font-black text-slate-950">Kanban de tarefas da Recepção</h2>
-          <p className="mt-1 text-xs text-slate-500">Solicitações e atendimentos permanecem separados do mapa operacional dos quartos.</p>
-        </div>
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="flex gap-2"><button onClick={() => setScope('mine')} className={`h-9 rounded-xl px-3 text-xs font-black ${scope === 'mine' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu trabalho</button><button onClick={() => setScope('sector')} className={`h-9 rounded-xl px-3 text-xs font-black ${scope === 'sector' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu setor</button></div><label className="relative block max-w-xl flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar solicitação, quarto, hóspede ou responsável" className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none focus:border-blue-300" /></label></div>
-      </section>
+      <section className="rounded-3xl border border-slate-200 bg-white p-4"><div className="mb-3"><p className="text-[10px] font-black uppercase tracking-wider text-blue-600">Recepção · Tarefas</p><h2 className="text-lg font-black text-slate-950">Kanban de tarefas da Recepção</h2><p className="mt-1 text-xs text-slate-500">Solicitações e atendimentos permanecem separados do mapa operacional dos quartos.</p></div><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="flex gap-2"><button onClick={() => setScope('mine')} className={`h-9 rounded-xl px-3 text-xs font-black ${scope === 'mine' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu trabalho</button><button onClick={() => setScope('sector')} className={`h-9 rounded-xl px-3 text-xs font-black ${scope === 'sector' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu setor</button></div><label className="relative block max-w-xl flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar solicitação, quarto, hóspede ou responsável" className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none focus:border-blue-300" /></label></div></section>
 
-      <ReceptionKanbanBoard
-        columns={columns}
-        cards={visibleCards}
-        currentUserId={currentUser?.id}
-        savingId={savingId}
-        assignedUserId={assignedUserId}
-        assignedName={assignedName}
-        onMove={(card, columnId) => void moveToColumn(card, columnId)}
-      />
+      <ReceptionKanbanBoard columns={columns} cards={visibleCards} currentUserId={currentUser?.id} savingId={savingId} assignedUserId={assignedUserId} assignedName={assignedName} onMove={(card, columnId) => void moveToColumn(card, columnId)} />
     </main>
   </div>;
 };
