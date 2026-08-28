@@ -11,7 +11,7 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
     description: 'Operação de quartos e tarefas do setor',
     sectors: ['governanca'],
     layout: 'operational',
-    defaultScope: 'mine',
+    defaultScope: 'sector',
     widgets: normalizeWorkspaceWidgets([
       { id: 'governanca-metrics', type: 'metrics', boardId: 'kanban-board-governanca', order: 10, span: 'full' },
       { id: 'governanca-kanban', type: 'kanban-cards', boardId: 'kanban-board-governanca', title: 'Central de trabalho', order: 20, span: 'full' },
@@ -25,7 +25,7 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
     description: 'Atendimento, hóspedes, reservas, quartos e solicitações do setor',
     sectors: ['recepcao'],
     layout: 'operational',
-    defaultScope: 'mine',
+    defaultScope: 'sector',
     widgets: normalizeWorkspaceWidgets([
       { id: 'recepcao-metrics', type: 'metrics', title: 'Resumo operacional', order: 10, span: 'full', enabled: true },
       { id: 'recepcao-chegadas', type: 'arrivals', title: 'Chegadas de hoje', order: 20, span: 1, enabled: true },
