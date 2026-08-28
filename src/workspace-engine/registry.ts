@@ -2,6 +2,7 @@ import { OperationalSectorId } from '../domain/operationalSectors';
 import { WorkspaceDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
 import { DEFAULT_WORKSPACE_HOTEL_ID, loadWorkspaceOverrides, mergeWorkspaceDefinition } from './workspaceConfigStore';
+import { migrateWorkspaceDefinitionToCanonicalWidgets } from './workspaceMigration';
 
 export const workspaceRegistry: WorkspaceDefinition[] = [
   {
@@ -30,17 +31,24 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
       { id: 'recepcao-chegadas', type: 'arrivals', title: 'Chegadas de hoje', order: 20, span: 1, enabled: true },
       { id: 'recepcao-saidas', type: 'departures', title: 'Saídas de hoje', order: 30, span: 1, enabled: true },
       { id: 'recepcao-alertas', type: 'alerts', title: 'Alertas da recepção', order: 40, span: 2, enabled: true },
-      { id: 'recepcao-quartos', type: 'room-map', title: 'Mapa de quartos', order: 50, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transfer: true } },
+      { id: 'recepcao-quartos', type: 'room-map', title: 'Mapa de quartos', order: 50, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transferRoom: true } },
       { id: 'recepcao-kanban', type: 'task-kanban', boardId: 'kanban-board-recepcao', title: 'Kanban de tarefas', order: 60, span: 'full', enabled: true, dataSource: 'kanban' },
     ]),
   },
 ];
 
+const canonicalForRuntime = (definition: WorkspaceDefinition) =>
+  definition.sectors.includes('recepcao')
+    ? migrateWorkspaceDefinitionToCanonicalWidgets(definition).definition
+    : definition;
+
 export const getAllWorkspaceDefinitions = (hotelId = DEFAULT_WORKSPACE_HOTEL_ID): WorkspaceDefinition[] => {
   const overrides = loadWorkspaceOverrides(hotelId);
   const baseIds = new Set(workspaceRegistry.map(workspace => workspace.id));
-  const custom = Object.values(overrides).filter(workspace => !baseIds.has(workspace.id));
-  const bases = workspaceRegistry.map(base => mergeWorkspaceDefinition(base, hotelId));
+  const custom = Object.values(overrides)
+    .filter(workspace => !baseIds.has(workspace.id))
+    .map(canonicalForRuntime);
+  const bases = workspaceRegistry.map(base => canonicalForRuntime(mergeWorkspaceDefinition(base, hotelId)));
   return [...custom, ...bases];
 };
 
