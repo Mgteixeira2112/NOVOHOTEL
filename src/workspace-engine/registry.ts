@@ -1,6 +1,7 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 import { WorkspaceDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
+import { mergeWorkspaceDefinition } from './workspaceConfigStore';
 
 export const workspaceRegistry: WorkspaceDefinition[] = [
   {
@@ -19,5 +20,12 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
   },
 ];
 
-export const resolveWorkspaceForSectors = (sectorIds: OperationalSectorId[]) =>
-  workspaceRegistry.find(workspace => workspace.sectors.some(sector => sectorIds.includes(sector))) || null;
+export const getWorkspaceDefinition = (workspaceId: string) => {
+  const base = workspaceRegistry.find(workspace => workspace.id === workspaceId);
+  return base ? mergeWorkspaceDefinition(base) : null;
+};
+
+export const resolveWorkspaceForSectors = (sectorIds: OperationalSectorId[]) => {
+  const base = workspaceRegistry.find(workspace => workspace.sectors.some(sector => sectorIds.includes(sector)));
+  return base ? mergeWorkspaceDefinition(base) : null;
+};
