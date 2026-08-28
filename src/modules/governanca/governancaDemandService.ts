@@ -39,5 +39,15 @@ export async function createGovernancaDemand(input: CreateGovernancaDemandInput)
     location: input.roomNumber || source?.room_number ? `Quarto ${input.roomNumber || source?.room_number}` : 'Geral',
     assigned_to: null,
     notes: sourceNote,
+    metadata: {
+      ...(source ? {
+        source_card_id: source.id,
+        source_board_id: source.board_id,
+        source_sector: source.departamento || 'governanca',
+        relation_type: 'derived_demand',
+      } : {}),
+      requested_from_sector: 'governanca',
+      target_sector: input.sector,
+    },
   }, { userId: input.actorUserId });
 }
