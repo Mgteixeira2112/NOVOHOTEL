@@ -28,7 +28,7 @@ export async function createGovernancaDemand(input: CreateGovernancaDemandInput)
     ? `Demanda derivada do card ${source.id} — ${source.titulo}${source.room_number ? ` — Quarto ${source.room_number}` : ''}.`
     : undefined;
 
-  return kanbanCardGovernance.createCard({
+  const created = await kanbanCardGovernance.createCard({
     boardId: target.boardId,
     columnId: target.columnId,
     titulo: input.title.trim(),
@@ -39,13 +39,17 @@ export async function createGovernancaDemand(input: CreateGovernancaDemandInput)
     location: input.roomNumber || source?.room_number ? `Quarto ${input.roomNumber || source?.room_number}` : 'Geral',
     assigned_to: null,
     notes: sourceNote,
+  }, { userId: input.actorUserId });
+
+  if (!source) return created;
+
+  return kanbanCardGovernance.updateCard(created, {
     metadata: {
-      ...(source ? {
-        source_card_id: source.id,
-        source_board_id: source.board_id,
-        source_sector: source.departamento || 'governanca',
-        relation_type: 'derived_demand',
-      } : {}),
+      ...(created.metadata || {}),
+      source_card_id: source.id,
+      source_board_id: source.board_id,
+      source_sector: source.departamento || 'governanca',
+      relation_type: 'derived_demand',
       requested_from_sector: 'governanca',
       target_sector: input.sector,
     },
