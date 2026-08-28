@@ -1,5 +1,6 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 import { WorkspaceDefinition } from './types';
+import { normalizeWorkspaceWidgets } from './widgetCatalog';
 
 export const workspaceRegistry: WorkspaceDefinition[] = [
   {
@@ -9,10 +10,12 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
     sectors: ['governanca'],
     layout: 'operational',
     defaultScope: 'mine',
-    widgets: [
-      { id: 'governanca-metrics', type: 'metrics', boardId: 'kanban-board-governanca' },
-      { id: 'governanca-kanban', type: 'kanban-cards', boardId: 'kanban-board-governanca', title: 'Central de trabalho' },
-    ],
+    widgets: normalizeWorkspaceWidgets([
+      { id: 'governanca-metrics', type: 'metrics', boardId: 'kanban-board-governanca', order: 10, span: 'full' },
+      { id: 'governanca-kanban', type: 'kanban-cards', boardId: 'kanban-board-governanca', title: 'Central de trabalho', order: 20, span: 'full' },
+      { id: 'governanca-alerts', type: 'alerts', title: 'Alertas do setor', order: 30, span: 2, enabled: false },
+      { id: 'governanca-actions', type: 'quick-actions', title: 'Ações rápidas', order: 40, span: 2, enabled: false },
+    ]),
   },
 ];
 
