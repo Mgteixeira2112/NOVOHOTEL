@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sparkles, UserRound } from 'lucide-react';
+import { ROOM_OPERATIONAL_STATUS, roomOperationalStatusFromCardMetadata } from '../../domain/roomOperationalStatus';
 import { KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 
 interface Props {
@@ -39,6 +40,8 @@ export const ReceptionKanbanBoard: React.FC<Props> = ({
       <div className="space-y-3">{columnCards.map(card => {
         const assignedId = assignedUserId(card);
         const mine = !!currentUserId && assignedId === currentUserId;
+        const roomStatusKey = roomOperationalStatusFromCardMetadata(card.metadata as Record<string, unknown> | undefined);
+        const roomStatus = ROOM_OPERATIONAL_STATUS[roomStatusKey];
         return <article key={card.id} className={`rounded-2xl border bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${mine ? 'border-blue-300 ring-2 ring-blue-300/40' : 'border-slate-200 hover:border-blue-300'}`}>
           <div className="mb-2 flex items-start justify-between gap-2">
             <span className="rounded-md bg-blue-50 px-2 py-1 text-[9px] font-black uppercase text-blue-700">Recepção</span>
@@ -55,6 +58,11 @@ export const ReceptionKanbanBoard: React.FC<Props> = ({
             {card.room_number && <span className="shrink-0 rounded-lg bg-slate-950 px-2 py-1 text-[9px] font-black text-blue-200">Q. {card.room_number}</span>}
           </div>
 
+          {card.room_number && <div className="mt-2 flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2">
+            <span className="text-[9px] font-black uppercase tracking-wide text-slate-400">Status do quarto</span>
+            <span className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[9px] font-black ${roomStatus.badgeClass}`}><span className={`h-2 w-2 rounded-full ${roomStatus.dotClass}`} />{roomStatus.label}</span>
+          </div>}
+
           {card.guest_name && <p className="mt-2 flex items-center gap-1 text-[10px] font-bold text-slate-600"><UserRound className="h-3 w-3" />{card.guest_name}</p>}
           {card.descricao && <p className="mt-2 line-clamp-2 text-[10px] text-slate-500">{card.descricao}</p>}
 
@@ -69,7 +77,7 @@ export const ReceptionKanbanBoard: React.FC<Props> = ({
             </div>
           </div>
 
-          <label className="mt-3 block text-[9px] font-black uppercase tracking-wide text-slate-400">Status
+          <label className="mt-3 block text-[9px] font-black uppercase tracking-wide text-slate-400">Status da tarefa
             <select
               disabled={!currentUserId || savingId === card.id}
               value={card.column_id}
