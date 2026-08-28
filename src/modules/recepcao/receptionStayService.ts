@@ -46,6 +46,18 @@ export const receptionStayService = {
     return data;
   },
 
+  async findActiveStayId(reservationId: string): Promise<string | null> {
+    if (!reservationId) return null;
+    const { data, error } = await supabase
+      .from('hotel_os_stays')
+      .select('id')
+      .eq('reservation_id', reservationId)
+      .eq('status', 'CHECKED_IN')
+      .maybeSingle();
+    if (error) throw rpcError(error, 'Não foi possível localizar a hospedagem financeira ativa.');
+    return data?.id ? String(data.id) : null;
+  },
+
   async history(reservationId: string): Promise<ReservationRoomHistoryEvent[]> {
     const { data, error } = await supabase
       .from('reservation_room_history')
