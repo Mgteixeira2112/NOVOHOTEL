@@ -5,6 +5,7 @@ import test from 'node:test';
 const runtimeSource = readFileSync('src/workspace-engine/widgets/kanbanWidgetAutomation.ts', 'utf8');
 const widgetSource = readFileSync('src/workspace-engine/widgets/TaskKanbanWidget.tsx', 'utf8');
 const editorSource = readFileSync('src/components/admin/KanbanWidgetAutomationEditor.tsx', 'utf8');
+const realtimeSource = readFileSync('src/services/kanbanRealtimeSubscription.ts', 'utf8');
 
 test('widget kanban conecta card_created ao orquestrador sem alterar o motor base', () => {
   assert.match(widgetSource, /onInsert: card =>/);
@@ -39,4 +40,13 @@ test('editor e runtime compartilham o mesmo contrato de automacao', () => {
   assert.match(editorSource, /KanbanAutomationRule, readKanbanAutomationSettings/);
   assert.match(runtimeSource, /export interface KanbanAutomationRule/);
   assert.doesNotMatch(editorSource, /export interface KanbanAutomationRule/);
+});
+
+test('cada widget Kanban usa canal Realtime exclusivo e só confirma após Supabase', () => {
+  assert.match(widgetSource, /subscribeKanbanRealtime\(KANBAN_TENANT_ID/);
+  assert.match(realtimeSource, /const instanceId = makeInstanceId\(\)/);
+  assert.match(realtimeSource, /`kanban-v2-\$\{hotelId\}-\$\{instanceId\}`/);
+  assert.match(realtimeSource, /handlers\.onStatus\('CONNECTING'\)/);
+  assert.match(realtimeSource, /status === 'SUBSCRIBED'/);
+  assert.doesNotMatch(realtimeSource, /handlers\.onStatus\('SUBSCRIBED'\);\s*\n\s*const channel/);
 });

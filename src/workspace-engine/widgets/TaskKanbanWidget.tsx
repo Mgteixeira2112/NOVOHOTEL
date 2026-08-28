@@ -3,6 +3,7 @@ import { Search, Wifi } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { kanbanCardGovernance } from '../../services/kanbanCardGovernanceService';
+import { subscribeKanbanRealtime } from '../../services/kanbanRealtimeSubscription';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
 import { WorkspaceScope } from '../types';
 import { executeKanbanWidgetCardCreatedAutomations } from './kanbanWidgetAutomation';
@@ -31,7 +32,7 @@ export const TaskKanbanWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ work
       setColumns(result.columns.filter(column => column.board_id === boardId).sort((a, b) => a.ordem - b.ordem));
       setCards(result.cards.filter(card => card.board_id === boardId && !card.is_archived));
     }).catch((e: any) => !cancelled && setError(e?.message || 'Não foi possível carregar as tarefas.'));
-    const unsubscribe = kanbanV2.subscribe(KANBAN_TENANT_ID, {
+    const unsubscribe = subscribeKanbanRealtime(KANBAN_TENANT_ID, {
       onInsert: card => {
         if (card.board_id === boardId && !card.is_archived) setCards(cur => cur.some(item => item.id === card.id) ? cur : [...cur, card]);
         if (card.board_id !== boardId || card.is_archived) return;
@@ -73,7 +74,7 @@ export const TaskKanbanWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ work
   };
 
   return <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-    <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><h2 className="text-sm font-black">{widget.title || 'Kanban de tarefas'}</h2><span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[9px] font-black text-emerald-700"><Wifi className="h-3 w-3" />{status === 'SUBSCRIBED' ? 'Tempo real' : 'Sincronizando'}</span></div><p className="mt-1 text-[10px] text-slate-500">Board {boardId}</p></div><div className="flex flex-wrap gap-2"><button onClick={() => setScope('mine')} className={`h-8 rounded-xl px-3 text-[10px] font-black ${scope === 'mine' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu trabalho</button><button onClick={() => setScope('sector')} className={`h-8 rounded-xl px-3 text-[10px] font-black ${scope === 'sector' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu setor</button></div></div>
+    <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><h2 className="text-sm font-black">{widget.title || 'Kanban de tarefas'}</h2><span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black ${status === 'SUBSCRIBED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}><Wifi className="h-3 w-3" />{status === 'SUBSCRIBED' ? 'Tempo real' : 'Sincronizando'}</span></div><p className="mt-1 text-[10px] text-slate-500">Board {boardId}</p></div><div className="flex flex-wrap gap-2"><button onClick={() => setScope('mine')} className={`h-8 rounded-xl px-3 text-[10px] font-black ${scope === 'mine' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu trabalho</button><button onClick={() => setScope('sector')} className={`h-8 rounded-xl px-3 text-[10px] font-black ${scope === 'sector' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu setor</button></div></div>
     <label className="relative mb-4 block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar tarefa, quarto, hóspede ou responsável" className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none" /></label>
     {error && <div className="mb-3 rounded-xl bg-rose-50 p-2 text-[10px] font-bold text-rose-700">{error}</div>}
     {automationNotice && <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[10px] font-bold text-amber-800">{automationNotice}</div>}
