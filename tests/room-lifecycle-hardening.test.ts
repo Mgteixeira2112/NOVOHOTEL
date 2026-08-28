@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const governanceMigration = readFileSync('supabase/migrations/20260828234500_governanca_stage_room_sync.sql', 'utf8');
+const governanceMigration = readFileSync('supabase/migrations/20260828234500_fix_governanca_stage_sync.sql', 'utf8');
 const lifecycleMigration = readFileSync('supabase/migrations/20260828235500_harden_room_lifecycle.sql', 'utf8');
 
 test('checkout exige hospedagem ativa em quarto ocupado pela Recepção', () => {
