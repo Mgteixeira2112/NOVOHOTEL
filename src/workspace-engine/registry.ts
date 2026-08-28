@@ -18,6 +18,20 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
       { id: 'governanca-actions', type: 'quick-actions', title: 'Ações rápidas', order: 40, span: 2, enabled: true },
     ]),
   },
+  {
+    id: 'workspace-recepcao',
+    name: 'Recepção',
+    description: 'Atendimento, hóspedes, reservas, quartos e solicitações do setor',
+    sectors: ['recepcao'],
+    layout: 'operational',
+    defaultScope: 'mine',
+    widgets: normalizeWorkspaceWidgets([
+      { id: 'recepcao-checkins', type: 'checkins', title: 'Chegadas e saídas', order: 10, span: 2, enabled: true },
+      { id: 'recepcao-quartos', type: 'rooms-list', title: 'Quartos', order: 20, span: 2, enabled: true },
+      { id: 'recepcao-alertas', type: 'alerts', title: 'Alertas da recepção', order: 30, span: 2, enabled: true },
+      { id: 'recepcao-kanban', type: 'kanban-cards', boardId: 'kanban-board-recepcao', title: 'Central de atendimento', order: 40, span: 'full', enabled: true },
+    ]),
+  },
 ];
 
 export const getAllWorkspaceDefinitions = (hotelId = DEFAULT_WORKSPACE_HOTEL_ID): WorkspaceDefinition[] => {
