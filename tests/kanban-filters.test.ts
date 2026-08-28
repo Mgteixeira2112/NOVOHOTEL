@@ -17,8 +17,8 @@ const baseCard: any = {
   assigned_user_id: 'user-1',
   is_archived: false,
   ordem: 0,
-  created_at: '2026-08-27T20:00:00-03:00',
-  updated_at: '2026-08-27T21:15:00-03:00',
+  created_at: new Date(2026, 7, 27, 20, 0).toISOString(),
+  updated_at: new Date(2026, 7, 27, 21, 15).toISOString(),
 };
 
 const defaults = {
