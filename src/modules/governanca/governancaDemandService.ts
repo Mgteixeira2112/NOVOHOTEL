@@ -1,5 +1,8 @@
 import { KanbanV2Card } from '../../services/kanbanV2';
 import { kanbanCardGovernance } from '../../services/kanbanCardGovernanceService';
+import { ensureRelatedDemandRealtimeBridge } from './relatedDemandRealtimeService';
+
+ensureRelatedDemandRealtimeBridge();
 
 export type GovernancaDemandSector = 'governanca' | 'recepcao' | 'manutencao' | 'cozinha' | 'operacao';
 
