@@ -13,6 +13,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <script>
+      // Proteção de bootstrap do GitHub Pages: remove service workers/caches
+      // antigos antes que um bundle versionado seja carregado. Isso evita que
+      // um index.html em cache aponte para chunks que já não existem.
+      (() => {
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations()
+              .then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+              .catch(() => undefined);
+          }
+          if ('caches' in window) {
+            caches.keys()
+              .then(keys => Promise.all(keys.filter(key => key.startsWith('hotel-os-shell-')).map(key => caches.delete(key))))
+              .catch(() => undefined);
+          }
+        } catch (_) {
+          // O bootstrap principal continua mesmo se a limpeza não estiver disponível.
+        }
+      })();
+    </script>
   </head>
   <body class="bg-stone-50 text-stone-900 antialiased selection:bg-amber-200 selection:text-amber-900">
     <div id="root"></div>
