@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BellRing, CheckCircle2, ClipboardCheck, DoorClosed, Grid3X3, LogOut, Play, Plus, Search, Sparkles, User as UserIcon, Users, Wifi, X } from 'lucide-react';
+import { BellRing, CheckCircle2, ClipboardCheck, Grid3X3, LogOut, Play, Plus, Search, Sparkles, User as UserIcon, Users, Wifi, X } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { kanbanCardGovernance } from '../../services/kanbanCardGovernanceService';
@@ -11,6 +11,8 @@ import { WorkspaceDataWidget } from '../../workspace-engine/WorkspaceDataWidget'
 import { GovernancaAlertsWidget, GovernancaQuickActionsWidget } from './GovernancaWorkspaceWidgets';
 import { GovernancaCardDetailModal } from './GovernancaCardDetailModal';
 import { GovernancaDemandModal, GovernancaDemandDraft } from './GovernancaDemandModal';
+import { GovernancaWorkCenterInsights } from './GovernancaWorkCenterInsights';
+import { subscribeRelatedDemands } from './relatedDemandRealtimeService';
 import { createGovernancaDemand, GOVERNANCA_DEMAND_TARGETS } from './governancaDemandService';
 import { GOVERNANCA_STAGES, getGovernancaAssignedName, getGovernancaAssignedUserId, GovernancaStageFilter } from './governancaWorkspaceModel';
 
@@ -19,15 +21,8 @@ const isDataWidget = (type: string) => ['rooms-list', 'reservations-list', 'chec
 const sourceCardId = (card: KanbanV2Card) => typeof card.metadata?.source_card_id === 'string' ? card.metadata.source_card_id : '';
 
 const widgetShortcutLabel = (widget: WorkspaceWidgetDefinition) => widget.title || ({
-  alerts: 'Alertas',
-  'quick-actions': 'Ações rápidas',
-  'rooms-list': 'Quartos',
-  'reservations-list': 'Reservas',
-  checkins: 'Check-ins',
-  maintenance: 'Manutenção',
-  orders: 'Pedidos',
-  team: 'Equipe',
-  shortcuts: 'Atalhos',
+  alerts: 'Alertas', 'quick-actions': 'Ações rápidas', 'rooms-list': 'Quartos', 'reservations-list': 'Reservas',
+  checkins: 'Check-ins', maintenance: 'Manutenção', orders: 'Pedidos', team: 'Equipe', shortcuts: 'Atalhos',
 } as Record<string, string>)[widget.type] || widget.type;
 
 export const GovernancaWorkspace: React.FC<{ definition: WorkspaceDefinition }> = ({ definition }) => {
@@ -63,22 +58,19 @@ export const GovernancaWorkspace: React.FC<{ definition: WorkspaceDefinition }> 
   }, [boardId, definition.name]);
 
   useEffect(() => kanbanV2.subscribe(KANBAN_TENANT_ID, {
-    onInsert: card => {
-      if (card.board_id === boardId && !card.is_archived) setCards(current => current.some(item => item.id === card.id) ? current : [...current, card]);
-      if (sourceCardId(card) && !card.is_archived) setRelatedDemands(current => current.some(item => item.id === card.id) ? current : [...current, card]);
-    },
+    onInsert: card => { if (card.board_id === boardId && !card.is_archived) setCards(current => current.some(item => item.id === card.id) ? current : [...current, card]); },
     onUpdate: card => {
       setCards(current => card.board_id !== boardId || card.is_archived ? current.filter(item => item.id !== card.id) : current.some(item => item.id === card.id) ? current.map(item => item.id === card.id ? card : item) : [...current, card]);
-      setRelatedDemands(current => !sourceCardId(card) || card.is_archived ? current.filter(item => item.id !== card.id) : current.some(item => item.id === card.id) ? current.map(item => item.id === card.id ? card : item) : [...current, card]);
       setSelectedCard(current => current?.id === card.id ? card : current);
     },
-    onDelete: card => {
-      setCards(current => current.filter(item => item.id !== card.id));
-      setRelatedDemands(current => current.filter(item => item.id !== card.id));
-      setSelectedCard(current => current?.id === card.id ? null : current);
-    },
+    onDelete: card => { setCards(current => current.filter(item => item.id !== card.id)); setSelectedCard(current => current?.id === card.id ? null : current); },
     onStatus: setStatus,
   }), [boardId]);
+
+  useEffect(() => subscribeRelatedDemands({
+    onUpsert: card => setRelatedDemands(current => current.some(item => item.id === card.id) ? current.map(item => item.id === card.id ? card : item) : [...current, card]),
+    onDelete: cardId => setRelatedDemands(current => current.filter(item => item.id !== cardId)),
+  }), []);
 
   const visibleCards = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('pt-BR');
@@ -89,20 +81,8 @@ export const GovernancaWorkspace: React.FC<{ definition: WorkspaceDefinition }> 
       .filter(card => !query || [card.titulo, card.descricao, card.room_number, getGovernancaAssignedName(card)].filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(query));
   }, [cards, scope, currentUser?.id, search, stageFilter]);
 
-  const counts = useMemo(() => ({
-    pending: cards.filter(card => card.column_id === GOVERNANCA_STAGES.pending).length,
-    working: cards.filter(card => card.column_id === GOVERNANCA_STAGES.working).length,
-    inspection: cards.filter(card => card.column_id === GOVERNANCA_STAGES.inspection).length,
-    done: cards.filter(card => card.column_id === GOVERNANCA_STAGES.done).length,
-  }), [cards]);
-
   const role = currentUser?.tipo_usuario || 'governanca';
-  const actionContext = useMemo(() => ({
-    userId: currentUser?.id || '',
-    role,
-    sectorIds: ['governanca'] as const,
-    scope: defaultKanbanVisibilityScope(role),
-  }), [currentUser?.id, role]);
+  const actionContext = useMemo(() => ({ userId: currentUser?.id || '', role, sectorIds: ['governanca'] as const, scope: defaultKanbanVisibilityScope(role) }), [currentUser?.id, role]);
   const selectedPermissions = useMemo(() => ({
     edit: !!selectedCard && canPerformKanbanAction(actionContext, 'edit', selectedCard),
     move: !!selectedCard && canPerformKanbanAction(actionContext, 'move', selectedCard),
@@ -135,22 +115,16 @@ export const GovernancaWorkspace: React.FC<{ definition: WorkspaceDefinition }> 
   const archiveSelected = async () => {
     if (!selectedCard || savingId || !canPerformKanbanAction(actionContext, 'delete', selectedCard)) return;
     const card = selectedCard; setSavingId(card.id); setError('');
-    try {
-      await kanbanCardGovernance.softDeleteCard(card, { userId: currentUser?.id });
-      setCards(current => current.filter(item => item.id !== card.id));
-      setSelectedCard(null);
-    } catch (e: any) { setError(e?.message || 'Não foi possível arquivar a tarefa.'); throw e; }
+    try { await kanbanCardGovernance.softDeleteCard(card, { userId: currentUser?.id }); setCards(current => current.filter(item => item.id !== card.id)); setSelectedCard(null); }
+    catch (e: any) { setError(e?.message || 'Não foi possível arquivar a tarefa.'); throw e; }
     finally { setSavingId(null); }
   };
 
   const permanentlyDeleteSelected = async () => {
     if (!selectedCard || savingId || (role !== 'admin' && role !== 'gerente') || !canPerformKanbanAction(actionContext, 'delete', selectedCard)) return;
     const card = selectedCard; setSavingId(card.id); setError('');
-    try {
-      await kanbanV2.deleteCard(card.id);
-      setCards(current => current.filter(item => item.id !== card.id));
-      setSelectedCard(null);
-    } catch (e: any) { setError(e?.message || 'Não foi possível excluir definitivamente a tarefa.'); throw e; }
+    try { await kanbanV2.deleteCard(card.id); setCards(current => current.filter(item => item.id !== card.id)); setSelectedCard(null); }
+    catch (e: any) { setError(e?.message || 'Não foi possível excluir definitivamente a tarefa.'); throw e; }
     finally { setSavingId(null); }
   };
 
@@ -172,12 +146,9 @@ export const GovernancaWorkspace: React.FC<{ definition: WorkspaceDefinition }> 
   const demandStatusLabel = (card: KanbanV2Card) => allColumns.find(column => column.id === card.column_id)?.nome || card.column_id;
   const demandSectorLabel = (card: KanbanV2Card) => {
     const sector = card.metadata?.target_sector;
-    return typeof sector === 'string' && sector in GOVERNANCA_DEMAND_TARGETS
-      ? GOVERNANCA_DEMAND_TARGETS[sector as keyof typeof GOVERNANCA_DEMAND_TARGETS].label
-      : card.departamento || 'Outro setor';
+    return typeof sector === 'string' && sector in GOVERNANCA_DEMAND_TARGETS ? GOVERNANCA_DEMAND_TARGETS[sector as keyof typeof GOVERNANCA_DEMAND_TARGETS].label : card.departamento || 'Outro setor';
   };
   const demandsFor = (cardId: string) => relatedDemands.filter(demand => sourceCardId(demand) === cardId);
-
   const actionFor = (card: KanbanV2Card) => card.column_id === GOVERNANCA_STAGES.pending
     ? <button disabled={savingId === card.id} onClick={event => { event.stopPropagation(); void move(card, GOVERNANCA_STAGES.working); }} className="w-full h-9 rounded-xl bg-slate-950 text-white text-[11px] font-black flex items-center justify-center gap-2 disabled:opacity-40"><Play className="w-3.5 h-3.5" /> Iniciar limpeza</button>
     : card.column_id === GOVERNANCA_STAGES.working
@@ -202,9 +173,7 @@ export const GovernancaWorkspace: React.FC<{ definition: WorkspaceDefinition }> 
     <header className="bg-white border-b border-slate-200 sticky top-0 z-20"><div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4"><div className="flex items-center gap-3"><div className="w-11 h-11 rounded-2xl bg-amber-400 grid place-items-center"><Sparkles className="w-5 h-5" /></div><div><div className="flex items-center gap-2 flex-wrap"><h1 className="text-xl font-black">{definition.name}</h1><span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700"><Wifi className="w-3 h-3" />{status === 'SUBSCRIBED' ? 'Tempo real' : 'Sincronizando'}</span></div><p className="text-xs text-slate-500">{definition.description}</p></div></div><div className="flex items-center gap-3"><div className="hidden sm:block text-right"><p className="text-xs font-black">{currentUser?.nome}</p><p className="text-[10px] text-slate-400">{definition.name}</p></div><button onClick={logout} className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 flex items-center gap-2"><LogOut className="w-4 h-4" /> Sair</button></div></div></header>
 
     <main className="max-w-[1600px] mx-auto p-4 sm:p-6 space-y-5">
-      {widgets.some(widget => widget.type === 'metrics') && <section className="grid grid-cols-2 lg:grid-cols-4 gap-3">{[['A limpar', counts.pending], ['Em limpeza', counts.working], ['Inspeção', counts.inspection], ['Liberados', counts.done]].map(([label, value], index) => <div key={String(label)} className="rounded-2xl border border-slate-200 bg-white p-4"><div className="flex justify-between"><p className="text-[11px] font-bold text-slate-500">{label}</p>{index === 3 ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <DoorClosed className="w-4 h-4 text-slate-300" />}</div><p className="mt-2 text-2xl font-black">{value}</p></div>)}</section>}
-
-      {kanbanEnabled && <section className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5"><div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3"><div><h2 className="text-base font-black">{widgets.find(widget => widget.type === 'kanban-cards')?.title || 'Central de trabalho'}</h2><p className="text-xs text-slate-500">Filtros, visões, atalhos e criação de demandas concentrados neste painel.</p></div><div className="flex flex-wrap justify-end gap-2"><button onClick={openGovernanceDemand} title="Criar demanda para a Governança" className="grid h-9 w-9 place-items-center rounded-xl bg-amber-400 text-slate-950 hover:bg-amber-300"><Plus className="w-4 h-4" /></button><button onClick={() => setScope('mine')} className={`h-9 px-3 rounded-xl text-xs font-black flex items-center gap-1.5 ${scope === 'mine' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}><UserIcon className="w-3.5 h-3.5" /> Meu trabalho</button><button onClick={() => setScope('sector')} className={`h-9 px-3 rounded-xl text-xs font-black flex items-center gap-1.5 ${scope === 'sector' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}><Users className="w-3.5 h-3.5" /> Meu setor</button>{shortcutWidgets.map(widget => <button key={widget.id} onClick={() => setActiveShortcut(widget)} className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-black text-slate-700 flex items-center gap-1.5 hover:border-amber-300 hover:bg-amber-50"><Grid3X3 className="w-3.5 h-3.5" /> {widgetShortcutLabel(widget)}</button>)}</div></div><div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center"><label className="relative block max-w-xl flex-1"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar quarto, tarefa ou responsável" className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none" /></label>{stageFilter !== 'all' && <button onClick={() => setStageFilter('all')} className="h-10 px-3 rounded-xl border border-amber-200 bg-amber-50 text-xs font-black text-amber-800 flex items-center gap-2"><X className="w-3.5 h-3.5" /> Limpar foco</button>}{shortcutWidgets.length > 0 && <span className="hidden lg:inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><BellRing className="w-3.5 h-3.5" /> {shortcutWidgets.length} atalhos ativos</span>}</div></section>}
+      {kanbanEnabled && <section className="rounded-3xl border border-slate-200 bg-white p-4 sm:p-5"><div className="flex flex-col lg:flex-row lg:items-start justify-between gap-3"><div><h2 className="text-base font-black">{widgets.find(widget => widget.type === 'kanban-cards')?.title || 'Central de trabalho'}</h2><p className="text-xs text-slate-500">Operação, dados em tempo real e atalhos concentrados neste painel.</p></div><div className="flex flex-wrap justify-end gap-2"><button onClick={openGovernanceDemand} title="Criar demanda para a Governança" className="grid h-9 w-9 place-items-center rounded-xl bg-amber-400 text-slate-950 hover:bg-amber-300"><Plus className="w-4 h-4" /></button><button onClick={() => setScope('mine')} className={`h-9 px-3 rounded-xl text-xs font-black flex items-center gap-1.5 ${scope === 'mine' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}><UserIcon className="w-3.5 h-3.5" /> Meu trabalho</button><button onClick={() => setScope('sector')} className={`h-9 px-3 rounded-xl text-xs font-black flex items-center gap-1.5 ${scope === 'sector' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}><Users className="w-3.5 h-3.5" /> Meu setor</button>{shortcutWidgets.map(widget => <button key={widget.id} onClick={() => setActiveShortcut(widget)} className="h-9 px-3 rounded-xl border border-slate-200 bg-white text-xs font-black text-slate-700 flex items-center gap-1.5 hover:border-amber-300 hover:bg-amber-50"><Grid3X3 className="w-3.5 h-3.5" /> {widgetShortcutLabel(widget)}</button>)}</div></div><div className="mt-4"><GovernancaWorkCenterInsights governanceCards={cards} /></div><div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center"><label className="relative block max-w-xl flex-1"><Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={event => setSearch(event.target.value)} placeholder="Buscar quarto, tarefa ou responsável" className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none" /></label>{stageFilter !== 'all' && <button onClick={() => setStageFilter('all')} className="h-10 px-3 rounded-xl border border-amber-200 bg-amber-50 text-xs font-black text-amber-800 flex items-center gap-2"><X className="w-3.5 h-3.5" /> Limpar foco</button>}{shortcutWidgets.length > 0 && <span className="hidden lg:inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><BellRing className="w-3.5 h-3.5" /> {shortcutWidgets.length} atalhos ativos</span>}</div></section>}
 
       {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs font-bold text-rose-700">{error}</div>}
 
