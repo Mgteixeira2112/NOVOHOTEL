@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react';
-import { Plus, Play, Settings2, Trash2, Workflow } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Columns3, Eye, EyeOff, Plus, Play, Settings2, Trash2, Workflow } from 'lucide-react';
 import { WorkspaceWidgetDefinition } from '../../workspace-engine/types';
 import { WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
+import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Column } from '../../services/kanbanV2';
 import { KanbanAutomationRule, readKanbanAutomationSettings } from '../../workspace-engine/widgets/kanbanWidgetAutomation';
+import { readKanbanWidgetPresentationSettings } from '../../workspace-engine/widgets/kanbanWidgetPresentation';
 
 interface Props {
   widget: WorkspaceWidgetDefinition;
@@ -25,14 +27,80 @@ const makeRule = (sourceBoardId?: string): KanbanAutomationRule => ({
 
 export const KanbanWidgetAutomationEditor: React.FC<Props> = ({ widget, onChange }) => {
   const settings = useMemo(() => readKanbanAutomationSettings(widget), [widget]);
+  const presentation = useMemo(() => readKanbanWidgetPresentationSettings(widget), [widget]);
   const [simulation, setSimulation] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<PersonalizationTab>('config');
+  const [boardColumns, setBoardColumns] = useState<KanbanV2Column[]>([]);
+  const [columnsLoading, setColumnsLoading] = useState(false);
+  const [columnsError, setColumnsError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!widget.boardId) {
+      setBoardColumns([]);
+      setColumnsError('');
+      return () => { cancelled = true; };
+    }
+
+    setColumnsLoading(true);
+    setColumnsError('');
+    void kanbanV2.load(KANBAN_TENANT_ID)
+      .then(result => {
+        if (cancelled) return;
+        setBoardColumns(
+          result.columns
+            .filter(column => column.board_id === widget.boardId)
+            .sort((a, b) => a.ordem - b.ordem),
+        );
+      })
+      .catch((error: any) => {
+        if (cancelled) return;
+        setBoardColumns([]);
+        setColumnsError(error?.message || 'Não foi possível carregar as colunas deste Kanban.');
+      })
+      .finally(() => {
+        if (!cancelled) setColumnsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [widget.boardId]);
 
   const commit = (rules: KanbanAutomationRule[]) => {
     onChange({
       settings: {
         ...(widget.settings || {}),
         kanbanAutomation: { version: 1, rules },
+      },
+    });
+  };
+
+  const commitVisibleColumns = (visibleColumnIds: string[]) => {
+    onChange({
+      settings: {
+        ...(widget.settings || {}),
+        kanbanPresentation: {
+          version: 1,
+          visibleColumnIds,
+        },
+      },
+    });
+  };
+
+  const selectedColumnIds = presentation.visibleColumnIds ?? boardColumns.map(column => column.id);
+
+  const toggleColumn = (columnId: string) => {
+    const current = new Set(selectedColumnIds);
+    if (current.has(columnId)) current.delete(columnId);
+    else current.add(columnId);
+    commitVisibleColumns(boardColumns.filter(column => current.has(column.id)).map(column => column.id));
+  };
+
+  const changeBoard = (boardId: string) => {
+    onChange({
+      boardId,
+      settings: {
+        ...(widget.settings || {}),
+        kanbanPresentation: { version: 1 },
       },
     });
   };
@@ -80,8 +148,33 @@ export const KanbanWidgetAutomationEditor: React.FC<Props> = ({ widget, onChange
 
     {activeTab === 'config' && <div className="mt-4 grid gap-3 md:grid-cols-2 rounded-2xl border border-amber-200 bg-white p-4">
       <label className="text-[9px] font-black uppercase tracking-wide text-stone-500">Título exibido<input value={widget.title || ''} onChange={e => onChange({ title: e.target.value })} className="mt-1 h-10 w-full rounded-xl border border-stone-200 px-3 text-xs font-bold normal-case tracking-normal text-stone-800" placeholder="Kanban de tarefas" /></label>
-      <label className="text-[9px] font-black uppercase tracking-wide text-stone-500">Kanban utilizado<select value={widget.boardId || ''} onChange={e => onChange({ boardId: e.target.value })} className="mt-1 h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-xs font-bold normal-case tracking-normal text-stone-800"><option value="">Selecione um Kanban</option>{WORKSPACE_BOARD_OPTIONS.map(board => <option key={board.id} value={board.id}>{board.label}</option>)}</select></label>
-      <div className="md:col-span-2 rounded-xl bg-stone-50 px-3 py-2 text-[10px] leading-relaxed text-stone-600"><strong className="font-black text-stone-800">Escopo desta etapa:</strong> título, board e automações do widget. Colunas, cards, permissões internas e regras do motor Kanban continuam sendo controlados pelo motor existente.</div>
+      <label className="text-[9px] font-black uppercase tracking-wide text-stone-500">Kanban utilizado<select value={widget.boardId || ''} onChange={e => changeBoard(e.target.value)} className="mt-1 h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-xs font-bold normal-case tracking-normal text-stone-800"><option value="">Selecione um Kanban</option>{WORKSPACE_BOARD_OPTIONS.map(board => <option key={board.id} value={board.id}>{board.label}</option>)}</select></label>
+
+      <div className="md:col-span-2 rounded-2xl border border-stone-200 bg-stone-50 p-3" data-kanban-visible-columns>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2"><Columns3 className="h-4 w-4 text-stone-700" /><p className="text-[10px] font-black uppercase tracking-wide text-stone-700">Colunas exibidas no Workspace</p></div>
+            <p className="mt-1 text-[10px] leading-relaxed text-stone-500">Escolha quais colunas deste Kanban aparecem neste widget. Isso não altera as colunas do Kanban original.</p>
+          </div>
+          {boardColumns.length > 0 && <button type="button" onClick={() => commitVisibleColumns(boardColumns.map(column => column.id))} className="h-8 rounded-lg border border-stone-200 bg-white px-3 text-[9px] font-black text-stone-700">Exibir todas</button>}
+        </div>
+
+        {!widget.boardId ? <div className="mt-3 rounded-xl border border-dashed border-stone-300 bg-white px-3 py-4 text-[10px] text-stone-500">Selecione primeiro o Kanban utilizado.</div>
+          : columnsLoading ? <div className="mt-3 rounded-xl border border-stone-200 bg-white px-3 py-4 text-[10px] font-bold text-stone-500">Carregando colunas do Kanban…</div>
+          : columnsError ? <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-3 text-[10px] font-bold text-rose-700">{columnsError}</div>
+          : boardColumns.length === 0 ? <div className="mt-3 rounded-xl border border-dashed border-stone-300 bg-white px-3 py-4 text-[10px] text-stone-500">Este Kanban não possui colunas disponíveis.</div>
+          : <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {boardColumns.map(column => {
+              const visible = selectedColumnIds.includes(column.id);
+              return <button key={column.id} type="button" onClick={() => toggleColumn(column.id)} className={`flex min-h-11 items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${visible ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-stone-200 bg-white text-stone-500'}`}>
+                <span className="min-w-0"><span className="block truncate text-[10px] font-black">{column.nome}</span><span className="mt-0.5 block text-[9px] font-bold opacity-70">{visible ? 'Será exibida' : 'Oculta no Workspace'}</span></span>
+                {visible ? <Eye className="h-4 w-4 shrink-0" /> : <EyeOff className="h-4 w-4 shrink-0" />}
+              </button>;
+            })}
+          </div>}
+      </div>
+
+      <div className="md:col-span-2 rounded-xl bg-stone-50 px-3 py-2 text-[10px] leading-relaxed text-stone-600"><strong className="font-black text-stone-800">Escopo desta etapa:</strong> título, board, colunas exibidas e automações do widget. Cards, permissões internas e regras do motor Kanban continuam sendo controlados pelo motor existente.</div>
     </div>}
 
     {activeTab === 'automations' && <div className="mt-4">
