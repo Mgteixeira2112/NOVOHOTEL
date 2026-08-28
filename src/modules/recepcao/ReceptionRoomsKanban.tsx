@@ -15,7 +15,6 @@ import {
   UserRound,
   Users,
   Wifi,
-  Wrench,
   X,
 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
@@ -243,7 +242,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
       <div className={`grid gap-0 ${selectedRow ? 'xl:grid-cols-[minmax(0,1fr)_360px]' : ''}`}>
         <div className="p-3 sm:p-4">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-            {visibleRows.map(({ room, card, reservation, guest, column }) => {
+            {visibleRows.map(({ room, card, reservation, guest }) => {
               const theme = STATUS_THEME[card.column_id] || STATUS_THEME['room-col-outros'];
               const checkedIn = reservation?.status === 'checkin_realizado';
               const busy = savingId === card.id || (!!reservation && stayActionId === reservation.id);
