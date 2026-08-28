@@ -6,6 +6,8 @@ const runtimeSource = readFileSync('src/workspace-engine/WorkspaceRuntime.tsx', 
 const canvasSource = readFileSync('src/workspace-engine/WidgetDrivenWorkspace.tsx', 'utf8');
 const catalogSource = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
 const appSource = readFileSync('src/App.tsx', 'utf8');
+const editorSource = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'utf8');
+const storeSource = readFileSync('src/workspace-engine/workspaceConfigStore.ts', 'utf8');
 
 test('WorkspaceRuntime usa sempre o canvas dirigido pela composição de widgets', () => {
   assert.match(runtimeSource, /<WidgetDrivenWorkspace definition=\{definition\}/);
@@ -32,4 +34,12 @@ test('roteador operacional reage às alterações salvas pela Fábrica', () => {
   assert.match(appSource, /subscribeWorkspaceConfig/);
   assert.match(appSource, /setWorkspaceRevision\(current => current \+ 1\)/);
   assert.match(appSource, /resolveWorkspaceForSectors\(sectorIds, hotelId\)/);
+});
+
+test('Fábrica altera composição e persistência dispara atualização do runtime', () => {
+  assert.match(editorSource, /updateWidget\(widget\.id, \{ enabled: widget\.enabled === false \}\)/);
+  assert.match(editorSource, /widgets: selected\.widgets\.filter\(widget => widget\.id !== widgetId\)/);
+  assert.match(editorSource, /widgets: widgets\.map\(\(widget, order\) => \(\{ \.\.\.widget, order: \(order \+ 1\) \* 10 \}\)\)/);
+  assert.match(storeSource, /current\[definition\.id\] = normalized/);
+  assert.match(storeSource, /window\.dispatchEvent\(new CustomEvent\(EVENT_NAME/);
 });
