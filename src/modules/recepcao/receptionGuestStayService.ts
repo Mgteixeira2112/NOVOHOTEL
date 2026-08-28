@@ -86,7 +86,7 @@ export const receptionGuestStayService = {
     return data;
   },
 
-  // Compatibilidade: usado pelo check-in iniciado diretamente em um quarto disponível.
+  // Compatibilidade com fluxos legados que apenas criam a reserva vinculada.
   async createReservationForGuest(input: CreateGuestReservationInput) {
     const { data, error } = await supabase.rpc('reception_create_reservation_for_guest', {
       p_guest_id: input.guestId,
@@ -103,6 +103,31 @@ export const receptionGuestStayService = {
       reservation_code: string;
       guest_id: string;
       room_id: string;
+      checkin: string;
+      checkout: string;
+      guests: number;
+      total: number;
+    };
+  },
+
+  // Check-in iniciado em quarto vazio: reserva + ocupação acontecem na mesma transação.
+  async directCheckin(input: CreateGuestReservationInput) {
+    const { data, error } = await supabase.rpc('reception_room_direct_checkin', {
+      p_guest_id: input.guestId,
+      p_room_id: input.roomId,
+      p_checkin: input.checkin,
+      p_checkout: input.checkout,
+      p_guests: input.guests,
+      p_actor_user_id: input.actorUserId || null,
+    });
+    if (error) throw error;
+    return data as {
+      ok: boolean;
+      reservation_id: string;
+      reservation_code: string;
+      guest_id: string;
+      room_id: string;
+      status: 'checkin_realizado';
       checkin: string;
       checkout: string;
       guests: number;
