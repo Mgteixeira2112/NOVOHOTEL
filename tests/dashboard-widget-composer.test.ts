@@ -11,7 +11,7 @@ test('dashboard é um widget oficial do Workspace sem alterar o runtime', () => 
   const runtime = read('src/workspace-engine/widgetRuntimeRegistry.tsx');
 
   assert.match(types, /'dashboard'/);
-  assert.match(types, /\| 'dashboard'\n  \| 'kanban'/);
+  assert.match(types, /export type WorkspaceWidgetDataSource =[\s\S]*\| 'dashboard'/);
   assert.match(catalog, /type: 'dashboard'/);
   assert.match(catalog, /defaultDataSource: 'dashboard'/);
   assert.match(registry, /registerWorkspaceWidgetRenderer\('dashboard', DashboardWidget\)/);
