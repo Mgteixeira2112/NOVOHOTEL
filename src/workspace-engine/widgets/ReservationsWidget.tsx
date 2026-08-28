@@ -1,13 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BedDouble, CalendarDays, Plus, Search, Users, X } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { Reserva } from '../../types';
-import { receptionGuestStayService } from '../../modules/recepcao/receptionGuestStayService';
+import { AvailableRoom, receptionGuestStayService } from '../../modules/recepcao/receptionGuestStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-const activeReservationStatuses = ['pendente', 'confirmada', 'checkin_realizado'];
 
 type ReservationFilter = 'all' | 'upcoming' | 'active' | 'finished' | 'cancelled';
 
@@ -48,19 +47,16 @@ const statusLabel: Record<string, string> = {
   cancelada: 'Cancelada',
 };
 
-const overlapsPeriod = (reservation: Reserva, checkin: string, checkout: string) => {
-  const reservationIn = dateValue(reservation, 'checkin');
-  const reservationOut = dateValue(reservation, 'checkout');
-  return !!reservationIn && !!reservationOut && reservationIn < checkout && reservationOut > checkin;
-};
-
 export const ReservationsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget }) => {
   const { guests, rooms, reservations, currentUser, syncFromSupabase } = useHotel();
   const [filter, setFilter] = useState<ReservationFilter>('all');
   const [query, setQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [error, setError] = useState('');
+  const [availabilityError, setAvailabilityError] = useState('');
+  const [availableRooms, setAvailableRooms] = useState<AvailableRoom[]>([]);
   const [form, setForm] = useState<ReservationForm>(emptyForm);
 
   const counts = useMemo(() => ({
@@ -100,18 +96,42 @@ export const ReservationsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ wi
       .map(room => room.cama!.trim()),
   )).sort((a, b) => a.localeCompare(b, 'pt-BR')), [rooms, form.guests]);
 
-  const compatibleRooms = useMemo(() => {
-    if (!form.bedScheme || !form.checkin || !form.checkout || form.checkout <= form.checkin) return [];
-    return rooms.filter(room => {
-      if (room.ativo === false) return false;
-      if (Number(room.capacidade || 0) < form.guests) return false;
-      if ((room.cama || '').trim() !== form.bedScheme) return false;
-      return !reservations.some(reservation =>
-        reservation.quarto_id === room.id
-        && activeReservationStatuses.includes(reservation.status)
-        && overlapsPeriod(reservation, form.checkin, form.checkout));
-    });
-  }, [rooms, reservations, form.bedScheme, form.checkin, form.checkout, form.guests]);
+  useEffect(() => {
+    if (!createOpen || !form.bedScheme || !form.checkin || !form.checkout || form.checkout <= form.checkin || form.guests < 1) {
+      setAvailableRooms([]);
+      setLoadingAvailability(false);
+      setAvailabilityError('');
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingAvailability(true);
+    setAvailabilityError('');
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await receptionGuestStayService.findAvailableRooms({
+          checkin: form.checkin,
+          checkout: form.checkout,
+          guests: form.guests,
+          bedScheme: form.bedScheme,
+        });
+        if (!cancelled) setAvailableRooms(data);
+      } catch (e: any) {
+        if (!cancelled) {
+          setAvailableRooms([]);
+          setAvailabilityError(e?.message || 'Não foi possível consultar a disponibilidade do período.');
+        }
+      } finally {
+        if (!cancelled) setLoadingAvailability(false);
+      }
+    }, 180);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [createOpen, form.bedScheme, form.checkin, form.checkout, form.guests]);
 
   const updateForm = (patch: Partial<ReservationForm>, resetRoom = false) => {
     setForm(current => ({ ...current, ...patch, ...(resetRoom ? { roomId: '' } : {}) }));
@@ -127,8 +147,8 @@ export const ReservationsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ wi
       setError('Selecione o esquema de camas necessário para esta reserva.');
       return;
     }
-    if (!form.roomId || !compatibleRooms.some(room => room.id === form.roomId)) {
-      setError('Selecione um quarto compatível e disponível.');
+    if (!form.roomId || !availableRooms.some(room => room.room_id === form.roomId)) {
+      setError('Selecione um quarto compatível e disponível retornado pelo motor de disponibilidade.');
       return;
     }
 
@@ -148,9 +168,22 @@ export const ReservationsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ wi
       if (!result.success) throw new Error(result.message || 'Reserva criada, mas os dados não puderam ser atualizados.');
       setCreateOpen(false);
       setForm(emptyForm());
+      setAvailableRooms([]);
       setFilter('upcoming');
     } catch (e: any) {
       setError(e?.message || 'Não foi possível criar a reserva.');
+      try {
+        const refreshed = await receptionGuestStayService.findAvailableRooms({
+          checkin: form.checkin,
+          checkout: form.checkout,
+          guests: form.guests,
+          bedScheme: form.bedScheme,
+        });
+        setAvailableRooms(refreshed);
+        if (!refreshed.some(room => room.room_id === form.roomId)) updateForm({}, true);
+      } catch {
+        // A mensagem da criação é prioritária; a próxima alteração de formulário refaz a consulta.
+      }
     } finally {
       setSaving(false);
     }
@@ -171,9 +204,9 @@ export const ReservationsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ wi
       <div>
         <p className="text-[9px] font-black uppercase tracking-[0.16em] text-blue-600">Recepção · Reservas</p>
         <h2 className="text-sm font-black text-slate-950">{widget.title || 'Controle de Reservas'}</h2>
-        <p className="mt-1 text-[10px] text-slate-400">O quarto é definido na criação conforme hóspedes, camas e disponibilidade do período.</p>
+        <p className="mt-1 text-[10px] text-slate-400">A disponibilidade vem do Supabase e considera período, reservas ativas, bloqueios, capacidade e camas.</p>
       </div>
-      <button type="button" onClick={() => { setCreateOpen(true); setError(''); setForm(emptyForm()); }} className="flex h-9 items-center gap-2 rounded-xl bg-blue-600 px-3 text-[10px] font-black text-white">
+      <button type="button" onClick={() => { setCreateOpen(true); setError(''); setAvailabilityError(''); setForm(emptyForm()); }} className="flex h-9 items-center gap-2 rounded-xl bg-blue-600 px-3 text-[10px] font-black text-white">
         <Plus className="h-4 w-4"/>Nova reserva
       </button>
     </div>
@@ -223,9 +256,9 @@ export const ReservationsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ wi
       <form onSubmit={createReservation} className="w-full max-w-xl rounded-3xl bg-white p-5 shadow-2xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[9px] font-black uppercase text-blue-600">Reserva com quarto compatível</p>
+            <p className="text-[9px] font-black uppercase text-blue-600">Reserva com inventário protegido</p>
             <h3 className="text-lg font-black">Nova reserva</h3>
-            <p className="text-[10px] text-slate-400">Informe a composição da hospedagem; o sistema exibirá somente quartos que realmente atendem à reserva.</p>
+            <p className="text-[10px] text-slate-400">O quarto só aparece se estiver livre no período e compatível com a composição da hospedagem.</p>
           </div>
           <button type="button" disabled={saving} onClick={() => setCreateOpen(false)} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-slate-200 text-slate-400"><X className="h-4 w-4"/></button>
         </div>
@@ -259,24 +292,27 @@ export const ReservationsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ wi
           </label>
 
           <label className="text-[9px] font-black text-slate-500">Quarto compatível e disponível *
-            <select required disabled={!form.bedScheme || compatibleRooms.length === 0} value={form.roomId} onChange={e => updateForm({ roomId: e.target.value })} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs disabled:bg-slate-100">
-              <option value="">{!form.bedScheme ? 'Escolha primeiro o esquema de camas' : compatibleRooms.length === 0 ? 'Nenhum quarto disponível para esta composição' : 'Selecionar quarto'}</option>
-              {compatibleRooms.map(room => <option key={room.id} value={room.id}>Quarto {room.numero} · {room.cama} · capacidade {room.capacidade}</option>)}
+            <select required disabled={!form.bedScheme || loadingAvailability || availableRooms.length === 0} value={form.roomId} onChange={e => updateForm({ roomId: e.target.value })} className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs disabled:bg-slate-100">
+              <option value="">{!form.bedScheme ? 'Escolha primeiro o esquema de camas' : loadingAvailability ? 'Consultando disponibilidade...' : availableRooms.length === 0 ? 'Nenhum quarto disponível para esta composição' : 'Selecionar quarto'}</option>
+              {availableRooms.map(room => <option key={room.room_id} value={room.room_id}>Quarto {room.numero} · {room.cama || 'sem cama informada'} · capacidade {room.capacidade}</option>)}
             </select>
           </label>
 
-          {form.bedScheme && <p className={`rounded-xl p-2 text-[9px] font-bold ${compatibleRooms.length > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-            {compatibleRooms.length > 0
-              ? `${compatibleRooms.length} quarto(s) compatível(is) com ${form.guests} hóspede(s), ${form.bedScheme} e o período informado.`
-              : `Não há quarto disponível que combine ${form.guests} hóspede(s), ${form.bedScheme} e o período informado.`}
+          {form.bedScheme && !availabilityError && <p className={`rounded-xl p-2 text-[9px] font-bold ${loadingAvailability ? 'bg-slate-50 text-slate-500' : availableRooms.length > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+            {loadingAvailability
+              ? 'Consultando reservas e bloqueios no Supabase...'
+              : availableRooms.length > 0
+                ? `${availableRooms.length} quarto(s) realmente disponível(is) para ${form.guests} hóspede(s), ${form.bedScheme} e o período informado.`
+                : `Não há quarto livre que combine ${form.guests} hóspede(s), ${form.bedScheme} e o período informado.`}
           </p>}
+          {availabilityError && <p className="rounded-xl bg-rose-50 p-2 text-[9px] font-bold text-rose-700">{availabilityError}</p>}
         </div>
 
         {error && <p className="mt-3 rounded-xl bg-rose-50 p-2 text-[10px] font-bold text-rose-700">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" disabled={saving} onClick={() => setCreateOpen(false)} className="h-10 rounded-xl border border-slate-200 px-4 text-xs font-black">Cancelar</button>
-          <button disabled={saving || !form.roomId} className="h-10 rounded-xl bg-blue-600 px-4 text-xs font-black text-white disabled:opacity-50">{saving ? 'Criando...' : 'Criar reserva'}</button>
+          <button disabled={saving || loadingAvailability || !form.roomId} className="h-10 rounded-xl bg-blue-600 px-4 text-xs font-black text-white disabled:opacity-50">{saving ? 'Criando...' : 'Criar reserva'}</button>
         </div>
       </form>
     </div>}
