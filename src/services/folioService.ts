@@ -11,6 +11,8 @@ const normalizeSource = (value: string): FinancialChargeSource => {
 };
 
 export async function addFolioItem(input:{folioId:string;category:string;description:string;quantity:number;unitPrice:number;source:string;sourceId?:string|null}) {
+  // Compatibilidade pública: consumidores legados continuam recebendo os mesmos códigos.
+  if (input.quantity <= 0 || input.unitPrice < 0) throw new Error('INVALID_FOLIO_AMOUNT');
   return financialEngine.addCharge({
     folioId: input.folioId,
     source: normalizeSource(input.source || input.category),
@@ -22,6 +24,7 @@ export async function addFolioItem(input:{folioId:string;category:string;descrip
 }
 
 export async function createFolioPayment(input:{folioId:string;amount:number;method:PaymentMethod;transactionReference?:string|null;idempotencyKey?:string|null}) {
+  if (input.amount <= 0) throw new Error('INVALID_PAYMENT_AMOUNT');
   return financialEngine.receivePayment({
     folioId: input.folioId,
     amount: input.amount,
@@ -32,6 +35,7 @@ export async function createFolioPayment(input:{folioId:string;amount:number;met
 }
 
 export async function voidFolioItem(folioItemId:string, reason:string) {
+  if (!reason.trim()) throw new Error('VOID_REASON_REQUIRED');
   return financialEngine.voidCharge(folioItemId, reason);
 }
 
