@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Clock3, Search, Tag, User as UserIcon, Wifi } from 'lucide-react';
+import { Archive, Clock3, Pencil, Search, Tag, Trash2, User as UserIcon, Wifi, X } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
+import { canPerformKanbanAction, defaultKanbanVisibilityScope } from '../../domain/kanbanAccess';
+import { OperationalSectorId } from '../../domain/operationalSectors';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { kanbanCardGovernance } from '../../services/kanbanCardGovernanceService';
 import { subscribeKanbanRealtime } from '../../services/kanbanRealtimeSubscription';
+import { fetchUserOperationalSectorsState } from '../../services/userSectorService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
 import { WorkspaceScope } from '../types';
 import { executeKanbanWidgetCardCreatedAutomations } from './kanbanWidgetAutomation';
@@ -27,6 +30,34 @@ export const TaskKanbanWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widg
   const [savingId, setSavingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [automationNotice, setAutomationNotice] = useState('');
+  const [userSectorIds, setUserSectorIds] = useState<OperationalSectorId[]>([]);
+  const [editingCard, setEditingCard] = useState<KanbanV2Card | null>(null);
+  const [formTitle, setFormTitle] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formPriority, setFormPriority] = useState('normal');
+  const [formRoomNumber, setFormRoomNumber] = useState('');
+  const [formColumnId, setFormColumnId] = useState('');
+
+  const userRole = currentUser?.tipo_usuario || 'recepcionista';
+  const hasFullKanbanVisibility = userRole === 'admin' || userRole === 'gerente';
+  const actionAccessContext = useMemo(() => ({
+    userId: currentUser?.id || '',
+    role: userRole,
+    sectorIds: hasFullKanbanVisibility ? [] : userSectorIds,
+    scope: hasFullKanbanVisibility ? ('all' as const) : defaultKanbanVisibilityScope(userRole),
+  }), [currentUser?.id, userRole, hasFullKanbanVisibility, userSectorIds]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!currentUser?.id || hasFullKanbanVisibility) {
+      setUserSectorIds([]);
+      return () => { cancelled = true; };
+    }
+    void fetchUserOperationalSectorsState(currentUser.id).then(state => {
+      if (!cancelled) setUserSectorIds(state.assignment.sectorIds);
+    });
+    return () => { cancelled = true; };
+  }, [currentUser?.id, hasFullKanbanVisibility]);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,8 +97,17 @@ export const TaskKanbanWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widg
     return columns.filter(column => allowed.has(column.id));
   }, [columns, presentation.visibleColumnIds]);
 
+  const canEdit = (card: KanbanV2Card) => widget.permissions?.edit !== false && canPerformKanbanAction(actionAccessContext, 'edit', card);
+  const canMove = (card: KanbanV2Card) => widget.permissions?.move !== false && canPerformKanbanAction(actionAccessContext, 'move', card);
+  const canArchive = (card: KanbanV2Card) => widget.permissions?.archive !== false && canPerformKanbanAction(actionAccessContext, 'delete', card);
+  const canDelete = (card: KanbanV2Card) => widget.permissions?.delete !== false && hasFullKanbanVisibility && canPerformKanbanAction(actionAccessContext, 'delete', card);
+
   const move = async (card: KanbanV2Card, columnId: string) => {
     if (!currentUser?.id || savingId || columnId === card.column_id) return;
+    if (!canMove(card)) {
+      setError('Seu perfil não possui permissão para alterar o status desta tarefa.');
+      return;
+    }
     setSavingId(card.id); setError('');
     try {
       const updated = await kanbanCardGovernance.moveCard(card, columnId, { userId: currentUser.id });
@@ -76,11 +116,90 @@ export const TaskKanbanWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widg
     finally { setSavingId(null); }
   };
 
+  const openEdit = (card: KanbanV2Card) => {
+    if (!canEdit(card)) {
+      setError('Você pode visualizar esta tarefa, mas não possui permissão para editá-la.');
+      return;
+    }
+    setEditingCard(card);
+    setFormTitle(card.titulo);
+    setFormDescription(card.descricao || '');
+    setFormPriority(card.prioridade || 'normal');
+    setFormRoomNumber(card.room_number || '');
+    setFormColumnId(card.column_id);
+  };
+
+  const saveEdit = async () => {
+    if (!editingCard || !currentUser?.id || !formTitle.trim() || savingId) return;
+    if (!canEdit(editingCard)) {
+      setError('Seu perfil não possui permissão para salvar esta alteração.');
+      return;
+    }
+    setSavingId(editingCard.id); setError('');
+    try {
+      let persisted = await kanbanCardGovernance.updateCard(editingCard, {
+        titulo: formTitle.trim(),
+        descricao: formDescription.trim() || null,
+        prioridade: formPriority,
+        room_number: formRoomNumber.trim() || null,
+        location: formRoomNumber.trim() ? `Quarto ${formRoomNumber.trim()}` : 'Geral',
+      }, { userId: currentUser.id });
+      if (formColumnId && formColumnId !== persisted.column_id && canMove(persisted)) {
+        persisted = await kanbanCardGovernance.moveCard(persisted, formColumnId, { userId: currentUser.id });
+      }
+      setCards(cur => cur.map(item => item.id === persisted.id ? persisted : item));
+      setEditingCard(null);
+    } catch (e: any) {
+      setError(e?.message || 'Não foi possível editar a tarefa.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const archiveCard = async (card: KanbanV2Card) => {
+    if (!currentUser?.id || savingId || !canArchive(card)) {
+      setError('Seu perfil não possui permissão para arquivar esta tarefa.');
+      return;
+    }
+    if (!window.confirm('Deseja arquivar esta tarefa? Ela permanecerá disponível para auditoria e restauração.')) return;
+    setSavingId(card.id); setError('');
+    try {
+      await kanbanCardGovernance.softDeleteCard(card, { userId: currentUser.id });
+      setCards(cur => cur.filter(item => item.id !== card.id));
+      if (editingCard?.id === card.id) setEditingCard(null);
+    } catch (e: any) {
+      setError(e?.message || 'Não foi possível arquivar a tarefa.');
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const deleteCard = async (card: KanbanV2Card) => {
+    if (!savingId && canDelete(card)) {
+      if (!window.confirm(`Excluir permanentemente o card "${card.titulo}"? Esta ação não poderá ser desfeita.`)) return;
+      if (!window.confirm('Confirma a exclusão DEFINITIVA? Para manter histórico, prefira Arquivar.')) return;
+      setSavingId(card.id); setError('');
+      try {
+        await kanbanV2.deleteCard(card.id);
+        setCards(cur => cur.filter(item => item.id !== card.id));
+        if (editingCard?.id === card.id) setEditingCard(null);
+      } catch (e: any) {
+        setError(e?.message || 'Não foi possível excluir definitivamente a tarefa.');
+      } finally {
+        setSavingId(null);
+      }
+      return;
+    }
+    setError('A exclusão permanente é restrita à administração e gerência.');
+  };
+
   return <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
     <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex items-center gap-2"><h2 className="text-sm font-black">{widget.title || 'Kanban de tarefas'}</h2><span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[9px] font-black ${status === 'SUBSCRIBED' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}><Wifi className="h-3 w-3" />{status === 'SUBSCRIBED' ? 'Tempo real' : 'Sincronizando'}</span></div><p className="mt-1 text-[10px] text-slate-500">Board {boardId}</p></div><div className="flex flex-wrap gap-2"><button onClick={() => setScope('mine')} className={`h-8 rounded-xl px-3 text-[10px] font-black ${scope === 'mine' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu trabalho</button><button onClick={() => setScope('sector')} className={`h-8 rounded-xl px-3 text-[10px] font-black ${scope === 'sector' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600'}`}>Meu setor</button></div></div>
     <label className="relative mb-4 block"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar tarefa, quarto, hóspede ou responsável" className="h-9 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-xs outline-none" /></label>
     {error && <div className="mb-3 rounded-xl bg-rose-50 p-2 text-[10px] font-bold text-rose-700">{error}</div>}
     {automationNotice && <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[10px] font-bold text-amber-800">{automationNotice}</div>}
-    {displayedColumns.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-[10px] font-bold text-slate-500">Nenhuma coluna foi selecionada para exibição neste Widget Kanban.</div> : <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">{displayedColumns.map(column => <div key={column.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><div className="mb-3 flex items-center justify-between"><strong className="text-[10px] font-black uppercase text-slate-600">{column.nome}</strong><span className="rounded-full bg-white px-2 py-1 text-[9px] font-black text-slate-500">{visibleCards.filter(card => card.column_id === column.id).length}</span></div><div className="space-y-3">{visibleCards.filter(card => card.column_id === column.id).map(card => <article key={card.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><h3 className="text-sm font-black text-slate-950">{card.titulo}</h3><span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[9px] font-bold text-slate-600">{priorityLabel(card.prioridade)}</span></div>{card.descricao && <p className="mt-3 text-[11px] leading-5 text-slate-500">{card.descricao}</p>}<div className="mt-3 flex flex-wrap gap-2"><span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800"><Tag className="h-3 w-3" />{departmentLabel(card.departamento)}</span>{card.room_number && <span className="rounded-lg bg-slate-950 px-2 py-1 text-[10px] font-bold text-amber-300">Quarto {card.room_number}</span>}<span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-500"><UserIcon className="h-3 w-3" />{assignedName(card)}</span></div><div className="mt-3 border-t border-slate-100 pt-3 text-[9px] text-slate-400"><div>Criado: <strong>{formatDateTime(card.created_at)}</strong></div><div className="mt-1">Alterado: <strong>{formatDateTime(card.updated_at)}</strong></div></div><select disabled={savingId === card.id} value={card.column_id} onChange={e => void move(card, e.target.value)} className="mt-3 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-bold disabled:opacity-50">{displayedColumns.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}</select><div className="mt-3 flex items-center gap-1 text-[9px] text-slate-400"><Clock3 className="h-3.5 w-3.5" /> Atualização em tempo real</div></article>)}</div></div>)}</div>}
+    {displayedColumns.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-[10px] font-bold text-slate-500">Nenhuma coluna foi selecionada para exibição neste Widget Kanban.</div> : <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-4">{displayedColumns.map(column => <div key={column.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><div className="mb-3 flex items-center justify-between"><strong className="text-[10px] font-black uppercase text-slate-600">{column.nome}</strong><span className="rounded-full bg-white px-2 py-1 text-[9px] font-black text-slate-500">{visibleCards.filter(card => card.column_id === column.id).length}</span></div><div className="space-y-3">{visibleCards.filter(card => card.column_id === column.id).map(card => <article key={card.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><h3 className="text-sm font-black text-slate-950">{card.titulo}</h3><span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[9px] font-bold text-slate-600">{priorityLabel(card.prioridade)}</span></div>{card.descricao && <p className="mt-3 text-[11px] leading-5 text-slate-500">{card.descricao}</p>}<div className="mt-3 flex flex-wrap gap-2"><span className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-bold text-amber-800"><Tag className="h-3 w-3" />{departmentLabel(card.departamento)}</span>{card.room_number && <span className="rounded-lg bg-slate-950 px-2 py-1 text-[10px] font-bold text-amber-300">Quarto {card.room_number}</span>}<span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] text-slate-500"><UserIcon className="h-3 w-3" />{assignedName(card)}</span></div><div className="mt-3 border-t border-slate-100 pt-3 text-[9px] text-slate-400"><div>Criado: <strong>{formatDateTime(card.created_at)}</strong></div><div className="mt-1">Alterado: <strong>{formatDateTime(card.updated_at)}</strong></div></div><select disabled={savingId === card.id || !canMove(card)} value={card.column_id} onChange={e => void move(card, e.target.value)} className="mt-3 h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-50">{displayedColumns.map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}</select><div className="mt-3 flex flex-wrap gap-2 border-t border-slate-100 pt-3">{canEdit(card) && <button onClick={() => openEdit(card)} disabled={savingId === card.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-[10px] font-bold text-blue-700 disabled:opacity-50"><Pencil className="h-3.5 w-3.5" />Editar</button>}{canArchive(card) && <button onClick={() => void archiveCard(card)} disabled={savingId === card.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 text-[10px] font-bold text-amber-800 disabled:opacity-50"><Archive className="h-3.5 w-3.5" />Arquivar</button>}{canDelete(card) && <button onClick={() => void deleteCard(card)} disabled={savingId === card.id} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-[10px] font-bold text-rose-700 disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" />Excluir</button>}</div><div className="mt-3 flex items-center gap-1 text-[9px] text-slate-400"><Clock3 className="h-3.5 w-3.5" /> Atualização em tempo real</div></article>)}</div></div>)}</div>}
+
+    {editingCard && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4" onMouseDown={e => { if (e.target === e.currentTarget && !savingId) setEditingCard(null); }}><div className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between"><div><h3 className="text-base font-black text-slate-950">Editar tarefa</h3><p className="mt-1 text-[10px] text-slate-500">Alterações persistidas pelo serviço de governança do Kanban.</p></div><button onClick={() => !savingId && setEditingCard(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-500"><X className="h-4 w-4" /></button></div><div className="grid gap-4"><label className="text-[10px] font-black uppercase text-slate-500">Título<input value={formTitle} onChange={e => setFormTitle(e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs font-semibold normal-case text-slate-900 outline-none" /></label><label className="text-[10px] font-black uppercase text-slate-500">Descrição<textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={3} className="mt-1.5 w-full rounded-xl border border-slate-200 p-3 text-xs font-medium normal-case text-slate-900 outline-none" /></label><div className="grid gap-3 sm:grid-cols-2"><label className="text-[10px] font-black uppercase text-slate-500">Prioridade<select value={formPriority} onChange={e => setFormPriority(e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold normal-case text-slate-900"><option value="normal">Normal</option><option value="atencao">Atenção</option><option value="critica">Crítica</option></select></label><label className="text-[10px] font-black uppercase text-slate-500">Quarto<input value={formRoomNumber} onChange={e => setFormRoomNumber(e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-xs font-semibold normal-case text-slate-900 outline-none" /></label></div>{canMove(editingCard) && <label className="text-[10px] font-black uppercase text-slate-500">Coluna<select value={formColumnId} onChange={e => setFormColumnId(e.target.value)} className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold normal-case text-slate-900">{displayedColumns.map(column => <option key={column.id} value={column.id}>{column.nome}</option>)}</select></label>}</div><div className="mt-5 flex justify-end gap-2 border-t border-slate-100 pt-4"><button onClick={() => setEditingCard(null)} disabled={Boolean(savingId)} className="h-9 rounded-xl border border-slate-200 px-4 text-xs font-bold text-slate-600 disabled:opacity-50">Cancelar</button><button onClick={() => void saveEdit()} disabled={Boolean(savingId) || !formTitle.trim()} className="h-9 rounded-xl bg-slate-950 px-4 text-xs font-black text-white disabled:opacity-50">{savingId ? 'Salvando…' : 'Salvar alterações'}</button></div></div></div>}
   </div>;
 };
