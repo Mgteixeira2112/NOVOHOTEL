@@ -1,39 +1,45 @@
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import test from 'node:test';
 
 const migration = readFileSync('supabase/migrations/20260829023000_supabase_auth_bridge.sql', 'utf8');
 const edge = readFileSync('supabase/functions/auth-migrate-user/index.ts', 'utf8');
 const client = readFileSync('src/services/supabaseAuthBridge.ts', 'utf8');
 
-describe('Supabase Auth bridge hardening', () => {
-  it('links usuarios to auth.uid through a unique identity column', () => {
-    expect(migration).toContain('auth_user_id uuid');
-    expect(migration).toContain('uq_usuarios_auth_user_id');
-    expect(migration).toContain('u.auth_user_id = auth.uid()');
-  });
+test('Supabase Auth bridge vincula usuarios a auth.uid com identidade única', () => {
+  assert.match(migration, /auth_user_id uuid/);
+  assert.match(migration, /uq_usuarios_auth_user_id/);
+  assert.match(migration, /u\.auth_user_id = auth\.uid\(\)/);
+});
 
-  it('does not activate restrictive RLS before the frontend cutover', () => {
-    expect(migration).not.toMatch(/create policy/i);
-    expect(migration).not.toMatch(/enable row level security/i);
-  });
+test('Supabase Auth bridge não ativa RLS restritiva antes do corte de frontend', () => {
+  assert.doesNotMatch(migration, /create policy/i);
+  assert.doesNotMatch(migration, /enable row level security/i);
+});
 
-  it('migrates credentials server-side and clears the legacy password', () => {
-    expect(edge).toContain('SUPABASE_SERVICE_ROLE_KEY');
-    expect(edge).toContain('admin.auth.admin.createUser');
-    expect(edge).toContain('senha: null');
-    expect(edge).toContain('INVALID_CREDENTIALS');
-    expect(edge).not.toMatch(/password:\s*legacyUser\.senha/);
-  });
+test('migração de credencial é server-side e limpa senha legada', () => {
+  assert.match(edge, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(edge, /admin\.auth\.admin\.createUser/);
+  assert.match(edge, /senha: null/);
+  assert.match(edge, /INVALID_CREDENTIALS/);
+  assert.doesNotMatch(edge, /password:\s*legacyUser\.senha/);
+});
 
-  it('returns only session material and never returns the legacy password', () => {
-    expect(edge).toContain('access_token: signIn.session.access_token');
-    expect(edge).toContain('refresh_token: signIn.session.refresh_token');
-    expect(edge).not.toContain('senha: legacyUser.senha');
-  });
+test('ponte retorna apenas material de sessão e nunca senha legada', () => {
+  assert.match(edge, /access_token: signIn\.session\.access_token/);
+  assert.match(edge, /refresh_token: signIn\.session\.refresh_token/);
+  assert.doesNotMatch(edge, /senha: legacyUser\.senha/);
+});
 
-  it('installs the returned JWT session in the shared Supabase client', () => {
-    expect(client).toContain("supabase.functions.invoke<SupabaseAuthBridgeSession>('auth-migrate-user'");
-    expect(client).toContain('supabase.auth.setSession');
-    expect(client).toContain('supabase.auth.signOut');
-  });
+test('cliente instala sessão JWT no cliente Supabase compartilhado', () => {
+  assert.match(client, /supabase\.functions\.invoke<SupabaseAuthBridgeSession>\('auth-migrate-user'/);
+  assert.match(client, /supabase\.auth\.setSession/);
+  assert.match(client, /supabase\.auth\.signOut/);
+});
+
+test('RLS futura tem guard de cobertura total dos usuários ativos', () => {
+  assert.match(migration, /hotel_os_auth_migration_status/);
+  assert.match(migration, /activeUsers/);
+  assert.match(migration, /linkedUsers/);
+  assert.match(migration, /readyForRls/);
 });
