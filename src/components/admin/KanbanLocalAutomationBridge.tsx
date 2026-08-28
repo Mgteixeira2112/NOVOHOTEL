@@ -19,8 +19,6 @@ type LocalCard = Record<string, any> & {
 
 interface LocalStoreData {
   cards?: LocalCard[];
-  boards?: unknown[];
-  columns?: unknown[];
 }
 
 function fingerprint(card: LocalCard): string {
@@ -93,41 +91,10 @@ function readInitialSnapshot(): Map<string, string> {
   return snapshot;
 }
 
-function mirrorCardIntoLocalRealtime(card: LocalCard) {
-  if (typeof window === 'undefined') return;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const store = raw ? JSON.parse(raw) as LocalStoreData : { boards: [], columns: [], cards: [] };
-    const cards = Array.isArray(store.cards) ? store.cards : [];
-    store.cards = [...cards.filter(item => String(item.id) !== String(card.id)), card];
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-    window.dispatchEvent(new CustomEvent(EVENT_BUS_NAME, { detail: store }));
-  } catch {}
-}
-
-async function refreshGovernanceCardForRoom(row: any) {
-  const roomId = row?.id ? String(row.id) : '';
-  const roomNumber = row?.numero ? String(row.numero) : '';
-  if (!roomId && !roomNumber) return;
-
-  let query = supabase
-    .from('kanban_cards')
-    .select('*')
-    .eq('hotel_id', KANBAN_TENANT_ID)
-    .eq('board_id', 'kanban-board-governanca')
-    .eq('is_archived', false)
-    .limit(1);
-
-  query = roomId ? query.eq('room_id', roomId) : query.eq('room_number', roomNumber);
-  const { data, error } = await query.maybeSingle();
-  if (!error && data) mirrorCardIntoLocalRealtime(data as LocalCard);
-}
-
 /**
  * Ponte temporária de compatibilidade para os métodos sync* legados do
- * kanbanV2. Não renderiza UI. Além das automações locais, espelha alterações
- * de quarto para o card canônico da Governança no event bus já consumido pelo
- * runtime Kanban. O motor permanece intocado.
+ * kanbanV2. Não renderiza UI. Apenas alterações reais de cards automáticos
+ * no cache local são promovidas ao Supabase, fazendo o Realtime distribuí-las.
  */
 export const KanbanLocalAutomationBridge: React.FC = () => {
   const snapshotRef = useRef<Map<string, string>>(new Map());
@@ -178,19 +145,9 @@ export const KanbanLocalAutomationBridge: React.FC = () => {
 
     window.addEventListener(EVENT_BUS_NAME, onCustomEvent);
     window.addEventListener('storage', onStorage);
-
-    const roomChannel = supabase
-      .channel(`governanca-room-projection-${Math.random().toString(36).slice(2)}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'quartos' }, payload => {
-        const row = payload.eventType === 'DELETE' ? payload.old : payload.new;
-        void refreshGovernanceCardForRoom(row);
-      })
-      .subscribe();
-
     return () => {
       window.removeEventListener(EVENT_BUS_NAME, onCustomEvent);
       window.removeEventListener('storage', onStorage);
-      void supabase.removeChannel(roomChannel);
     };
   }, []);
 
