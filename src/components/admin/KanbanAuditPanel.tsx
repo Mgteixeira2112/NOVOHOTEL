@@ -38,6 +38,10 @@ function formatDateTime(value?: string | null): string {
   return date.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function isAutomaticArchiveEvent(event: KanbanCardAuditEvent): boolean {
+  return event.event_type === 'deleted' && event.metadata?.archive_mode === 'auto';
+}
+
 export const KanbanAuditPanel: React.FC<KanbanAuditPanelProps> = ({ onRestored }) => {
   const { currentUser, users } = useHotel();
   const [expanded, setExpanded] = useState(false);
@@ -157,7 +161,7 @@ export const KanbanAuditPanel: React.FC<KanbanAuditPanelProps> = ({ onRestored }
                 {!archiveAvailable ? <div className="p-5 text-xs text-slate-500 text-center">Consulta de arquivados indisponível.</div> : filteredArchivedCards.length === 0 ? <div className="p-6 text-center"><ArchiveRestore className="w-6 h-6 mx-auto text-slate-300 mb-2" /><p className="text-xs font-bold text-slate-600">Nenhum card encontrado</p><p className="text-[11px] text-slate-400 mt-1">Ajuste os filtros ou aguarde novos arquivamentos.</p></div> : filteredArchivedCards.map(card => {
                   const extended = card as any;
                   const assigned = card.assigned_to as any;
-                  const autoArchived = events.some(event => event.card_id === card.id && event.source === 'auto_archive');
+                  const autoArchived = events.some(event => event.card_id === card.id && isAutomaticArchiveEvent(event));
                   return <div key={card.id} className="p-4 flex items-start gap-3"><div className="min-w-0 flex-1"><div className="font-bold text-xs text-slate-900 break-words">{card.titulo}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[10px] text-slate-500"><span>{getOperationalSectorLabel(card.departamento)}</span>{assigned?.name && <span>{assigned.name}</span>}{card.room_number && <span>Quarto {card.room_number}</span>}<span>{formatDateTime(extended.deleted_at || card.updated_at)}</span><span className={`font-black ${autoArchived ? 'text-violet-700' : 'text-amber-700'}`}>{autoArchived ? 'Automático' : 'Manual'}</span></div></div><button type="button" onClick={() => void handleRestore(card)} disabled={Boolean(restoringId)} className="shrink-0 h-8 px-2.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center gap-1.5 disabled:opacity-50"><RotateCcw className="w-3.5 h-3.5" />{restoringId === card.id ? 'Restaurando…' : 'Restaurar'}</button></div>;
                 })}
               </div>
@@ -168,7 +172,7 @@ export const KanbanAuditPanel: React.FC<KanbanAuditPanelProps> = ({ onRestored }
               <div className="max-h-[460px] overflow-y-auto divide-y divide-slate-100">
                 {!eventsAvailable ? <div className="p-6 text-center"><History className="w-6 h-6 mx-auto text-slate-300 mb-2" /><p className="text-xs font-bold text-slate-600">Histórico detalhado indisponível</p></div> : events.length === 0 ? <div className="p-6 text-xs text-slate-500 text-center">Nenhum evento de auditoria registrado ainda.</div> : events.map(event => {
                   const actorName = event.user_id ? actorNames.get(event.user_id) : null;
-                  return <div key={event.id} className="p-4 flex items-start gap-3"><div className="w-7 h-7 rounded-xl bg-slate-100 grid place-items-center shrink-0"><History className="w-3.5 h-3.5 text-slate-500" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="text-[10px] font-black uppercase tracking-wide text-slate-700">{EVENT_LABELS[event.event_type] || event.event_type}</span><span className="text-xs font-bold text-slate-900 truncate">{eventTitle(event)}</span>{event.source === 'auto_archive' && <span className="text-[9px] font-black rounded-full bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5">Automático</span>}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[10px] text-slate-400"><span className="flex items-center gap-1"><Clock3 className="w-3 h-3" /> {formatDateTime(event.created_at)}</span><span className="flex items-center gap-1"><UserIcon className="w-3 h-3" /> {actorName || event.user_id || 'Sistema'}</span></div></div></div>;
+                  return <div key={event.id} className="p-4 flex items-start gap-3"><div className="w-7 h-7 rounded-xl bg-slate-100 grid place-items-center shrink-0"><History className="w-3.5 h-3.5 text-slate-500" /></div><div className="min-w-0 flex-1"><div className="flex items-center gap-2 flex-wrap"><span className="text-[10px] font-black uppercase tracking-wide text-slate-700">{EVENT_LABELS[event.event_type] || event.event_type}</span><span className="text-xs font-bold text-slate-900 truncate">{eventTitle(event)}</span>{isAutomaticArchiveEvent(event) && <span className="text-[9px] font-black rounded-full bg-violet-50 text-violet-700 border border-violet-200 px-2 py-0.5">Automático</span>}</div><div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[10px] text-slate-400"><span className="flex items-center gap-1"><Clock3 className="w-3 h-3" /> {formatDateTime(event.created_at)}</span><span className="flex items-center gap-1"><UserIcon className="w-3 h-3" /> {actorName || event.user_id || 'Sistema'}</span></div></div></div>;
                 })}
               </div>
             </div>
