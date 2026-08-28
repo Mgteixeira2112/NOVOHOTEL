@@ -4,16 +4,17 @@ import { workspaceRegistry } from '../src/workspace-engine/registry';
 import { canonicalWidgetType, createWorkspaceWidget, getWidgetAvailability, getWidgetCatalogItem, normalizeWorkspaceWidgets, workspaceWidgetCatalog } from '../src/workspace-engine/widgetCatalog';
 import { validateWorkspaceDefinition } from '../src/workspace-engine/validation';
 
-test('normaliza widgets por ordem e remove widgets desativados', () => {
+test('normaliza widgets por ordem e preserva widgets desativados na definição', () => {
   const widgets = normalizeWorkspaceWidgets([
     { id: 'b', type: 'alerts', order: 20 },
     { id: 'a', type: 'quick-actions', order: 10 },
-    { id: 'c', type: 'metrics', boardId: 'board-1', enabled: false },
+    { id: 'c', type: 'metrics', boardId: 'board-1', enabled: false, order: 30 },
   ]);
 
-  assert.deepEqual(widgets.map(widget => widget.id), ['a', 'b']);
+  assert.deepEqual(widgets.map(widget => widget.id), ['a', 'b', 'c']);
   assert.equal(widgets[0].span, 2);
   assert.deepEqual(widgets[0].permissions, { view: true });
+  assert.equal(widgets[2].enabled, false);
 });
 
 test('biblioteca visível registra apenas widgets canônicos para compor workspaces operacionais', () => {
