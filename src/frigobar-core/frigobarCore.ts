@@ -16,6 +16,10 @@ export const frigobarCore = {
     return minibarRepository.getRoomSnapshot(hotelId, roomId);
   },
 
+  listRestockSources(hotelId: string) {
+    return minibarRepository.listRestockSources(hotelId);
+  },
+
   registerConsumption(input: RegisterMinibarConsumptionInput) {
     assertPositiveQuantity(input.quantity);
     assertIdempotencyKey(input.idempotencyKey);

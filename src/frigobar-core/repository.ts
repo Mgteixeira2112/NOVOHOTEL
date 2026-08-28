@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type {
   MinibarConsumptionResult,
+  MinibarRestockSource,
   MinibarRoomSnapshot,
   RegisterMinibarConsumptionInput,
   RestockMinibarInput,
@@ -14,6 +15,23 @@ export const minibarRepository = {
     });
     if (error) throw error;
     return data as MinibarRoomSnapshot;
+  },
+
+  async listRestockSources(hotelId: string): Promise<MinibarRestockSource[]> {
+    const { data, error } = await supabase
+      .from('hotel_os_stock_locations')
+      .select('id,code,name,location_type')
+      .eq('hotel_id', hotelId)
+      .eq('active', true)
+      .in('location_type', ['WAREHOUSE', 'BAR'])
+      .order('name');
+    if (error) throw error;
+    return (data || []).map(item => ({
+      id: String(item.id),
+      code: String(item.code),
+      name: String(item.name),
+      locationType: String(item.location_type),
+    }));
   },
 
   async registerConsumption(input: RegisterMinibarConsumptionInput): Promise<MinibarConsumptionResult> {
