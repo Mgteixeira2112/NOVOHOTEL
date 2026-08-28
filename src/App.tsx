@@ -17,16 +17,21 @@ import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminLogin } from './components/auth/AdminLogin';
 import { SecurityVerificationModal } from './components/security/SecurityVerificationModal';
 import { ConnectionStatus } from './components/device/ConnectionStatus';
+import { GovernancaWorkspace } from './modules/governanca/GovernancaWorkspace';
 
 const MainContent: React.FC = () => {
-  const { currentView, isAuthenticated } = useHotel();
+  const { currentView, isAuthenticated, currentUser } = useHotel();
+  const authenticatedWorkspace = currentUser?.tipo_usuario === 'governanca'
+    ? <GovernancaWorkspace />
+    : <AdminLayout />;
+
   return (
     <div className="min-h-screen bg-stone-900 text-stone-100 selection:bg-amber-500 selection:text-stone-950 font-sans">
       {currentView === 'landing' ? (
         <div className="flex flex-col min-h-screen relative">
           <Navbar /><main className="flex-1"><HeroSection /><RoomsShowcase /><AmenitiesSection /><AboutSection /><LocationSection /><TestimonialsSection /><FaqSection /><ContactSection /></main><Footer /><FloatingWhatsapp />
         </div>
-      ) : !isAuthenticated ? <AdminLogin /> : <AdminLayout />}
+      ) : !isAuthenticated ? <AdminLogin /> : authenticatedWorkspace}
       <BookingModal />
       <SecurityVerificationModal />
       <ConnectionStatus />
