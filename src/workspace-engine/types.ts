@@ -19,6 +19,7 @@ export type WorkspaceWidgetType =
   | 'alerts'
   | 'quick-actions'
   | 'reservations-list'
+  | 'occupancy-calendar'
   | 'maintenance'
   | 'orders'
   | 'team'
