@@ -30,6 +30,8 @@ export function OperationalWorkCenter<TKey extends string>({
   panelTitle,
   renderPanel,
 }: OperationalWorkCenterProps<TKey>) {
+  const gridClass = items.length >= 4 ? 'sm:grid-cols-2 xl:grid-cols-4' : 'sm:grid-cols-3';
+
   return <>
     <section className="rounded-3xl border border-slate-200 bg-white p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -40,7 +42,7 @@ export function OperationalWorkCenter<TKey extends string>({
         {summary && <span className="text-[10px] font-bold text-slate-400">{summary}</span>}
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className={`grid gap-2 ${gridClass}`}>
         {items.map(item => <button
           key={item.key}
           type="button"
