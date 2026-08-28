@@ -5,12 +5,14 @@ import { ArrivalsWidget, DeparturesWidget, ReceptionAlertsWidget, ReceptionSumma
 import { ActiveStaysWidget, GuestsWidget } from './widgets/ReceptionGuestStayWidgets';
 import { ReservationsWidget } from './widgets/ReservationsWidget';
 import { OccupancyCalendarWidget } from './widgets/OccupancyCalendarWidget';
+import { DashboardWidget } from './widgets/DashboardWidget';
 
 let registered = false;
 
 export const registerBuiltinWorkspaceWidgets = () => {
   if (registered) return;
   registered = true;
+  registerWorkspaceWidgetRenderer('dashboard', DashboardWidget);
   registerWorkspaceWidgetRenderer('task-kanban', TaskKanbanWidget);
   registerWorkspaceWidgetRenderer('room-map', ReceptionRoomMapWidget);
   registerWorkspaceWidgetRenderer('guests', GuestsWidget);

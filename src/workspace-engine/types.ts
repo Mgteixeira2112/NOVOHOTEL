@@ -9,6 +9,7 @@ export type WorkspaceLayout = 'operational' | 'management';
  */
 export type WorkspaceWidgetType =
   | 'metrics'
+  | 'dashboard'
   | 'task-kanban'
   | 'room-map'
   | 'room-details'
@@ -32,6 +33,7 @@ export type WorkspaceWidgetType =
 export type WorkspaceScope = 'mine' | 'sector';
 export type WorkspaceWidgetSpan = 1 | 2 | 3 | 4 | 'full';
 export type WorkspaceWidgetDataSource =
+  | 'dashboard'
   | 'kanban'
   | 'rooms'
   | 'reservations'
