@@ -13,6 +13,23 @@ export type CreateReservationWithRoomInput = CreateGuestReservationInput & {
   bedScheme: string;
 };
 
+export type AvailableRoom = {
+  room_id: string;
+  numero: string;
+  nome: string | null;
+  capacidade: number;
+  cama: string | null;
+  valor_diaria: number;
+  tipo_quarto_id: string | null;
+};
+
+export type FindAvailableRoomsInput = {
+  checkin: string;
+  checkout: string;
+  guests: number;
+  bedScheme?: string;
+};
+
 export type CreateReceptionGuestInput = {
   nome: string;
   documento: string;
@@ -91,6 +108,17 @@ export const receptionGuestStayService = {
       guests: number;
       total: number;
     };
+  },
+
+  async findAvailableRooms(input: FindAvailableRoomsInput) {
+    const { data, error } = await supabase.rpc('reception_find_available_rooms', {
+      p_checkin: input.checkin,
+      p_checkout: input.checkout,
+      p_guests: input.guests,
+      p_bed_scheme: input.bedScheme?.trim() || null,
+    });
+    if (error) throw error;
+    return (data || []) as AvailableRoom[];
   },
 
   async createReservationWithRoom(input: CreateReservationWithRoomInput) {
