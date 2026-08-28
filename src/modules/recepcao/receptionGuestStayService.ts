@@ -9,6 +9,14 @@ export type CreateGuestReservationInput = {
   actorUserId?: string;
 };
 
+export type CreateUnassignedReservationInput = Omit<CreateGuestReservationInput, 'roomId'>;
+
+export type BindReservationRoomInput = {
+  reservationId: string;
+  roomId: string;
+  actorUserId?: string;
+};
+
 export type CreateReceptionGuestInput = {
   nome: string;
   documento: string;
@@ -65,6 +73,7 @@ export const receptionGuestStayService = {
     return data;
   },
 
+  // Compatibilidade: usado pelo check-in iniciado diretamente em um quarto disponível.
   async createReservationForGuest(input: CreateGuestReservationInput) {
     const { data, error } = await supabase.rpc('reception_create_reservation_for_guest', {
       p_guest_id: input.guestId,
@@ -86,5 +95,50 @@ export const receptionGuestStayService = {
       guests: number;
       total: number;
     };
+  },
+
+  async createUnassignedReservation(input: CreateUnassignedReservationInput) {
+    const { data, error } = await supabase.rpc('reception_create_unassigned_reservation', {
+      p_guest_id: input.guestId,
+      p_checkin: input.checkin,
+      p_checkout: input.checkout,
+      p_guests: input.guests,
+      p_actor_user_id: input.actorUserId || null,
+    });
+    if (error) throw error;
+    return data as {
+      ok: boolean;
+      reservation_id: string;
+      reservation_code: string;
+      guest_id: string;
+      room_id: null;
+      checkin: string;
+      checkout: string;
+      guests: number;
+    };
+  },
+
+  async bindReservationToRoom(input: BindReservationRoomInput) {
+    const { data, error } = await supabase.rpc('reception_bind_reservation_room', {
+      p_reservation_id: input.reservationId,
+      p_room_id: input.roomId,
+      p_actor_user_id: input.actorUserId || null,
+    });
+    if (error) throw error;
+    return data as {
+      ok: boolean;
+      reservation_id: string;
+      room_id: string;
+      total: number;
+    };
+  },
+
+  async unbindReservationFromRoom(reservationId: string, actorUserId?: string) {
+    const { data, error } = await supabase.rpc('reception_unbind_reservation_room', {
+      p_reservation_id: reservationId,
+      p_actor_user_id: actorUserId || null,
+    });
+    if (error) throw error;
+    return data as { ok: boolean; reservation_id: string; room_id: null };
   },
 };
