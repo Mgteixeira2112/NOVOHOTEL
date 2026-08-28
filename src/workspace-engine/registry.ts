@@ -1,7 +1,7 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 import { WorkspaceDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
-import { mergeWorkspaceDefinition } from './workspaceConfigStore';
+import { DEFAULT_WORKSPACE_HOTEL_ID, mergeWorkspaceDefinition } from './workspaceConfigStore';
 
 export const workspaceRegistry: WorkspaceDefinition[] = [
   {
@@ -20,12 +20,12 @@ export const workspaceRegistry: WorkspaceDefinition[] = [
   },
 ];
 
-export const getWorkspaceDefinition = (workspaceId: string) => {
+export const getWorkspaceDefinition = (workspaceId: string, hotelId = DEFAULT_WORKSPACE_HOTEL_ID) => {
   const base = workspaceRegistry.find(workspace => workspace.id === workspaceId);
-  return base ? mergeWorkspaceDefinition(base) : null;
+  return base ? mergeWorkspaceDefinition(base, hotelId) : null;
 };
 
-export const resolveWorkspaceForSectors = (sectorIds: OperationalSectorId[]) => {
+export const resolveWorkspaceForSectors = (sectorIds: OperationalSectorId[], hotelId = DEFAULT_WORKSPACE_HOTEL_ID) => {
   const base = workspaceRegistry.find(workspace => workspace.sectors.some(sector => sectorIds.includes(sector)));
-  return base ? mergeWorkspaceDefinition(base) : null;
+  return base ? mergeWorkspaceDefinition(base, hotelId) : null;
 };
