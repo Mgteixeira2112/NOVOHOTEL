@@ -12,6 +12,8 @@ export type WorkspaceWidgetType =
   | 'task-kanban'
   | 'room-map'
   | 'room-details'
+  | 'guests'
+  | 'active-stays'
   | 'arrivals'
   | 'departures'
   | 'alerts'
