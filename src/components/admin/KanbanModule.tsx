@@ -118,7 +118,7 @@ export const KanbanModule: React.FC = () => {
     if (!currentUser?.id) {
       setUserSectorIds([]);
       setVisibilityStatus('fallback');
-      setVisibilityMessage('Usuário atual não identificado. A visão completa foi mantida por segurança operacional.');
+      setVisibilityMessage('Usuário atual não identificado. Nenhum card operacional será exibido até a identificação do usuário.');
       return () => { cancelled = true; };
     }
 
@@ -146,8 +146,8 @@ export const KanbanModule: React.FC = () => {
       setVisibilityStatus('fallback');
       setVisibilityMessage(
         state.available
-          ? 'Nenhum setor foi vinculado ao seu usuário. A visão completa foi mantida temporariamente até a configuração do perfil.'
-          : 'A estrutura de setores ainda não está disponível no banco. A visão completa foi mantida temporariamente para não ocultar tarefas.',
+          ? 'Nenhum setor foi vinculado ao seu usuário. Serão exibidos somente os cards atribuídos diretamente a você.'
+          : 'Não foi possível carregar seus setores. Por segurança, serão exibidos somente os cards atribuídos diretamente a você.',
       );
     });
 
@@ -183,14 +183,12 @@ export const KanbanModule: React.FC = () => {
     return () => { cancelled = true; };
   }, [users]);
 
-  const selectiveVisibilityActive = !hasFullKanbanVisibility
-    && visibilityStatus === 'active'
-    && userSectorIds.length > 0
-    && Boolean(currentUser?.id);
+  const selectiveVisibilityActive = !hasFullKanbanVisibility && Boolean(currentUser?.id);
 
   const accessCards = useMemo(() => {
     const activeCards = cards.filter(card => !card.is_archived);
-    if (!selectiveVisibilityActive || !currentUser?.id) return activeCards;
+    if (hasFullKanbanVisibility) return activeCards;
+    if (!currentUser?.id) return [];
 
     return filterKanbanCardsForUser(activeCards, {
       userId: currentUser.id,
@@ -198,10 +196,11 @@ export const KanbanModule: React.FC = () => {
       sectorIds: userSectorIds,
       scope: defaultKanbanVisibilityScope(userRole),
     });
-  }, [cards, currentUser?.id, selectiveVisibilityActive, userRole, userSectorIds]);
+  }, [cards, currentUser?.id, hasFullKanbanVisibility, userRole, userSectorIds]);
 
   const visibleBoards = useMemo(() => {
-    if (!selectiveVisibilityActive) return boards;
+    if (hasFullKanbanVisibility) return boards;
+    if (!currentUser?.id) return [];
 
     return boards.filter(board => {
       const boardSector = isOperationalSectorId(board.departamento) ? board.departamento : null;
@@ -209,7 +208,7 @@ export const KanbanModule: React.FC = () => {
       const hasVisibleAssignedCard = accessCards.some(card => card.board_id === board.id);
       return belongsToUserSector || hasVisibleAssignedCard;
     });
-  }, [boards, selectiveVisibilityActive, userSectorIds, accessCards]);
+  }, [boards, currentUser?.id, hasFullKanbanVisibility, userSectorIds, accessCards]);
 
   useEffect(() => {
     if (visibleBoards.length === 0) return;
@@ -459,7 +458,7 @@ export const KanbanModule: React.FC = () => {
       setError('A exclusão permanente é restrita à administração e gerência.');
       return;
     }
-    if (!confirm(`Excluir permanentemente o card "${card.titulo}"? Esta ação não poderá ser desfeita.`)) return;
+    if (!confirm(`Excluir permanentemente o card \"${card.titulo}\"? Esta ação não poderá ser desfeita.`)) return;
     if (!confirm('Confirma a exclusão DEFINITIVA? Para manter histórico, prefira Arquivar.')) return;
 
     setSaving(true);
@@ -521,12 +520,12 @@ export const KanbanModule: React.FC = () => {
                   {status === 'SUBSCRIBED' ? 'Tempo Real Ativo' : 'Sincronizando…'}
                 </span>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
-                  selectiveVisibilityActive || hasFullKanbanVisibility
+                  hasFullKanbanVisibility
                     ? 'bg-blue-50 text-blue-700 border-blue-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 }`}>
                   <UserIcon className="w-3.5 h-3.5" />
-                  {hasFullKanbanVisibility ? 'Visão completa' : selectiveVisibilityActive ? 'Meus setores + atribuídos' : 'Visão temporária completa'}
+                  {hasFullKanbanVisibility ? 'Visão completa' : 'Meus setores + atribuídos'}
                 </span>
               </div>
 
