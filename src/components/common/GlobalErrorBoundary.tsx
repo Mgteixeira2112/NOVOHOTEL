@@ -25,10 +25,6 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReset = () => {
-    try {
-      localStorage.clear();
-      sessionStorage.clear();
-    } catch {}
     window.location.reload();
   };
 
@@ -40,11 +36,11 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
             <div className="w-16 h-16 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-2xl flex items-center justify-center mx-auto">
               <AlertTriangle className="w-8 h-8" />
             </div>
-            
+
             <div className="space-y-2">
               <h1 className="text-xl font-bold text-white">Ops, ocorreu uma falha ao iniciar o sistema</h1>
               <p className="text-xs text-stone-400 leading-relaxed">
-                Um erro inesperado impediu o carregamento da tela. Você pode tentar recarregar ou restaurar o estado padrão.
+                Um erro inesperado impediu o carregamento da tela. Recarregue a aplicação; nenhum dado persistente será apagado por este fallback.
               </p>
               {this.state.error?.message && (
                 <div className="p-3 rounded-xl bg-stone-950/80 border border-stone-800 text-[11px] font-mono text-rose-300 text-left overflow-x-auto max-h-28">
@@ -67,7 +63,7 @@ export class GlobalErrorBoundary extends React.Component<Props, State> {
                 onClick={this.handleReset}
                 className="flex-1 px-4 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-black transition flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
               >
-                <span>Restaurar Padrão</span>
+                <span>Tentar novamente</span>
               </button>
             </div>
           </div>
