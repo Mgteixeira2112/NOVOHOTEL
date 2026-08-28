@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { workspaceRegistry } from '../src/workspace-engine/registry';
-import { canonicalWidgetType, createWorkspaceWidget, getWidgetCatalogItem, normalizeWorkspaceWidgets, workspaceWidgetCatalog } from '../src/workspace-engine/widgetCatalog';
+import { canonicalWidgetType, createWorkspaceWidget, getWidgetAvailability, getWidgetCatalogItem, normalizeWorkspaceWidgets, workspaceWidgetCatalog } from '../src/workspace-engine/widgetCatalog';
 import { validateWorkspaceDefinition } from '../src/workspace-engine/validation';
 
 test('normaliza widgets por ordem e remove widgets desativados', () => {
@@ -27,6 +27,18 @@ test('biblioteca visível registra apenas widgets canônicos para compor workspa
     assert.equal(types.includes(legacy as any), false, `widget legado não deve aparecer na Fábrica: ${legacy}`);
     assert.equal(getWidgetCatalogItem(legacy as any)?.legacy, true, `compatibilidade interna ausente: ${legacy}`);
   }
+});
+
+test('biblioteca classifica disponibilidade e maturidade por setor', () => {
+  assert.deepEqual(getWidgetAvailability('task-kanban', 'cozinha'), { allowed: true, readiness: 'ready', reason: '' });
+  assert.equal(getWidgetAvailability('room-map', 'cozinha').allowed, false);
+  assert.equal(getWidgetAvailability('arrivals', 'recepcao').allowed, true);
+  assert.equal(getWidgetAvailability('arrivals', 'governanca').allowed, false);
+  assert.deepEqual(getWidgetAvailability('orders', 'cozinha'), {
+    allowed: false,
+    readiness: 'planned',
+    reason: 'Contrato reservado; renderer operacional ainda será consolidado.',
+  });
 });
 
 test('aliases legados resolvem para widgets canônicos durante a migração', () => {
