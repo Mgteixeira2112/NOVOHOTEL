@@ -10,21 +10,37 @@ test('widget de reservas é registrado separadamente do widget de hóspedes', ()
   assert.match(registry, /registerWorkspaceWidgetRenderer\('reservations-list', ReservationsWidget\)/);
 });
 
-test('reserva pode nascer sem quarto e ser vinculada depois', () => {
+test('reserva nasce com quarto compatível por capacidade, camas e período', () => {
   const service = read('src/modules/recepcao/receptionGuestStayService.ts');
   const widget = read('src/workspace-engine/widgets/ReservationsWidget.tsx');
-  const migration = read('supabase/migrations/20260828202500_reception_independent_reservations.sql');
-  assert.match(service, /createUnassignedReservation/);
-  assert.match(service, /bindReservationToRoom/);
-  assert.match(service, /unbindReservationFromRoom/);
-  assert.match(widget, /Criar reserva sem quarto/);
-  assert.match(widget, /Vincular quarto/);
-  assert.match(widget, /Desvincular/);
-  assert.match(migration, /reception_create_unassigned_reservation/);
-  assert.match(migration, /id, codigo, hospede_id, quarto_id, checkin, checkout/);
-  assert.match(migration, /v_reservation_id, v_code, v_guest\.id, null, p_checkin, p_checkout/);
-  assert.match(migration, /reception_bind_reservation_room/);
-  assert.match(migration, /reception_unbind_reservation_room/);
+  const migration = read('supabase/migrations/20260828214000_reception_reservation_room_compatibility.sql');
+
+  assert.match(service, /createReservationWithRoom/);
+  assert.doesNotMatch(service, /createUnassignedReservation/);
+  assert.doesNotMatch(service, /bindReservationToRoom/);
+  assert.doesNotMatch(service, /unbindReservationFromRoom/);
+
+  assert.match(widget, /Esquema de camas/);
+  assert.match(widget, /Quarto compatível e disponível/);
+  assert.match(widget, /room\.capacidade/);
+  assert.match(widget, /room\.cama/);
+  assert.match(widget, /activeReservationStatuses/);
+  assert.doesNotMatch(widget, /Criar reserva sem quarto/);
+  assert.doesNotMatch(widget, /Vincular quarto/);
+
+  assert.match(migration, /add column if not exists cama_solicitada text/);
+  assert.match(migration, /reception_create_reservation_with_room/);
+  assert.match(migration, /v_room\.capacidade/);
+  assert.match(migration, /v_room\.cama/);
+  assert.match(migration, /reserva conflitante no período/);
+  assert.match(migration, /v_room\.id/);
+});
+
+test('fluxo transitório de reserva sem quarto é removido do banco', () => {
+  const migration = read('supabase/migrations/20260828214000_reception_reservation_room_compatibility.sql');
+  assert.match(migration, /drop function if exists public\.reception_create_unassigned_reservation/);
+  assert.match(migration, /drop function if exists public\.reception_bind_reservation_room/);
+  assert.match(migration, /drop function if exists public\.reception_unbind_reservation_room/);
 });
 
 test('reservas finalizadas tratam o quarto como histórico', () => {
