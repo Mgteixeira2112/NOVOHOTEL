@@ -1,4 +1,7 @@
+import { OperationalSectorId } from '../domain/operationalSectors';
 import { WorkspaceWidgetDefinition, WorkspaceWidgetType } from './types';
+
+export type WorkspaceWidgetReadiness = 'ready' | 'configurable' | 'planned';
 
 export interface WorkspaceWidgetCatalogItem {
   type: WorkspaceWidgetType;
@@ -8,29 +11,34 @@ export interface WorkspaceWidgetCatalogItem {
   requiresBoard: boolean;
   defaultSpan: WorkspaceWidgetDefinition['span'];
   defaultDataSource?: WorkspaceWidgetDefinition['dataSource'];
+  sectors?: OperationalSectorId[];
+  readiness: WorkspaceWidgetReadiness;
+  readinessNote?: string;
   legacy?: boolean;
 }
 
+const allSectors: OperationalSectorId[] = ['operacao', 'governanca', 'recepcao', 'manutencao', 'cozinha'];
+
 const allWorkspaceWidgetCatalog: WorkspaceWidgetCatalogItem[] = [
-  { type: 'metrics', label: 'Indicadores', description: 'Resumo de volumes e estados do fluxo operacional.', category: 'operacao', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite' },
-  { type: 'task-kanban', label: 'Kanban de tarefas', description: 'Quadro operacional de tarefas vinculado a um board, consumindo o motor Kanban sem alterá-lo.', category: 'operacao', requiresBoard: true, defaultSpan: 'full', defaultDataSource: 'kanban' },
-  { type: 'room-map', label: 'Mapa de quartos', description: 'Cards permanentes dos quartos, status operacional, hóspede e reserva associada.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite' },
-  { type: 'room-details', label: 'Detalhes do quarto', description: 'Painel contextual com dados do quarto, hóspede, reserva e ações permitidas.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite' },
-  { type: 'arrivals', label: 'Chegadas', description: 'Reservas com chegada prevista e ações de check-in conforme regras de negócio.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations' },
-  { type: 'departures', label: 'Saídas', description: 'Hospedagens com saída prevista e ações de checkout conforme regras de negócio.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations' },
-  { type: 'alerts', label: 'Alertas', description: 'Destaques e pendências que exigem atenção no contexto do Workspace.', category: 'operacao', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite' },
-  { type: 'quick-actions', label: 'Ações rápidas', description: 'Ações contextuais habilitadas pela configuração do widget.', category: 'atalhos', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite' },
-  { type: 'reservations-list', label: 'Reservas', description: 'Reservas e movimentações relacionadas ao contexto operacional.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations' },
-  { type: 'maintenance', label: 'Manutenção', description: 'Chamados e pendências técnicas vinculadas à operação.', category: 'operacao', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'maintenance' },
-  { type: 'orders', label: 'Pedidos', description: 'Pedidos e solicitações de cozinha ou room service.', category: 'operacao', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'orders' },
-  { type: 'team', label: 'Equipe', description: 'Pessoas, responsáveis e distribuição de trabalho.', category: 'equipe', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'users' },
-  { type: 'shortcuts', label: 'Atalhos', description: 'Links e acessos rápidos a rotinas frequentes.', category: 'atalhos', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite' },
+  { type: 'metrics', label: 'Indicadores', description: 'Resumo de volumes e estados do fluxo operacional.', category: 'operacao', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', sectors: allSectors, readiness: 'ready' },
+  { type: 'task-kanban', label: 'Kanban de tarefas', description: 'Quadro operacional de tarefas vinculado a um board, consumindo o motor Kanban sem alterá-lo.', category: 'operacao', requiresBoard: true, defaultSpan: 'full', defaultDataSource: 'kanban', sectors: allSectors, readiness: 'ready' },
+  { type: 'room-map', label: 'Mapa de quartos', description: 'Cards permanentes dos quartos, status operacional, hóspede e reserva associada.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', sectors: ['recepcao', 'governanca', 'manutencao'], readiness: 'configurable', readinessNote: 'Disponível nos setores que operam diretamente o ciclo do quarto.' },
+  { type: 'room-details', label: 'Detalhes do quarto', description: 'Painel contextual com dados do quarto, hóspede, reserva e ações permitidas.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite', sectors: ['recepcao', 'governanca', 'manutencao'], readiness: 'configurable', readinessNote: 'Requer contexto de quarto no Workspace.' },
+  { type: 'arrivals', label: 'Chegadas', description: 'Reservas com chegada prevista e ações de check-in conforme regras de negócio.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations', sectors: ['recepcao'], readiness: 'configurable', readinessNote: 'Exclusivo do fluxo de Recepção.' },
+  { type: 'departures', label: 'Saídas', description: 'Hospedagens com saída prevista e ações de checkout conforme regras de negócio.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations', sectors: ['recepcao'], readiness: 'configurable', readinessNote: 'Exclusivo do fluxo de Recepção.' },
+  { type: 'alerts', label: 'Alertas', description: 'Destaques e pendências que exigem atenção no contexto do Workspace.', category: 'operacao', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite', sectors: allSectors, readiness: 'ready' },
+  { type: 'quick-actions', label: 'Ações rápidas', description: 'Ações contextuais habilitadas pela configuração do widget.', category: 'atalhos', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite', sectors: allSectors, readiness: 'configurable', readinessNote: 'As ações dependem da configuração e das permissões do Workspace.' },
+  { type: 'reservations-list', label: 'Reservas', description: 'Reservas e movimentações relacionadas ao contexto operacional.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations', sectors: ['recepcao'], readiness: 'configurable', readinessNote: 'Disponível para Workspaces ligados ao ciclo de reservas.' },
+  { type: 'maintenance', label: 'Manutenção', description: 'Chamados e pendências técnicas vinculadas à operação.', category: 'operacao', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'maintenance', sectors: ['manutencao', 'governanca', 'recepcao'], readiness: 'configurable', readinessNote: 'Usa demandas técnicas vinculadas à operação do quarto.' },
+  { type: 'orders', label: 'Pedidos', description: 'Pedidos e solicitações de cozinha ou room service.', category: 'operacao', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'orders', sectors: ['cozinha', 'recepcao'], readiness: 'planned', readinessNote: 'Contrato reservado; renderer operacional ainda será consolidado.' },
+  { type: 'team', label: 'Equipe', description: 'Pessoas, responsáveis e distribuição de trabalho.', category: 'equipe', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'users', sectors: allSectors, readiness: 'configurable', readinessNote: 'Depende do escopo de equipe e permissões do Workspace.' },
+  { type: 'shortcuts', label: 'Atalhos', description: 'Links e acessos rápidos a rotinas frequentes.', category: 'atalhos', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite', sectors: allSectors, readiness: 'configurable', readinessNote: 'Os atalhos são definidos pela configuração do Workspace.' },
 
   // Compatibilidade interna para definições já persistidas. Estes aliases não
   // fazem mais parte da biblioteca visível da Fábrica de Workspaces.
-  { type: 'kanban-cards', label: 'Kanban (legado)', description: 'Compatibilidade temporária. Novas composições devem usar Kanban de tarefas.', category: 'operacao', requiresBoard: true, defaultSpan: 'full', defaultDataSource: 'kanban', legacy: true },
-  { type: 'rooms-list', label: 'Quartos (legado)', description: 'Compatibilidade temporária. Novas composições devem usar Mapa de quartos.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', legacy: true },
-  { type: 'checkins', label: 'Chegadas e saídas (legado)', description: 'Compatibilidade temporária. Use widgets separados de Chegadas e Saídas.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations', legacy: true },
+  { type: 'kanban-cards', label: 'Kanban (legado)', description: 'Compatibilidade temporária. Novas composições devem usar Kanban de tarefas.', category: 'operacao', requiresBoard: true, defaultSpan: 'full', defaultDataSource: 'kanban', sectors: allSectors, readiness: 'ready', legacy: true },
+  { type: 'rooms-list', label: 'Quartos (legado)', description: 'Compatibilidade temporária. Novas composições devem usar Mapa de quartos.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', sectors: ['recepcao', 'governanca', 'manutencao'], readiness: 'configurable', legacy: true },
+  { type: 'checkins', label: 'Chegadas e saídas (legado)', description: 'Compatibilidade temporária. Use widgets separados de Chegadas e Saídas.', category: 'dados', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'reservations', sectors: ['recepcao'], readiness: 'configurable', legacy: true },
 ];
 
 /** Biblioteca oficial apresentada pelo Criador de Workspace. */
@@ -39,6 +47,15 @@ export const workspaceWidgetCatalog = allWorkspaceWidgetCatalog.filter(item => !
 /** Busca interna inclui aliases legados para leitura/migração segura. */
 export const getWidgetCatalogItem = (type: WorkspaceWidgetType) =>
   allWorkspaceWidgetCatalog.find(item => item.type === type) || null;
+
+export const getWidgetAvailability = (type: WorkspaceWidgetType, sector: OperationalSectorId) => {
+  const item = getWidgetCatalogItem(type);
+  if (!item) return { allowed: false, readiness: 'planned' as const, reason: 'Widget não registrado na biblioteca.' };
+  const allowed = !item.sectors?.length || item.sectors.includes(sector);
+  if (!allowed) return { allowed: false, readiness: item.readiness, reason: `Não disponível para o setor ${sector}.` };
+  if (item.readiness === 'planned') return { allowed: false, readiness: item.readiness, reason: item.readinessNote || 'Widget ainda não possui renderer operacional consolidado.' };
+  return { allowed: true, readiness: item.readiness, reason: item.readinessNote || '' };
+};
 
 export const createWorkspaceWidget = (
   type: WorkspaceWidgetType,
