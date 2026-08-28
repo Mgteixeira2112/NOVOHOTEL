@@ -36,6 +36,7 @@ interface ReceptionRoomsKanbanProps {
   showRoomType?: boolean;
   showFloor?: boolean;
   showStatus?: boolean;
+  statusChangeAllowedRoomIds?: string[];
   allowCheckin?: boolean;
   allowCheckout?: boolean;
   allowTransferRoom?: boolean;
@@ -155,6 +156,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
   columns, cards, rooms, reservations, guests, savingId, stayActionId,
   title = 'Quartos, reservas e hospedagens', contextLabel = 'Recepção · Mapa de quartos',
   showGuest = true, showReservationDates = true, showRoomType = true, showFloor = true, showStatus = true,
+  statusChangeAllowedRoomIds,
   allowCheckin = true, allowCheckout = true, allowTransferRoom = true, allowEditRoom = true, allowDeleteRoom = true,
   onMove, onCheckin, onCheckout, onTransfer,
 }) => {
@@ -300,6 +302,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
           const stay = stayInfo(reservation);
           const roomType = roomTypes.find(type => type.id === room.tipo_quarto_id);
           const availableDestinations = rooms.filter(item => item.id !== room.id && String(item.status).toLowerCase() === 'disponivel' && !linkedReservation(item, reservations));
+          const canChangeOperationalStatus = !statusChangeAllowedRoomIds || statusChangeAllowedRoomIds.includes(room.id);
 
           return <aside className="border-t border-slate-200 bg-white p-4 xl:border-l xl:border-t-0">
             <div className="xl:sticky xl:top-24">
@@ -326,7 +329,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
 
               {allowTransferRoom && reservation && <section className="mt-4 rounded-2xl border border-slate-200 p-3"><div className="flex items-center gap-2"><ArrowRightLeft className="h-4 w-4 text-blue-500" /><p className="text-[10px] font-black uppercase text-slate-700">Trocar quarto</p></div><div className="mt-2 flex gap-2"><select value={transferTarget} onChange={event => setTransferTarget(event.target.value)} className="h-9 min-w-0 flex-1 rounded-xl border border-slate-200 px-2 text-[10px] font-bold"><option value="">Selecionar destino</option>{availableDestinations.map(item => <option key={item.id} value={item.id}>Quarto {item.numero} · {item.nome}</option>)}</select><button type="button" disabled={!transferTarget || reservationBusy} onClick={() => transferTarget && onTransfer(reservation, transferTarget)} className="h-9 rounded-xl bg-blue-600 px-3 text-[9px] font-black text-white disabled:opacity-40">Transferir</button></div></section>}
 
-              {showStatus && <section className="mt-4"><p className="mb-2 text-[10px] font-black uppercase text-slate-700">Status operacional</p><select value={card.column_id} disabled={savingId === card.id} onChange={event => onMove(card, event.target.value)} className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-black text-slate-700">{columns.map(option => <option key={option.id} value={option.id}>{option.nome}</option>)}</select></section>}
+              {showStatus && canChangeOperationalStatus && <section className="mt-4"><p className="mb-2 text-[10px] font-black uppercase text-slate-700">Status operacional</p><select value={card.column_id} disabled={savingId === card.id} onChange={event => onMove(card, event.target.value)} className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-[10px] font-black text-slate-700">{columns.map(option => <option key={option.id} value={option.id}>{option.nome}</option>)}</select></section>}
 
               {(allowEditRoom || allowDeleteRoom) && <div className="mt-5 flex gap-2 border-t border-slate-200 pt-4">{allowEditRoom && <button type="button" onClick={() => openEditor(room)} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 text-[9px] font-black text-slate-600 hover:bg-slate-50"><Edit3 className="h-3.5 w-3.5" />Editar quarto</button>}{allowDeleteRoom && <button type="button" onClick={() => removeRoom(room)} className="flex h-9 items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-[9px] font-black text-rose-700"><Trash2 className="h-3.5 w-3.5" />Excluir</button>}</div>}
             </div>

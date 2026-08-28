@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useHotel } from '../../context/HotelContext';
 import { OPERATIONAL_SECTORS } from '../../domain/operationalSectors';
+import { supabase } from '../../lib/supabase';
 import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { Reserva } from '../../types';
 import { ReceptionRoomsKanban } from '../../modules/recepcao/ReceptionRoomsKanban';
@@ -9,10 +10,20 @@ import { receptionStayService } from '../../modules/recepcao/receptionStayServic
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
 import { readRoomMapWidgetPresentation, roomMapActionEnabled } from './roomMapWidgetPresentation';
 
+const GOVERNANCE_BOARD_ID = 'kanban-board-governanca';
+const GOVERNANCE_RELEASED_COLUMN_ID = 'gov-col-liberado';
+
+type GovernanceRoomCard = {
+  room_id?: string | null;
+  column_id?: string | null;
+  is_archived?: boolean | null;
+};
+
 export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ workspace, widget }) => {
   const { currentUser, reservations, guests, rooms, syncFromSupabase } = useHotel();
   const [cards, setCards] = useState<KanbanV2Card[]>([]);
   const [columns, setColumns] = useState<KanbanV2Column[]>([]);
+  const [governanceReleasedRoomIds, setGovernanceReleasedRoomIds] = useState<string[]>([]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [stayActionId, setStayActionId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -34,18 +45,57 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
 
   useEffect(() => {
     let cancelled = false;
+
+    const loadGovernanceReleaseState = async () => {
+      const { data, error: governanceError } = await supabase
+        .from('kanban_cards')
+        .select('room_id,column_id,is_archived')
+        .eq('board_id', GOVERNANCE_BOARD_ID)
+        .eq('is_archived', false);
+
+      if (cancelled) return;
+      if (governanceError) {
+        setGovernanceReleasedRoomIds([]);
+        setError(current => current || `Não foi possível verificar a liberação da Governança: ${governanceError.message}`);
+        return;
+      }
+
+      const releasedIds = (data as GovernanceRoomCard[] | null || [])
+        .filter(card => card.column_id === GOVERNANCE_RELEASED_COLUMN_ID && typeof card.room_id === 'string' && card.room_id.trim())
+        .map(card => card.room_id as string);
+      setGovernanceReleasedRoomIds(Array.from(new Set(releasedIds)));
+    };
+
     void kanbanV2.load(KANBAN_TENANT_ID).then(result => {
       if (cancelled) return;
       setColumns(result.columns.filter(column => column.board_id === RECEPTION_ROOMS_BOARD_ID).sort((a, b) => a.ordem - b.ordem));
       setCards(result.cards.filter(card => card.board_id === RECEPTION_ROOMS_BOARD_ID && !card.is_archived));
     }).catch((e: any) => !cancelled && setError(e?.message || 'Não foi possível carregar os quartos.'));
+
+    void loadGovernanceReleaseState();
+
     const unsubscribe = kanbanV2.subscribe(KANBAN_TENANT_ID, {
       onInsert: card => { if (card.board_id === RECEPTION_ROOMS_BOARD_ID && !card.is_archived) setCards(cur => cur.some(item => item.id === card.id) ? cur : [...cur, card]); },
       onUpdate: card => setCards(cur => card.board_id !== RECEPTION_ROOMS_BOARD_ID || card.is_archived ? cur.filter(item => item.id !== card.id) : cur.some(item => item.id === card.id) ? cur.map(item => item.id === card.id ? card : item) : [...cur, card]),
       onDelete: card => setCards(cur => cur.filter(item => item.id !== card.id)),
       onStatus: () => undefined,
     });
-    return () => { cancelled = true; unsubscribe(); };
+
+    const governanceChannel = supabase
+      .channel(`room-map-governance-${Date.now()}-${Math.random().toString(36).slice(2)}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'kanban_cards',
+        filter: `board_id=eq.${GOVERNANCE_BOARD_ID}`,
+      }, () => { void loadGovernanceReleaseState(); })
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      void supabase.removeChannel(governanceChannel);
+    };
   }, []);
 
   const refresh = async () => {
@@ -108,6 +158,7 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
       showRoomType={presentation.showRoomType}
       showFloor={presentation.showFloor}
       showStatus={presentation.showStatus}
+      statusChangeAllowedRoomIds={governanceReleasedRoomIds}
       allowCheckin={roomMapActionEnabled(widget, 'checkin')}
       allowCheckout={roomMapActionEnabled(widget, 'checkout')}
       allowTransferRoom={roomMapActionEnabled(widget, 'transferRoom')}
