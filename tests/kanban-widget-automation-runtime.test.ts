@@ -21,8 +21,16 @@ test('runtime usa configuracao do proprio widget e bloqueia loops basicos', () =
   assert.match(runtimeSource, /processingKeys\.has\(processKey\)/);
 });
 
-test('runtime evita duplicacao conhecida e escolhe primeira coluna do board destino', () => {
-  assert.match(runtimeSource, /item\.notes\?\.includes\(marker\)/);
+test('runtime formaliza relacionamento origem destino e evita duplicacao conhecida', () => {
+  assert.match(runtimeSource, /export interface KanbanAutomationRelation/);
+  assert.match(runtimeSource, /sourceWidgetId: widget\.id/);
+  assert.match(runtimeSource, /sourceBoardId: card\.board_id/);
+  assert.match(runtimeSource, /sourceCardId: card\.id/);
+  assert.match(runtimeSource, /targetBoardId/);
+  assert.match(runtimeSource, /readKanbanAutomationRelation\(item\)\?\.relationId === relation\.relationId/);
+});
+
+test('runtime escolhe primeira coluna do board destino', () => {
   assert.match(runtimeSource, /filter\(column => column\.board_id === targetBoardId\)/);
   assert.match(runtimeSource, /sort\(\(a, b\) => a\.ordem - b\.ordem\)\[0\]/);
 });
