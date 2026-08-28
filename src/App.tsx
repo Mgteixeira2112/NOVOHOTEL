@@ -24,6 +24,8 @@ import { resolveWorkspaceForSectors } from './workspace-engine/registry';
 import { WorkspaceRuntime } from './workspace-engine/WorkspaceRuntime';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, subscribeWorkspaceConfig } from './workspace-engine/workspaceConfigStore';
 
+const LEGACY_AUTH_STORAGE_KEY = 'HOTEL_CENTENARIO_PMS_V2_is_authenticated';
+
 const AuthenticatedWorkspaceRouter: React.FC = () => {
   const { currentUser, hotelConfig } = useHotel();
   const [sectorIds, setSectorIds] = useState<OperationalSectorId[]>([]);
@@ -83,5 +85,8 @@ const MainContent: React.FC = () => {
 };
 
 export default function App() {
+  if (typeof window !== 'undefined' && window.localStorage.getItem(LEGACY_AUTH_STORAGE_KEY) === null) {
+    window.localStorage.setItem(LEGACY_AUTH_STORAGE_KEY, 'false');
+  }
   return <HotelProvider><FrigobarProvider><MainContent /></FrigobarProvider></HotelProvider>;
 }
