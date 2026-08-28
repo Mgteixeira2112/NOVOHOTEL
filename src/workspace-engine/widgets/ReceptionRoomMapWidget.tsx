@@ -26,6 +26,7 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
       onInsert: card => { if (card.board_id === RECEPTION_ROOMS_BOARD_ID && !card.is_archived) setCards(cur => cur.some(item => item.id === card.id) ? cur : [...cur, card]); },
       onUpdate: card => setCards(cur => card.board_id !== RECEPTION_ROOMS_BOARD_ID || card.is_archived ? cur.filter(item => item.id !== card.id) : cur.some(item => item.id === card.id) ? cur.map(item => item.id === card.id ? card : item) : [...cur, card]),
       onDelete: card => setCards(cur => cur.filter(item => item.id !== card.id)),
+      onStatus: () => undefined,
     });
     return () => { cancelled = true; unsubscribe(); };
   }, []);
