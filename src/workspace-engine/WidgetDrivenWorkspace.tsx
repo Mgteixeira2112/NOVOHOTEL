@@ -1,6 +1,7 @@
 import React from 'react';
 import { LogOut } from 'lucide-react';
 import { useHotel } from '../context/HotelContext';
+import { WorkspaceUserMenu } from '../components/navigation/WorkspaceUserMenu';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
 import { WorkspaceDefinition, WorkspaceWidgetSpan } from './types';
 import { getWorkspaceWidgetRenderer } from './widgetRuntimeRegistry';
@@ -28,7 +29,27 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950" data-workspace-runtime="widget-driven" data-workspace-id={definition.id}>
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-3 sm:px-6"><div><div className="flex items-center gap-2"><h1 className="text-lg font-black">{definition.name}</h1><span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black uppercase text-amber-700">Workspace</span></div><p className="mt-0.5 text-[10px] text-slate-500">{definition.description}</p></div><div className="flex items-center gap-3"><span className="hidden text-right text-[10px] text-slate-500 sm:block"><strong className="block text-slate-700">{currentUser?.nome || 'Usuário'}</strong>{definition.sectors.join(' · ')}</span><button onClick={logout} className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[10px] font-black text-slate-600"><LogOut className="h-3.5 w-3.5" />Sair</button></div></div></header>
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-black">{definition.name}</h1>
+              <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-black uppercase text-amber-700">Workspace</span>
+            </div>
+            <p className="mt-0.5 text-[10px] text-slate-500">{definition.description}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="hidden text-right text-[10px] text-slate-500 lg:block">
+              <strong className="block text-slate-700">{currentUser?.nome || 'Usuário'}</strong>
+              {definition.sectors.join(' · ')}
+            </span>
+            <WorkspaceUserMenu />
+            <button onClick={logout} className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[10px] font-black text-slate-600 transition hover:bg-slate-50">
+              <LogOut className="h-3.5 w-3.5" />Sair
+            </button>
+          </div>
+        </div>
+      </header>
       <main className="mx-auto grid max-w-[1800px] grid-cols-1 gap-4 p-4 sm:p-6 xl:grid-cols-4">
         {widgets.map(widget => {
           const Renderer = getWorkspaceWidgetRenderer(widget.type);
