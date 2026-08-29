@@ -1,0 +1,44 @@
+/* Correção visual pontual do Kanban dentro de Workspaces.
+ * Mantém colunas/cards legíveis quando o widget ocupa uma largura estreita.
+ * Nenhuma regra funcional, permissão ou operação do Kanban é alterada aqui.
+ */
+[data-workspace-widget="task-kanban"] > div {
+  min-width: 0;
+}
+
+[data-workspace-widget="task-kanban"] > div > .grid.gap-3 {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.75rem;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.5rem;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+
+[data-workspace-widget="task-kanban"] > div > .grid.gap-3 > div {
+  flex: 1 0 18rem;
+  min-width: 18rem;
+}
+
+[data-workspace-widget="task-kanban"] > div > .grid.gap-3 article {
+  width: 100%;
+  min-width: 0;
+}
+
+[data-workspace-widget="task-kanban"] > div > .grid.gap-3 article h3,
+[data-workspace-widget="task-kanban"] > div > .grid.gap-3 article p,
+[data-workspace-widget="task-kanban"] > div > .grid.gap-3 article span {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+@media (max-width: 359px) {
+  [data-workspace-widget="task-kanban"] > div > .grid.gap-3 > div {
+    flex-basis: calc(100vw - 3rem);
+    min-width: calc(100vw - 3rem);
+  }
+}
