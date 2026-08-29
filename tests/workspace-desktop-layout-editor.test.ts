@@ -1,0 +1,39 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import test from 'node:test';
+
+const editor = readFileSync('src/components/admin/WorkspaceDesktopLayoutEditor.tsx', 'utf8');
+const general = readFileSync('src/components/admin/WorkspaceGeneralPresentationControls.tsx', 'utf8');
+
+test('editor visual Desktop usa somente ordem e largura já existentes no contrato', () => {
+  assert.match(editor, /widget\.order/);
+  assert.match(editor, /presentation: \{ \.\.\.widget\.presentation, width \}/);
+  assert.match(editor, /legacySpanToWidth\(widget\.span\)/);
+  assert.doesNotMatch(editor, /supabase|migration|localStorage|fetch\(/i);
+});
+
+test('composição Desktop permite reordenar por arraste sem tocar no renderer funcional', () => {
+  assert.match(editor, /draggable/);
+  assert.match(editor, /onDragStart/);
+  assert.match(editor, /onDrop/);
+  assert.match(editor, /next\.splice\(sourceIndex, 1\)/);
+  assert.match(editor, /order: \(index \+ 1\) \* 10/);
+  assert.doesNotMatch(editor, /WidgetDrivenWorkspace|Renderer|renderWidget/);
+});
+
+test('largura pode ser ajustada por alça horizontal ou tamanho explícito', () => {
+  assert.match(editor, /data-workspace-layout-resize/);
+  assert.match(editor, /pointermove/);
+  assert.match(editor, /cursor-ew-resize/);
+  assert.match(editor, /small.*medium.*large.*full/s);
+  assert.match(editor, /25%/);
+  assert.match(editor, /50%/);
+  assert.match(editor, /75%/);
+  assert.match(editor, /100%/);
+});
+
+test('editor fica dentro dos controles de apresentação e mantém Tablet por herança', () => {
+  assert.match(general, /WorkspaceDesktopLayoutEditor/);
+  assert.match(general, /<WorkspaceDesktopLayoutEditor definition=\{definition\} onChange=\{onChange\} \/>/);
+  assert.match(editor, /Tablet herda esta composição/);
+});
