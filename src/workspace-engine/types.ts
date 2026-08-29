@@ -1,7 +1,7 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 
 export type WorkspaceLayout = 'operational' | 'management';
-export type WorkspaceViewport = 'desktop' | 'mobile' | 'kds';
+export type WorkspaceViewport = 'desktop' | 'tablet' | 'mobile' | 'kds';
 export type WorkspaceWidgetDisplay = 'panel' | 'button';
 export type WorkspaceWidgetWidth = 'small' | 'medium' | 'large' | 'full';
 export type WorkspaceWidgetHeight = 'auto' | 'low' | 'medium' | 'high';
@@ -34,6 +34,7 @@ export interface WorkspaceKdsPresentation {
 
 export interface WorkspaceDevicePresentation {
   desktop?: Exclude<WorkspaceDevicePresentationMode, 'disabled'>;
+  tablet?: Exclude<WorkspaceDevicePresentationMode, 'disabled'>;
   mobile?: Exclude<WorkspaceDevicePresentationMode, 'disabled'>;
   kds?: WorkspaceDevicePresentationMode;
 }
@@ -62,6 +63,7 @@ export interface WorkspaceWidgetPresentation {
   visual?: WorkspaceWidgetVisualStyle;
   header?: WorkspaceWidgetHeaderStyle;
   desktop?: WorkspaceWidgetDevicePresentation;
+  tablet?: WorkspaceWidgetDevicePresentation;
   mobile?: WorkspaceWidgetDevicePresentation;
   kds?: WorkspaceWidgetDevicePresentation;
 }
