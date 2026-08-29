@@ -29,14 +29,14 @@ const widthOptions: Array<{ value: WorkspaceWidgetWidth; label: string }> = [
 ];
 
 const heightOptions: Array<{ value: WorkspaceWidgetHeight; label: string }> = [
-  { value: 'auto', label: 'Automática' },
-  { value: 'low', label: 'Baixa' },
-  { value: 'medium', label: 'Média' },
-  { value: 'high', label: 'Alta' },
+  { value: 'auto', label: 'Sem limite' },
+  { value: 'low', label: 'Baixo' },
+  { value: 'medium', label: 'Médio' },
+  { value: 'high', label: 'Alto' },
 ];
 
 const visualOptions: Array<{ value: WorkspaceWidgetVisualStyle; label: string }> = [
-  { value: 'minimal', label: 'Minimalista' },
+  { value: 'minimal', label: 'Sem sombra' },
   { value: 'standard', label: 'Padrão' },
   { value: 'highlight', label: 'Destaque' },
 ];
@@ -52,62 +52,68 @@ const labelClass = 'text-[10px] font-bold text-stone-600';
 
 export const WorkspaceWidgetPresentationControls: React.FC<WorkspaceWidgetPresentationControlsProps> = ({ widget, defaultSpan, desktopMode, mobileMode, kdsMode, onChange }) => {
   const presentation = normalizeWidgetPresentation(widget, defaultSpan);
-  const desktop = presentation.desktop || {};
-  const mobile = presentation.mobile || {};
-  const kds = presentation.kds || {};
+  const desktop = presentation.desktop?.mode === 'auto' ? {} : (presentation.desktop || {});
+  const mobile = presentation.mobile?.mode === 'auto' ? {} : (presentation.mobile || {});
+  const kds = presentation.kds?.mode === 'auto' ? {} : (presentation.kds || {});
   const kdsSuitability = getWidgetKdsSuitability(widget.type);
+  const hasDeviceCustomizations = desktopMode === 'custom' || mobileMode === 'custom' || kdsMode === 'custom';
 
   const updateBase = (patch: Partial<typeof presentation>) => onChange({ presentation: { ...presentation, ...patch } });
-  const updateDevice = (device: 'desktop' | 'mobile' | 'kds', patch: Record<string, unknown>) => onChange({ presentation: { ...presentation, [device]: { ...(presentation[device] || {}), ...patch } } });
+  const updateDevice = (device: 'desktop' | 'mobile' | 'kds', patch: Record<string, unknown>) => {
+    const current = presentation[device] || {};
+    const base = current.mode === 'auto' ? {} : current;
+    onChange({ presentation: { ...presentation, [device]: { ...base, mode: 'custom', ...patch } } });
+  };
 
   return <div className="space-y-3 border-t border-stone-100 pt-4" data-widget-presentation-controls>
     <div>
-      <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Apresentação geral</p>
+      <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Aparência padrão</p>
+      <p className="mt-1 text-[9px] text-stone-400">Usada em todos os dispositivos, exceto quando o Workspace estiver em Personalizar para aquele dispositivo.</p>
       <div className="mt-2 grid sm:grid-cols-2 xl:grid-cols-5 gap-3">
         <label className={labelClass}>EXIBIÇÃO<select value={presentation.display || 'panel'} onChange={e => updateBase({ display: e.target.value as WorkspaceWidgetDisplay })} className={selectClass}><option value="panel">Painel</option><option value="button">Botão / popup</option></select></label>
         <label className={labelClass}>LARGURA<select value={presentation.width || 'full'} onChange={e => updateBase({ width: e.target.value as WorkspaceWidgetWidth })} className={selectClass}>{widthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className={labelClass}>ALTURA<select value={presentation.height || 'auto'} onChange={e => updateBase({ height: e.target.value as WorkspaceWidgetHeight })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className={labelClass}>VISUAL<select value={presentation.visual || 'standard'} onChange={e => updateBase({ visual: e.target.value as WorkspaceWidgetVisualStyle })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className={labelClass}>CABEÇALHO<select value={presentation.header || 'full'} onChange={e => updateBase({ header: e.target.value as WorkspaceWidgetHeaderStyle })} className={selectClass}>{headerOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className={labelClass}>LIMITE DE ALTURA<select value={presentation.height || 'auto'} onChange={e => updateBase({ height: e.target.value as WorkspaceWidgetHeight })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className={labelClass}>ESTILO<select value={presentation.visual || 'standard'} onChange={e => updateBase({ visual: e.target.value as WorkspaceWidgetVisualStyle })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+        <label className={labelClass}>TÍTULO DO WIDGET<select value={presentation.header || 'full'} onChange={e => updateBase({ header: e.target.value as WorkspaceWidgetHeaderStyle })} className={selectClass}>{headerOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </div>
     </div>
 
-    <div className="grid xl:grid-cols-3 gap-3">
-      <div className={`rounded-2xl border border-stone-200 bg-white p-3 ${desktopMode !== 'custom' ? 'opacity-70' : ''}`}>
-        <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-black uppercase tracking-wider text-stone-500">DESKTOP</p><span className="text-[8px] font-bold text-stone-400">Workspace: {desktopMode === 'custom' ? 'personalizar' : 'automático'}</span></div>
-        <label className={`${labelClass} mt-2 block`}>Estratégia<select value={desktop.mode || 'auto'} onChange={e => updateDevice('desktop', { mode: e.target.value })} className={selectClass}><option value="auto">Automático</option><option value="custom">Personalizar</option></select></label>
-        {desktop.mode === 'custom' && <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className={labelClass}>Exibição<select value={desktop.display === 'button' ? 'button' : 'panel'} onChange={e => updateDevice('desktop', { display: e.target.value })} className={selectClass}><option value="panel">Painel</option><option value="button">Botão / popup</option></select></label>
-          <label className={labelClass}>Largura<select value={desktop.width || presentation.width || 'full'} onChange={e => updateDevice('desktop', { width: e.target.value })} className={selectClass}>{widthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className={labelClass}>Altura<select value={desktop.height || presentation.height || 'auto'} onChange={e => updateDevice('desktop', { height: e.target.value })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className={labelClass}>Visual<select value={desktop.visual || presentation.visual || 'standard'} onChange={e => updateDevice('desktop', { visual: e.target.value })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+    {hasDeviceCustomizations && <div>
+      <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Personalizações por dispositivo</p>
+      <div className="mt-2 grid xl:grid-cols-3 gap-3">
+        {desktopMode === 'custom' && <div className="rounded-2xl border border-stone-200 bg-white p-3" data-widget-desktop-customization>
+          <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">DESKTOP</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className={labelClass}>Exibição<select value={desktop.display === 'button' ? 'button' : (presentation.display || 'panel')} onChange={e => updateDevice('desktop', { display: e.target.value })} className={selectClass}><option value="panel">Painel</option><option value="button">Botão / popup</option></select></label>
+            <label className={labelClass}>Largura<select value={desktop.width || presentation.width || 'full'} onChange={e => updateDevice('desktop', { width: e.target.value })} className={selectClass}>{widthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className={labelClass}>Limite de altura<select value={desktop.height || presentation.height || 'auto'} onChange={e => updateDevice('desktop', { height: e.target.value })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className={labelClass}>Estilo<select value={desktop.visual || presentation.visual || 'standard'} onChange={e => updateDevice('desktop', { visual: e.target.value })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          </div>
         </div>}
-      </div>
 
-      <div className={`rounded-2xl border border-stone-200 bg-stone-50 p-3 ${mobileMode !== 'custom' ? 'opacity-70' : ''}`}>
-        <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-black uppercase tracking-wider text-stone-500">MOBILE</p><span className="text-[8px] font-bold text-stone-400">Workspace: {mobileMode === 'custom' ? 'personalizar' : 'adaptar'}</span></div>
-        <label className={`${labelClass} mt-2 block`}>Estratégia<select value={mobile.mode || 'auto'} onChange={e => updateDevice('mobile', { mode: e.target.value })} className={selectClass}><option value="auto">Adaptar automaticamente</option><option value="custom">Personalizar</option></select></label>
-        {mobile.mode === 'custom' && <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className={labelClass}>Exibição<select value={mobile.display || 'panel'} onChange={e => updateDevice('mobile', { display: e.target.value })} className={selectClass}><option value="panel">Painel</option><option value="summary">Resumo</option><option value="button">Botão / popup</option></select></label>
-          <label className={labelClass}>Ordem<input type="number" value={mobile.order ?? widget.order ?? 0} onChange={e => updateDevice('mobile', { order: Number(e.target.value) })} className={selectClass} /></label>
-          <label className={labelClass}>Altura<select value={mobile.height || presentation.height || 'auto'} onChange={e => updateDevice('mobile', { height: e.target.value })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className={labelClass}>Visual<select value={mobile.visual || presentation.visual || 'standard'} onChange={e => updateDevice('mobile', { visual: e.target.value })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className="col-span-2 flex items-center gap-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={mobile.hidden === true} onChange={e => updateDevice('mobile', { hidden: e.target.checked })} /> Ocultar no celular</label>
+        {mobileMode === 'custom' && <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3" data-widget-mobile-customization>
+          <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">CELULAR</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className={labelClass}>Exibição<select value={mobile.display || presentation.display || 'panel'} onChange={e => updateDevice('mobile', { display: e.target.value })} className={selectClass}><option value="panel">Painel</option><option value="summary">Resumo</option><option value="button">Botão / popup</option></select></label>
+            <label className={labelClass}>Ordem<input type="number" value={mobile.order ?? widget.order ?? 0} onChange={e => updateDevice('mobile', { order: Number(e.target.value) })} className={selectClass} /></label>
+            <label className={labelClass}>Limite de altura<select value={mobile.height || presentation.height || 'auto'} onChange={e => updateDevice('mobile', { height: e.target.value })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className={labelClass}>Estilo<select value={mobile.visual || presentation.visual || 'standard'} onChange={e => updateDevice('mobile', { visual: e.target.value })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="col-span-2 flex items-center gap-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={mobile.hidden === true} onChange={e => updateDevice('mobile', { hidden: e.target.checked })} /> Ocultar no celular</label>
+          </div>
         </div>}
-      </div>
 
-      <div className={`rounded-2xl border border-stone-200 bg-slate-50 p-3 ${kdsMode !== 'custom' ? 'opacity-70' : ''}`}>
-        <div className="flex items-center justify-between gap-2"><p className="text-[9px] font-black uppercase tracking-wider text-slate-500">KDS / TV</p><span className="text-[8px] font-bold text-slate-400">Workspace: {kdsMode}</span></div>
-        {kdsSuitability.suitability !== 'supported' && <p className={`mt-2 rounded-xl border px-2 py-1.5 text-[9px] font-bold ${kdsSuitability.suitability === 'unsupported' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{kdsSuitability.suitability === 'unsupported' ? 'Incompatível no KDS automático: ' : 'Atenção no KDS: '}{kdsSuitability.reason}</p>}
-        <label className={`${labelClass} mt-2 block`}>Estratégia<select value={kds.mode || 'auto'} onChange={e => updateDevice('kds', { mode: e.target.value })} className={selectClass}><option value="auto">Adaptar automaticamente</option><option value="custom">Personalizar</option></select></label>
-        {kds.mode === 'custom' && <div className="mt-2 grid grid-cols-2 gap-2">
-          <label className={labelClass}>Largura<select value={kds.width || presentation.width || 'full'} onChange={e => updateDevice('kds', { width: e.target.value })} className={selectClass}>{widthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className={labelClass}>Ordem<input type="number" value={kds.order ?? widget.order ?? 0} onChange={e => updateDevice('kds', { order: Number(e.target.value) })} className={selectClass} /></label>
-          <label className={labelClass}>Altura<select value={kds.height || presentation.height || 'auto'} onChange={e => updateDevice('kds', { height: e.target.value })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className={labelClass}>Visual<select value={kds.visual || (kds.display === 'highlight' ? 'highlight' : presentation.visual || 'standard')} onChange={e => updateDevice('kds', { visual: e.target.value, display: 'panel' })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-          <label className="col-span-2 flex items-center gap-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={kds.hidden === true} onChange={e => updateDevice('kds', { hidden: e.target.checked })} /> Ocultar no KDS</label>
+        {kdsMode === 'custom' && <div className="rounded-2xl border border-stone-200 bg-slate-50 p-3" data-widget-kds-customization>
+          <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">KDS / TV</p>
+          {kdsSuitability.suitability !== 'supported' && <p className={`mt-2 rounded-xl border px-2 py-1.5 text-[9px] font-bold ${kdsSuitability.suitability === 'unsupported' ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>{kdsSuitability.suitability === 'unsupported' ? 'Incompatível no KDS: ' : 'Atenção no KDS: '}{kdsSuitability.reason}</p>}
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <label className={labelClass}>Largura<select value={kds.width || presentation.width || 'full'} onChange={e => updateDevice('kds', { width: e.target.value })} className={selectClass}>{widthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className={labelClass}>Ordem<input type="number" value={kds.order ?? widget.order ?? 0} onChange={e => updateDevice('kds', { order: Number(e.target.value) })} className={selectClass} /></label>
+            <label className={labelClass}>Limite de altura<select value={kds.height || presentation.height || 'auto'} onChange={e => updateDevice('kds', { height: e.target.value })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className={labelClass}>Estilo<select value={kds.visual || (kds.display === 'highlight' ? 'highlight' : presentation.visual || 'standard')} onChange={e => updateDevice('kds', { visual: e.target.value, display: 'panel' })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="col-span-2 flex items-center gap-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={kds.hidden === true} onChange={e => updateDevice('kds', { hidden: e.target.checked })} /> Ocultar no KDS</label>
+          </div>
         </div>}
       </div>
-    </div>
+    </div>}
   </div>;
 };
