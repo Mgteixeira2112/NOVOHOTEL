@@ -150,24 +150,72 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   const openWidgetPanel = (widgetId: string) => { if (!previewMode) setOpenWidgetId(widgetId); };
 
-  const renderWidget = (widget: WorkspaceWidgetDefinition, presentation: ResolvedWidgetPresentation) => {
+  const desktopGroups: Array<{ kind: 'single' | 'buttons' | 'full-panels'; items: typeof entries }> = [];
+  if (viewport === 'desktop') {
+    entries.forEach(entry => {
+      const isButton = entry.presentation.display === 'button';
+      const isFullPanel = !isButton && entry.presentation.width === 'full';
+      const kind = isButton ? 'buttons' : isFullPanel ? 'full-panels' : 'single';
+      const previous = desktopGroups[desktopGroups.length - 1];
+      if (kind !== 'single' && previous?.kind === kind) previous.items.push(entry);
+      else desktopGroups.push({ kind, items: [entry] });
+    });
+  }
+
+  const renderWidget = (
+    widget: WorkspaceWidgetDefinition,
+    presentation: ResolvedWidgetPresentation,
+    desktopStyle?: { suppressHeader?: boolean; connectedPanel?: boolean; buttonInStrip?: boolean },
+  ) => {
     const Renderer = getWorkspaceWidgetRenderer(widget.type);
     const isButton = !isKds && presentation.display === 'button';
     const isSummary = viewport === 'mobile' && presentation.display === 'summary';
     const headerStyle = presentation.header;
     const shellVisual = visualClass(presentation.visual);
+    const connectedPanelClass = desktopStyle?.connectedPanel ? '[&>*]:!rounded-none [&>*]:!border-0 [&>*]:!shadow-none' : '';
+    const buttonSectionClass = desktopStyle?.buttonInStrip ? 'min-w-[14rem] flex-1' : '';
+    const buttonClass = desktopStyle?.buttonInStrip
+      ? 'group flex min-h-20 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50/40'
+      : 'group flex min-h-24 w-full items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md';
 
-    return <section className={`${heightClass(presentation.height)} ${shellVisual}`} data-workspace-widget={widget.type} data-widget-id={widget.id} data-widget-display={isButton ? 'button' : isSummary ? 'summary' : 'panel'} data-widget-width={presentation.width} data-widget-height={presentation.height} data-widget-visual={presentation.visual} data-widget-header={headerStyle}>
-      {headerStyle !== 'hidden' && !isButton && !isSummary && <div className={`mb-2 flex items-end justify-between gap-3 px-1 ${isKds ? 'text-white' : 'text-slate-900'}`} data-widget-presentation-header>
+    return <section className={`${heightClass(presentation.height)} ${shellVisual} ${connectedPanelClass} ${buttonSectionClass}`} data-workspace-widget={widget.type} data-widget-id={widget.id} data-widget-display={isButton ? 'button' : isSummary ? 'summary' : 'panel'} data-widget-width={presentation.width} data-widget-height={presentation.height} data-widget-visual={presentation.visual} data-widget-header={headerStyle}>
+      {!desktopStyle?.suppressHeader && headerStyle !== 'hidden' && !isButton && !isSummary && <div className={`mb-2 flex items-end justify-between gap-3 px-1 ${isKds ? 'text-white' : 'text-slate-900'}`} data-widget-presentation-header>
         <div className="min-w-0">
           {headerStyle === 'full' && <p className={`text-[9px] font-black uppercase tracking-wider ${isKds ? 'text-amber-300' : 'text-amber-700'}`}>{widget.type}</p>}
           <h2 className={`${headerStyle === 'compact' ? 'text-xs' : 'text-sm'} truncate font-black`}>{widget.title || widget.type}</h2>
         </div>
       </div>}
-      {isButton ? <button type="button" onClick={() => openWidgetPanel(widget.id)} className="group flex min-h-24 w-full items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md" aria-haspopup="dialog"><div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Abrir widget</p><h2 className="mt-1 truncate text-sm font-black text-slate-900">{widget.title || widget.type}</h2><p className="mt-1 text-[10px] text-slate-500">Exibição em janela</p></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-slate-950 text-white transition group-hover:bg-amber-500 group-hover:text-slate-950"><ExternalLink className="h-4 w-4" /></span></button>
+      {isButton ? <button type="button" onClick={() => openWidgetPanel(widget.id)} className={buttonClass} aria-haspopup="dialog"><div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Abrir widget</p><h2 className="mt-1 truncate text-sm font-black text-slate-900">{widget.title || widget.type}</h2><p className="mt-1 text-[10px] text-slate-500">Exibição em janela</p></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-slate-950 text-white transition group-hover:bg-amber-500 group-hover:text-slate-950"><ExternalLink className="h-4 w-4" /></span></button>
         : isSummary ? <button type="button" onClick={() => openWidgetPanel(widget.id)} className="flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm" aria-haspopup="dialog" data-widget-mobile-summary><div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Resumo</p><h2 className="truncate text-sm font-black text-slate-900">{widget.title || widget.type}</h2><p className="mt-1 text-[10px] text-slate-500">Toque para ver o painel completo</p></div><ExternalLink className="h-4 w-4 shrink-0 text-slate-500" /></button>
           : Renderer ? <Renderer workspace={definition} widget={widget} /> : <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-5 text-slate-950"><p className="text-[10px] font-black uppercase tracking-wider text-amber-700">Widget aguardando renderer</p><h2 className="mt-1 text-sm font-black">{widget.title || widget.type}</h2></div>}
     </section>;
+  };
+
+  const renderDesktopGroup = (group: (typeof desktopGroups)[number], index: number) => {
+    const first = group.items[0];
+    if (!first) return null;
+
+    if (group.kind === 'buttons' && group.items.length > 1) {
+      return <MasonryCell key={`desktop-buttons-${first.widget.id}-${index}`} width="full">
+        <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm" data-desktop-button-strip>
+          <div className="flex flex-wrap gap-2">
+            {group.items.map(({ widget, presentation }) => <React.Fragment key={widget.id}>{renderWidget(widget, presentation, { buttonInStrip: true })}</React.Fragment>)}
+          </div>
+        </div>
+      </MasonryCell>;
+    }
+
+    if (group.kind === 'full-panels' && group.items.length > 1) {
+      return <MasonryCell key={`desktop-panels-${first.widget.id}-${index}`} width="full">
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200" data-desktop-connected-stack>
+          {group.items.map(({ widget, presentation }) => <div key={widget.id} className="min-w-0 bg-white" data-desktop-connected-item>
+            {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
+          </div>)}
+        </div>
+      </MasonryCell>;
+    }
+
+    return <MasonryCell key={first.widget.id} width={first.presentation.width}>{renderWidget(first.widget, first.presentation)}</MasonryCell>;
   };
 
   return <div className={`${kdsShellClass} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`} data-workspace-runtime="widget-driven" data-workspace-id={definition.id} data-workspace-viewport={viewport} data-workspace-device-mode={deviceMode} data-workspace-preview={previewMode ? 'true' : undefined} data-kds-orientation={isKds ? kdsOrientation : undefined} data-kds-density={isKds ? kdsDensity : undefined} data-kds-viewing-distance={isKds ? kdsDistance : undefined} data-kds-fullscreen={isKds ? String(kds?.fullscreen === true) : undefined} data-kds-realtime={isKds ? String(realtimeEnabled) : undefined} data-kds-admin-controls-hidden={isKds ? String(!showAdministrativeControls) : undefined} data-kds-editing-controls-hidden={isKds ? String(!showEditingControls) : undefined}>
@@ -191,9 +239,9 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
       </div>
     </header>
     {isKdsDisabled ? <main className="mx-auto grid min-h-[50vh] max-w-[1800px] place-items-center p-8"><div className="max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center"><p className="text-xs font-black uppercase tracking-wider text-amber-300">KDS / TV</p><h2 className="mt-2 text-2xl font-black text-white">Apresentação desativada</h2><p className="mt-2 text-sm text-slate-300">Ative ou personalize o KDS na Fábrica de Workspaces.</p></div></main> : <main className={`mx-auto max-w-[1800px] ${viewport === 'mobile' ? 'flex flex-col gap-4 p-4' : isKds ? `${kdsGridClass} ${kdsDensityClass}` : 'grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-4 md:auto-rows-[8px] md:[grid-auto-flow:dense] xl:grid-cols-12'}`}>
-      {entries.map(({ widget, presentation }) => viewport === 'desktop'
-        ? <MasonryCell key={widget.id} width={presentation.width}>{renderWidget(widget, presentation)}</MasonryCell>
-        : <div key={widget.id} className={isKds ? kdsSpanClass(presentation.width, kdsOrientation) : ''}>{renderWidget(widget, presentation)}</div>)}
+      {viewport === 'desktop'
+        ? desktopGroups.map(renderDesktopGroup)
+        : entries.map(({ widget, presentation }) => <div key={widget.id} className={isKds ? kdsSpanClass(presentation.width, kdsOrientation) : ''}>{renderWidget(widget, presentation)}</div>)}
     </main>}
     {openWidget && !previewMode && typeof document !== 'undefined' && createPortal(<div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={openWidget.title || openWidget.type} onMouseDown={event => { if (event.target === event.currentTarget) setOpenWidgetId(null); }}><div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[1600px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"><div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 sm:px-5"><div><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Widget</p><h2 className="text-sm font-black text-slate-900">{openWidget.title || openWidget.type}</h2></div><button type="button" onClick={() => setOpenWidgetId(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" aria-label="Fechar widget"><X className="h-4 w-4" /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">{OpenRenderer ? <OpenRenderer workspace={definition} widget={openWidget} /> : null}</div></div></div>, document.body)}
   </div>;
