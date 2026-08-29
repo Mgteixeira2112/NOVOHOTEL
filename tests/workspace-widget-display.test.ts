@@ -16,8 +16,10 @@ test('contrato de largura preserva tamanhos existentes e adiciona modo botão', 
   assert.match(editor, /Botão \/ popup/);
 });
 
-test('modo botão não monta o renderer inline e abre o widget em dialog', () => {
-  assert.match(runtime, /const isButton = widget\.span === 'button'/);
+test('modo botão preserva o span e aceita override mobile sem montar renderer inline', () => {
+  assert.match(runtime, /const mobileDisplay = widget\.presentation\?\.mobile\?\.display/);
+  assert.match(runtime, /widget\.span === 'button'/);
+  assert.match(runtime, /viewport === 'mobile' && mobileDisplay === 'button'/);
   assert.match(runtime, /setOpenWidgetId\(widget\.id\)/);
   assert.match(runtime, /aria-haspopup="dialog"/);
   assert.match(runtime, /role="dialog"/);
