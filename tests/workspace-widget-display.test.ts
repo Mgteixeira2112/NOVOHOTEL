@@ -8,16 +8,18 @@ const editor = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'u
 
 test('contrato de largura preserva tamanhos existentes e adiciona modo botão', () => {
   assert.match(types, /WorkspaceWidgetSpan = 1 \| 2 \| 3 \| 4 \| 'full' \| 'button'/);
-  assert.match(editor, /Compacto/);
-  assert.match(editor, /Médio/);
+  assert.match(editor, /Pequena/);
+  assert.match(editor, /Média/);
   assert.match(editor, /Grande/);
   assert.match(editor, /Extra grande/);
   assert.match(editor, /Largura total/);
   assert.match(editor, /Botão \/ popup/);
 });
 
-test('modo botão não monta o renderer inline e abre o widget em dialog', () => {
-  assert.match(runtime, /const isButton = widget\.span === 'button'/);
+test('modo botão preserva o span e aceita override mobile sem montar renderer inline', () => {
+  assert.match(runtime, /const mobileDisplay = widget\.presentation\?\.mobile\?\.display/);
+  assert.match(runtime, /widget\.span === 'button'/);
+  assert.match(runtime, /viewport === 'mobile' && mobileDisplay === 'button'/);
   assert.match(runtime, /setOpenWidgetId\(widget\.id\)/);
   assert.match(runtime, /aria-haspopup="dialog"/);
   assert.match(runtime, /role="dialog"/);
