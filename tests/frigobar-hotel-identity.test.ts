@@ -9,6 +9,7 @@ test('frigobar resolve hotel id pela fonte canônica quando config json não pos
   assert.match(identity, /from\('hotel_config'\)/);
   assert.match(identity, /select\('id'\)/);
   assert.match(widget, /hotelIdentityService\.getActiveHotelId\(hotelConfig\.id\)/);
-  assert.doesNotMatch(widget, /hotelConfig\.id \|\| ''/);
+  assert.match(widget, /setHotelId\(id\)/);
+  assert.doesNotMatch(widget, /default_hotel/);
   assert.doesNotMatch(widget, /não possui ID Supabase disponível/);
 });
