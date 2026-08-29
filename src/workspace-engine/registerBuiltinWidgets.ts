@@ -7,6 +7,7 @@ import { ReservationsWidget } from './widgets/ReservationsWidget';
 import { OccupancyCalendarWidget } from './widgets/OccupancyCalendarWidget';
 import { DashboardWidget } from './widgets/DashboardWidget';
 import { StayFinanceWidget } from './widgets/StayFinanceWidget';
+import { FrigobarWidget } from './widgets/FrigobarWidget';
 
 let registered = false;
 
@@ -15,6 +16,7 @@ export const registerBuiltinWorkspaceWidgets = () => {
   registered = true;
   registerWorkspaceWidgetRenderer('dashboard', DashboardWidget);
   registerWorkspaceWidgetRenderer('stay-finance', StayFinanceWidget);
+  registerWorkspaceWidgetRenderer('frigobar', FrigobarWidget);
   registerWorkspaceWidgetRenderer('task-kanban', TaskKanbanWidget);
   registerWorkspaceWidgetRenderer('room-map', ReceptionRoomMapWidget);
   registerWorkspaceWidgetRenderer('guests', GuestsWidget);
