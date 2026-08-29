@@ -217,7 +217,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
               </div>
             : segment.items.map(({ widget, presentation }) => <div key={widget.id} className="min-w-0 bg-white" data-desktop-connected-item>
                 {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
-              </div>)}
+              </div>))}
         </div>
       </MasonryCell>;
     }
