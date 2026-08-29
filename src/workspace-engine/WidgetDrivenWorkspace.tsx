@@ -150,17 +150,19 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   const openWidgetPanel = (widgetId: string) => { if (!previewMode) setOpenWidgetId(widgetId); };
 
+  const desktopButtons = viewport === 'desktop' ? entries.filter(entry => entry.presentation.display === 'button') : [];
+  const desktopEntries = viewport === 'desktop' ? entries.filter(entry => entry.presentation.display !== 'button') : entries;
   const desktopGroups: Array<{ kind: 'single' | 'surface'; items: typeof entries }> = [];
   if (viewport === 'desktop') {
-    entries.forEach(entry => {
-      const isButton = entry.presentation.display === 'button';
-      const isFullPanel = !isButton && entry.presentation.width === 'full';
-      const kind = isButton || isFullPanel ? 'surface' : 'single';
+    desktopEntries.forEach(entry => {
+      const isFullPanel = entry.presentation.width === 'full';
+      const kind = isFullPanel ? 'surface' : 'single';
       const previous = desktopGroups[desktopGroups.length - 1];
       if (kind === 'surface' && previous?.kind === 'surface') previous.items.push(entry);
       else desktopGroups.push({ kind, items: [entry] });
     });
   }
+  const buttonSurfaceIndex = desktopGroups.findIndex(group => group.kind === 'surface');
 
   const renderWidget = (
     widget: WorkspaceWidgetDefinition,
@@ -173,7 +175,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     const headerStyle = presentation.header;
     const shellVisual = visualClass(presentation.visual);
     const connectedPanelClass = desktopStyle?.connectedPanel ? '[&>*]:!rounded-none [&>*]:!border-0 [&>*]:!shadow-none' : '';
-    const buttonSectionClass = desktopStyle?.buttonInStrip ? 'min-w-0' : '';
+    const buttonSectionClass = desktopStyle?.buttonInStrip ? 'min-w-[12rem] flex-1' : '';
     const buttonClass = desktopStyle?.buttonInStrip
       ? 'group flex min-h-20 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50/40'
       : 'group flex min-h-24 w-full items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md';
@@ -191,33 +193,30 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     </section>;
   };
 
+  const renderButtonStrip = () => desktopButtons.length ? <div className="bg-white p-2" data-desktop-button-strip>
+    <div className="flex w-full flex-nowrap gap-2 overflow-x-auto">
+      {desktopButtons.map(({ widget, presentation }) => <React.Fragment key={widget.id}>{renderWidget(widget, presentation, { buttonInStrip: true })}</React.Fragment>)}
+    </div>
+  </div> : null;
+
   const renderDesktopGroup = (group: (typeof desktopGroups)[number], index: number) => {
     const first = group.items[0];
     if (!first) return null;
 
     if (group.kind === 'surface') {
-      const segments: Array<{ kind: 'buttons' | 'panel'; items: typeof entries }> = [];
-      group.items.forEach(entry => {
-        if (entry.presentation.display === 'button') {
-          const previous = segments[segments.length - 1];
-          if (previous?.kind === 'buttons') previous.items.push(entry);
-          else segments.push({ kind: 'buttons', items: [entry] });
-        } else {
-          segments.push({ kind: 'panel', items: [entry] });
-        }
-      });
+      const insertButtonsHere = index === buttonSurfaceIndex && desktopButtons.length > 0;
+      const preferredIndex = group.items.reduce((lastIndex, entry, itemIndex) =>
+        entry.widget.type === 'metrics' || entry.widget.type === 'alerts' ? itemIndex : lastIndex, -1);
+      const buttonInsertAfter = preferredIndex >= 0 ? preferredIndex : 0;
 
       return <MasonryCell key={`desktop-surface-${first.widget.id}-${index}`} width="full">
         <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200" data-desktop-connected-surface>
-          {segments.map((segment, segmentIndex) => segment.kind === 'buttons'
-            ? <div key={`buttons-${segmentIndex}`} className="bg-white p-2" data-desktop-button-strip>
-                <div className="grid w-full gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
-                  {segment.items.map(({ widget, presentation }) => <React.Fragment key={widget.id}>{renderWidget(widget, presentation, { buttonInStrip: true })}</React.Fragment>)}
-                </div>
-              </div>
-            : segment.items.map(({ widget, presentation }) => <div key={widget.id} className="min-w-0 bg-white" data-desktop-connected-item>
-                {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
-              </div>))}
+          {group.items.map(({ widget, presentation }, itemIndex) => <React.Fragment key={widget.id}>
+            <div className="min-w-0 bg-white" data-desktop-connected-item>
+              {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
+            </div>
+            {insertButtonsHere && itemIndex === buttonInsertAfter ? renderButtonStrip() : null}
+          </React.Fragment>)}
         </div>
       </MasonryCell>;
     }
