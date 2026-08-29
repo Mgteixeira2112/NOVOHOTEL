@@ -6,7 +6,7 @@ const editor = readFileSync('src/components/admin/WorkspaceDesktopLayoutEditor.t
 const general = readFileSync('src/components/admin/WorkspaceGeneralPresentationControls.tsx', 'utf8');
 
 test('editor visual Desktop usa somente ordem e largura já existentes no contrato', () => {
-  assert.match(editor, /widget\.order/);
+  assert.match(editor, /a\.order \?\? 0.*b\.order \?\? 0/);
   assert.match(editor, /presentation: \{ \.\.\.widget\.presentation, width \}/);
   assert.match(editor, /legacySpanToWidth\(widget\.span\)/);
   assert.doesNotMatch(editor, /supabase|migration|localStorage|fetch\(/i);
