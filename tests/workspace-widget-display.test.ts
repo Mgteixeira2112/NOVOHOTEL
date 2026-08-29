@@ -8,8 +8,8 @@ const editor = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'u
 
 test('contrato de largura preserva tamanhos existentes e adiciona modo botão', () => {
   assert.match(types, /WorkspaceWidgetSpan = 1 \| 2 \| 3 \| 4 \| 'full' \| 'button'/);
-  assert.match(editor, /Compacto/);
-  assert.match(editor, /Médio/);
+  assert.match(editor, /Pequena/);
+  assert.match(editor, /Média/);
   assert.match(editor, /Grande/);
   assert.match(editor, /Extra grande/);
   assert.match(editor, /Largura total/);
