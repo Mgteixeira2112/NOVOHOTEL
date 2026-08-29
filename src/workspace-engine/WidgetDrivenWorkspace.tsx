@@ -150,14 +150,14 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   const openWidgetPanel = (widgetId: string) => { if (!previewMode) setOpenWidgetId(widgetId); };
 
-  const desktopGroups: Array<{ kind: 'single' | 'buttons' | 'full-panels'; items: typeof entries }> = [];
+  const desktopGroups: Array<{ kind: 'single' | 'surface'; items: typeof entries }> = [];
   if (viewport === 'desktop') {
     entries.forEach(entry => {
       const isButton = entry.presentation.display === 'button';
       const isFullPanel = !isButton && entry.presentation.width === 'full';
-      const kind = isButton ? 'buttons' : isFullPanel ? 'full-panels' : 'single';
+      const kind = isButton || isFullPanel ? 'surface' : 'single';
       const previous = desktopGroups[desktopGroups.length - 1];
-      if (kind !== 'single' && previous?.kind === kind) previous.items.push(entry);
+      if (kind === 'surface' && previous?.kind === 'surface') previous.items.push(entry);
       else desktopGroups.push({ kind, items: [entry] });
     });
   }
@@ -173,7 +173,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     const headerStyle = presentation.header;
     const shellVisual = visualClass(presentation.visual);
     const connectedPanelClass = desktopStyle?.connectedPanel ? '[&>*]:!rounded-none [&>*]:!border-0 [&>*]:!shadow-none' : '';
-    const buttonSectionClass = desktopStyle?.buttonInStrip ? 'min-w-[14rem] flex-1' : '';
+    const buttonSectionClass = desktopStyle?.buttonInStrip ? 'min-w-0' : '';
     const buttonClass = desktopStyle?.buttonInStrip
       ? 'group flex min-h-20 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 text-left transition hover:border-amber-300 hover:bg-amber-50/40'
       : 'group flex min-h-24 w-full items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md';
@@ -195,22 +195,29 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     const first = group.items[0];
     if (!first) return null;
 
-    if (group.kind === 'buttons' && group.items.length > 1) {
-      return <MasonryCell key={`desktop-buttons-${first.widget.id}-${index}`} width="full">
-        <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm" data-desktop-button-strip>
-          <div className="flex flex-wrap gap-2">
-            {group.items.map(({ widget, presentation }) => <React.Fragment key={widget.id}>{renderWidget(widget, presentation, { buttonInStrip: true })}</React.Fragment>)}
-          </div>
-        </div>
-      </MasonryCell>;
-    }
+    if (group.kind === 'surface') {
+      const segments: Array<{ kind: 'buttons' | 'panel'; items: typeof entries }> = [];
+      group.items.forEach(entry => {
+        if (entry.presentation.display === 'button') {
+          const previous = segments[segments.length - 1];
+          if (previous?.kind === 'buttons') previous.items.push(entry);
+          else segments.push({ kind: 'buttons', items: [entry] });
+        } else {
+          segments.push({ kind: 'panel', items: [entry] });
+        }
+      });
 
-    if (group.kind === 'full-panels' && group.items.length > 1) {
-      return <MasonryCell key={`desktop-panels-${first.widget.id}-${index}`} width="full">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200" data-desktop-connected-stack>
-          {group.items.map(({ widget, presentation }) => <div key={widget.id} className="min-w-0 bg-white" data-desktop-connected-item>
-            {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
-          </div>)}
+      return <MasonryCell key={`desktop-surface-${first.widget.id}-${index}`} width="full">
+        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200" data-desktop-connected-surface>
+          {segments.map((segment, segmentIndex) => segment.kind === 'buttons'
+            ? <div key={`buttons-${segmentIndex}`} className="bg-white p-2" data-desktop-button-strip>
+                <div className="grid w-full gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(14rem, 1fr))' }}>
+                  {segment.items.map(({ widget, presentation }) => <React.Fragment key={widget.id}>{renderWidget(widget, presentation, { buttonInStrip: true })}</React.Fragment>)}
+                </div>
+              </div>
+            : segment.items.map(({ widget, presentation }) => <div key={widget.id} className="min-w-0 bg-white" data-desktop-connected-item>
+                {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
+              </div>))}
         </div>
       </MasonryCell>;
     }
