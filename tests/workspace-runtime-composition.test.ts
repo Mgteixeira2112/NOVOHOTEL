@@ -17,16 +17,18 @@ test('WorkspaceRuntime usa sempre o canvas dirigido pela composição de widgets
   assert.doesNotMatch(runtimeSource, /ReceptionWorkspaceShared/);
 });
 
-test('canvas renderiza somente widgets ativos, visíveis e na ordem da definição', () => {
+test('canvas renderiza somente widgets ativos, visíveis e na ordem da apresentação resolvida', () => {
   assert.match(canvasSource, /normalizeWorkspaceWidgets\(definition\.widgets\)/);
   assert.match(canvasSource, /widget\.enabled !== false && widget\.permissions\?\.view !== false/);
-  assert.match(canvasSource, /widgets\.map\(widget =>/);
+  assert.match(canvasSource, /resolveWidgetPresentation\(definition, widget, viewport\)/);
+  assert.match(canvasSource, /entries\.map\(\(\{ widget, presentation \}\) =>/);
   assert.match(canvasSource, /data-widget-id=\{widget\.id\}/);
 });
 
-test('normalização preserva widgets desativados e mantém ordem configurada', () => {
+test('normalização preserva widgets desativados, apresentação e ordem configurada', () => {
   assert.doesNotMatch(catalogSource, /filter\(widget => widget\.enabled !== false\)/);
   assert.match(catalogSource, /enabled: widget\.enabled !== false/);
+  assert.match(catalogSource, /presentation: normalizeWidgetPresentation/);
   assert.match(catalogSource, /sort\(\(a, b\) => \(a\.order \?\? 0\) - \(b\.order \?\? 0\)\)/);
 });
 

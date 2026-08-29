@@ -4,23 +4,29 @@ import test from 'node:test';
 
 const types = readFileSync('src/workspace-engine/types.ts', 'utf8');
 const runtime = readFileSync('src/workspace-engine/WidgetDrivenWorkspace.tsx', 'utf8');
-const editor = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'utf8');
+const presentation = readFileSync('src/workspace-engine/presentation.ts', 'utf8');
+const controls = readFileSync('src/components/admin/WorkspaceWidgetPresentationControls.tsx', 'utf8');
 
-test('contrato de largura preserva tamanhos existentes e adiciona modo botão', () => {
+test('largura e modo de exibição são contratos independentes e span fica apenas como legado', () => {
+  assert.match(types, /WorkspaceWidgetDisplay = 'panel' \| 'button'/);
+  assert.match(types, /WorkspaceWidgetWidth = 'small' \| 'medium' \| 'large' \| 'full'/);
+  assert.match(types, /Legacy layout contract kept only for persisted definitions/);
   assert.match(types, /WorkspaceWidgetSpan = 1 \| 2 \| 3 \| 4 \| 'full' \| 'button'/);
-  assert.match(editor, /Pequena/);
-  assert.match(editor, /Média/);
-  assert.match(editor, /Grande/);
-  assert.match(editor, /Extra grande/);
-  assert.match(editor, /Largura total/);
-  assert.match(editor, /Botão \/ popup/);
+  assert.match(controls, /EXIBIÇÃO/);
+  assert.match(controls, /LARGURA/);
+  assert.match(controls, /Pequena/);
+  assert.match(controls, /Média/);
+  assert.match(controls, /Grande/);
+  assert.match(controls, /Total/);
+  assert.match(controls, /Botão \/ popup/);
 });
 
-test('modo botão preserva o span e aceita override mobile sem montar renderer inline', () => {
-  assert.match(runtime, /const mobileDisplay = widget\.presentation\?\.mobile\?\.display/);
-  assert.match(runtime, /widget\.span === 'button'/);
-  assert.match(runtime, /viewport === 'mobile' && mobileDisplay === 'button'/);
-  assert.match(runtime, /setOpenWidgetId\(widget\.id\)/);
+test('definições antigas com span button continuam legíveis sem misturar largura e display novos', () => {
+  assert.match(presentation, /legacySpan === 'button' \? 'button' : 'panel'/);
+  assert.match(presentation, /legacySpanToWidth\(legacySpan\)/);
+  assert.match(runtime, /presentation\.display === 'button'/);
+  assert.match(runtime, /presentation\.width/);
+  assert.match(runtime, /setOpenWidgetId\(widgetId\)/);
   assert.match(runtime, /aria-haspopup="dialog"/);
   assert.match(runtime, /role="dialog"/);
   assert.match(runtime, /aria-modal="true"/);
@@ -34,4 +40,5 @@ test('popup é isolado do header e possui formas seguras de fechamento', () => {
   assert.match(runtime, /event\.target === event\.currentTarget/);
   assert.match(runtime, /aria-label="Fechar widget"/);
   assert.match(runtime, /document\.body\.style\.overflow = 'hidden'/);
+  assert.match(runtime, /!previewMode/);
 });

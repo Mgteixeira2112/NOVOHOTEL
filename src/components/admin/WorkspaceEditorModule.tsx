@@ -2,24 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Cloud, CloudOff, Copy, Eye, EyeOff, LayoutTemplate, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { OPERATIONAL_SECTORS, OperationalSectorId } from '../../domain/operationalSectors';
+import { getWorkspaceDeviceMode } from '../../workspace-engine/presentation';
 import { getAllWorkspaceDefinitions, workspaceRegistry } from '../../workspace-engine/registry';
-import { WorkspaceDefinition, WorkspaceWidgetDefinition, WorkspaceWidgetSpan, WorkspaceWidgetType } from '../../workspace-engine/types';
+import { WorkspaceDefinition, WorkspaceWidgetDefinition, WorkspaceWidgetType } from '../../workspace-engine/types';
 import { createWorkspaceWidget, getWidgetAvailability, getWidgetCatalogItem, normalizeWorkspaceWidgets, WorkspaceWidgetReadiness, workspaceWidgetCatalog } from '../../workspace-engine/widgetCatalog';
 import { createWorkspaceDefinition, defaultBoardForSector, duplicateWorkspaceDefinition, setWorkspaceSectorAndBoard, WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, resetWorkspaceOverride, saveWorkspaceOverride } from '../../workspace-engine/workspaceConfigStore';
 import { defaultRoomMapActionsForSector } from '../../workspace-engine/widgets/roomMapWidgetPresentation';
 import { KanbanWidgetAutomationEditor } from './KanbanWidgetAutomationEditor';
 import { RoomMapWidgetEditor } from './RoomMapWidgetEditor';
+import { WorkspaceGeneralPresentationControls } from './WorkspaceGeneralPresentationControls';
+import { WorkspacePreviewPanel } from './WorkspacePreviewPanel';
+import { WorkspaceWidgetPresentationControls } from './WorkspaceWidgetPresentationControls';
 
-const spanOptions: WorkspaceWidgetSpan[] = [1, 2, 3, 4, 'full', 'button'];
-const spanLabels: Record<WorkspaceWidgetSpan, string> = {
-  1: 'Pequena',
-  2: 'Média',
-  3: 'Grande',
-  4: 'Extra grande',
-  full: 'Largura total',
-  button: 'Botão / popup',
-};
 const categoryLabels = { operacao: 'Operação', dados: 'Dados do hotel', equipe: 'Equipe', atalhos: 'Atalhos' } as const;
 const readinessLabels: Record<WorkspaceWidgetReadiness, string> = {
   ready: 'Pronto',
@@ -64,7 +59,6 @@ export const WorkspaceEditorModule: React.FC = () => {
 
   const updateSelected = (patch: Partial<WorkspaceDefinition>) => setDefinitions(current => current.map(item => item.id === selectedId ? { ...item, ...patch } : item));
   const updateWidget = (widgetId: string, patch: Partial<WorkspaceWidgetDefinition>) => selected && updateSelected({ widgets: selected.widgets.map(widget => widget.id === widgetId ? { ...widget, ...patch } : widget) });
-  const updateWidgetPresentation = (widget: WorkspaceWidgetDefinition, patch: NonNullable<WorkspaceWidgetDefinition['presentation']>) => updateWidget(widget.id, { presentation: { ...widget.presentation, ...patch } });
   const moveWidget = (widgetId: string, direction: -1 | 1) => {
     if (!selected) return;
     const widgets = [...selected.widgets].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
@@ -139,8 +133,9 @@ export const WorkspaceEditorModule: React.FC = () => {
 
   if (!selected) return <div className="rounded-3xl border border-stone-200 bg-white p-8"><button onClick={() => void createNew()} className="rounded-xl bg-stone-950 px-4 py-2 text-xs font-black text-white">Criar primeiro Workspace</button></div>;
 
-  const header = selected.presentation?.header || {};
-  const kds = selected.presentation?.kds || {};
+  const desktopMode = getWorkspaceDeviceMode(selected, 'desktop');
+  const mobileMode = getWorkspaceDeviceMode(selected, 'mobile');
+  const kdsMode = getWorkspaceDeviceMode(selected, 'kds');
 
   return <div className="space-y-5">
     <div className="rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
@@ -177,27 +172,8 @@ export const WorkspaceEditorModule: React.FC = () => {
           {!isBaseWorkspace && <div className="sm:col-span-2 flex justify-end"><button disabled={saving} onClick={() => void removeCustom()} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-black text-rose-700 disabled:opacity-50"><Trash2 className="w-4 h-4" /> Excluir Workspace personalizado</button></div>}
         </div>
 
-        <div className="rounded-3xl border border-stone-200 bg-white p-5">
-          <div><h3 className="text-sm font-black text-stone-900">Aparência do Workspace</h3><p className="mt-1 text-[10px] text-stone-500">Cabeçalho permanente e estratégia KDS / TV são configuração visual do Workspace.</p></div>
-          <div className="mt-4 grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
-            <label className="text-xs font-bold text-stone-600">Fuso horário<input value={header.timezone || 'America/Sao_Paulo'} onChange={e => updateSelected({ presentation: { ...selected.presentation, header: { ...header, timezone: e.target.value } } })} className="mt-2 w-full h-9 rounded-xl border border-stone-200 px-3" /></label>
-            <label className="text-xs font-bold text-stone-600">Formato da hora<select value={header.hourFormat || '24h'} onChange={e => updateSelected({ presentation: { ...selected.presentation, header: { ...header, hourFormat: e.target.value as '24h' | '12h' } } })} className="mt-2 w-full h-9 rounded-xl border border-stone-200 px-3 bg-white"><option value="24h">24 horas</option><option value="12h">12 horas</option></select></label>
-            <label className="flex items-center gap-2 text-xs font-bold text-stone-600"><input type="checkbox" checked={header.showDate !== false} onChange={e => updateSelected({ presentation: { ...selected.presentation, header: { ...header, showDate: e.target.checked } } })} /> Mostrar data</label>
-            <label className="flex items-center gap-2 text-xs font-bold text-stone-600"><input type="checkbox" checked={header.showTime !== false} onChange={e => updateSelected({ presentation: { ...selected.presentation, header: { ...header, showTime: e.target.checked } } })} /> Mostrar hora</label>
-            <label className="flex items-center gap-2 text-xs font-bold text-stone-600"><input type="checkbox" checked={header.showWorkspace !== false} onChange={e => updateSelected({ presentation: { ...selected.presentation, header: { ...header, showWorkspace: e.target.checked } } })} /> Nome do Workspace</label>
-            <label className="flex items-center gap-2 text-xs font-bold text-stone-600"><input type="checkbox" checked={header.showUser !== false} onChange={e => updateSelected({ presentation: { ...selected.presentation, header: { ...header, showUser: e.target.checked } } })} /> Usuário</label>
-          </div>
-          <div className="mt-5 border-t border-stone-200 pt-4">
-            <label className="flex items-center gap-2 text-xs font-black text-stone-800"><input type="checkbox" checked={kds.enabled === true} onChange={e => updateSelected({ presentation: { ...selected.presentation, kds: { ...kds, enabled: e.target.checked } } })} /> Habilitar modo KDS / TV</label>
-            {kds.enabled && <div className="mt-4 grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-              <label className="text-xs font-bold text-stone-600">Orientação<select value={kds.orientation || 'landscape'} onChange={e => updateSelected({ presentation: { ...selected.presentation, kds: { ...kds, orientation: e.target.value as 'landscape' | 'portrait' } } })} className="mt-2 w-full h-9 rounded-xl border border-stone-200 px-3 bg-white"><option value="landscape">Horizontal</option><option value="portrait">Vertical</option></select></label>
-              <label className="text-xs font-bold text-stone-600">Densidade<select value={kds.density || 'normal'} onChange={e => updateSelected({ presentation: { ...selected.presentation, kds: { ...kds, density: e.target.value as 'compact' | 'normal' | 'large' } } })} className="mt-2 w-full h-9 rounded-xl border border-stone-200 px-3 bg-white"><option value="compact">Compacta</option><option value="normal">Normal</option><option value="large">Ampliada</option></select></label>
-              <label className="text-xs font-bold text-stone-600">Distância de visualização<select value={kds.viewingDistance || 'medium'} onChange={e => updateSelected({ presentation: { ...selected.presentation, kds: { ...kds, viewingDistance: e.target.value as 'near' | 'medium' | 'far' } } })} className="mt-2 w-full h-9 rounded-xl border border-stone-200 px-3 bg-white"><option value="near">Próxima</option><option value="medium">Média</option><option value="far">Longa</option></select></label>
-              <label className="flex items-center gap-2 text-xs font-bold text-stone-600"><input type="checkbox" checked={kds.fullscreen === true} onChange={e => updateSelected({ presentation: { ...selected.presentation, kds: { ...kds, fullscreen: e.target.checked } } })} /> Tela cheia</label>
-              <label className="flex items-center gap-2 text-xs font-bold text-stone-600"><input type="checkbox" checked={kds.hideAdministrativeControls !== false} onChange={e => updateSelected({ presentation: { ...selected.presentation, kds: { ...kds, hideAdministrativeControls: e.target.checked } } })} /> Ocultar controles administrativos</label>
-            </div>}
-          </div>
-        </div>
+        <WorkspaceGeneralPresentationControls definition={selected} onChange={updateSelected} />
+        <WorkspacePreviewPanel definition={selected} />
 
         <div className="rounded-3xl border border-stone-200 bg-white p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -216,8 +192,6 @@ export const WorkspaceEditorModule: React.FC = () => {
             const catalog = getWidgetCatalogItem(widget.type);
             const availability = getWidgetAvailability(widget.type, selectedSector);
             const incompatibleActive = widget.enabled !== false && !availability.allowed;
-            const mobile = widget.presentation?.mobile || {};
-            const widgetKds = widget.presentation?.kds || {};
             return <div key={widget.id} className={`rounded-3xl border bg-white p-4 sm:p-5 ${incompatibleActive ? 'border-rose-300 bg-rose-50/30' : widget.enabled === false ? 'border-stone-200 opacity-65' : 'border-amber-200 shadow-sm'}`}>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col xl:flex-row xl:items-center gap-4">
@@ -233,32 +207,7 @@ export const WorkspaceEditorModule: React.FC = () => {
                     <button onClick={() => removeWidget(widget.id)} className="h-9 w-9 grid place-items-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700" title="Remover widget"><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </div>
-
-                <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 border-t border-stone-100 pt-4">
-                  <label className="text-[10px] font-black text-stone-600">EXIBIÇÃO / LARGURA<select value={String(widget.span ?? catalog?.defaultSpan ?? 'full')} onChange={e => updateWidget(widget.id, { span: e.target.value === 'full' || e.target.value === 'button' ? e.target.value as WorkspaceWidgetSpan : Number(e.target.value) as WorkspaceWidgetSpan })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-3 text-xs font-bold" aria-label={`Exibição de ${widget.title || widget.type}`}>{spanOptions.map(span => <option key={String(span)} value={String(span)}>{spanLabels[span]}</option>)}</select></label>
-                  <label className="text-[10px] font-black text-stone-600">ALTURA<select value={widget.presentation?.height || 'auto'} onChange={e => updateWidgetPresentation(widget, { height: e.target.value as NonNullable<WorkspaceWidgetDefinition['presentation']>['height'] })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-3 text-xs"><option value="auto">Automática</option><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></label>
-                  <label className="text-[10px] font-black text-stone-600">VISUAL<select value={widget.presentation?.visual || 'standard'} onChange={e => updateWidgetPresentation(widget, { visual: e.target.value as NonNullable<WorkspaceWidgetDefinition['presentation']>['visual'] })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-3 text-xs"><option value="minimal">Minimalista</option><option value="standard">Padrão</option><option value="highlight">Destaque</option></select></label>
-                  <label className="text-[10px] font-black text-stone-600">CABEÇALHO<select value={widget.presentation?.header || 'full'} onChange={e => updateWidgetPresentation(widget, { header: e.target.value as NonNullable<WorkspaceWidgetDefinition['presentation']>['header'] })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-3 text-xs"><option value="full">Completo</option><option value="compact">Compacto</option><option value="hidden">Oculto</option></select></label>
-                </div>
-
-                <div className="grid lg:grid-cols-2 gap-3">
-                  <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">MOBILE</p>
-                    <div className="mt-2 grid sm:grid-cols-3 gap-2">
-                      <label className="text-[10px] font-bold text-stone-600">Exibição<select value={mobile.display || 'panel'} onChange={e => updateWidgetPresentation(widget, { mobile: { ...mobile, display: e.target.value as 'panel' | 'summary' | 'button' } })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-2 text-xs"><option value="panel">Painel</option><option value="summary">Resumo</option><option value="button">Botão / popup</option></select></label>
-                      <label className="text-[10px] font-bold text-stone-600">Ordem<input type="number" value={mobile.order ?? widget.order ?? 0} onChange={e => updateWidgetPresentation(widget, { mobile: { ...mobile, order: Number(e.target.value) } })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-2 text-xs" /></label>
-                      <label className="flex items-end gap-2 pb-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={mobile.hidden === true} onChange={e => updateWidgetPresentation(widget, { mobile: { ...mobile, hidden: e.target.checked } })} /> Ocultar</label>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-stone-200 bg-slate-50 p-3">
-                    <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">KDS / TV</p>
-                    <div className="mt-2 grid sm:grid-cols-3 gap-2">
-                      <label className="text-[10px] font-bold text-stone-600">Exibição<select value={widgetKds.display || 'panel'} onChange={e => updateWidgetPresentation(widget, { kds: { ...widgetKds, display: e.target.value as 'panel' | 'highlight' } })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-2 text-xs"><option value="panel">Painel</option><option value="highlight">Destaque</option></select></label>
-                      <label className="text-[10px] font-bold text-stone-600">Ordem<input type="number" value={widgetKds.order ?? widget.order ?? 0} onChange={e => updateWidgetPresentation(widget, { kds: { ...widgetKds, order: Number(e.target.value) } })} className="mt-1 w-full h-9 rounded-xl border border-stone-200 bg-white px-2 text-xs" /></label>
-                      <label className="flex items-end gap-2 pb-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={widgetKds.hidden === true} onChange={e => updateWidgetPresentation(widget, { kds: { ...widgetKds, hidden: e.target.checked } })} /> Ocultar</label>
-                    </div>
-                  </div>
-                </div>
+                <WorkspaceWidgetPresentationControls widget={widget} defaultSpan={catalog?.defaultSpan} desktopMode={desktopMode} mobileMode={mobileMode} kdsMode={kdsMode} onChange={patch => updateWidget(widget.id, patch)} />
               </div>
               {widget.type === 'task-kanban' && <KanbanWidgetAutomationEditor widget={widget} onChange={patch => updateWidget(widget.id, patch)} />}
               {widget.type === 'room-map' && <RoomMapWidgetEditor widget={widget} onChange={patch => updateWidget(widget.id, patch)} />}
