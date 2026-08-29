@@ -58,7 +58,7 @@ test('Mobile suporta adaptação vertical, resumo e botão sem duplicar Workspac
   assert.match(runtime, /presentation\.display === 'summary'/);
   assert.match(runtime, /presentation\.display === 'button'/);
   assert.match(runtime, /data-widget-mobile-summary/);
-  assert.match(widgetControls, /Adaptar automaticamente/);
+  assert.match(generalControls, /Adaptar automaticamente/);
   assert.match(widgetControls, /Resumo/);
   assert.match(widgetControls, /Botão \/ popup/);
 });
@@ -77,19 +77,39 @@ test('KDS aplica orientação, densidade, distância, tela cheia e controles ope
   assert.match(generalControls, /Ocultar controles de edição/);
 });
 
-test('Fábrica expõe apresentação geral, overrides por dispositivo e Preview real', () => {
+test('Fábrica expõe aparência padrão, personalizações condicionais e Preview real', () => {
   assert.match(editor, /WorkspaceGeneralPresentationControls/);
   assert.match(editor, /WorkspaceWidgetPresentationControls/);
   assert.match(editor, /WorkspacePreviewPanel/);
   assert.match(generalControls, /Apresentação por dispositivo/);
-  assert.match(widgetControls, /Apresentação geral/);
-  assert.match(widgetControls, /DESKTOP/);
-  assert.match(widgetControls, /MOBILE/);
-  assert.match(widgetControls, /KDS \/ TV/);
+  assert.match(generalControls, /Cabeçalho do Workspace/);
+  assert.match(widgetControls, /Aparência padrão/);
+  assert.match(widgetControls, /Personalizações por dispositivo/);
+  assert.match(widgetControls, /desktopMode === 'custom'/);
+  assert.match(widgetControls, /mobileMode === 'custom'/);
+  assert.match(widgetControls, /kdsMode === 'custom'/);
   assert.match(preview, /<WidgetDrivenWorkspace definition=\{definition\} forcedViewport=\{viewport\} previewMode \/>/);
   assert.match(preview, /Desktop/);
   assert.match(preview, /Celular/);
   assert.match(preview, /KDS \/ TV/);
+});
+
+test('controles de aparência não repetem estratégia dentro de cada widget', () => {
+  assert.doesNotMatch(widgetControls, />Estratégia<select/);
+  assert.match(widgetControls, /mode: 'custom'/);
+  assert.match(widgetControls, /presentation\.desktop\?\.mode === 'auto' \? \{\}/);
+  assert.match(widgetControls, /presentation\.mobile\?\.mode === 'auto' \? \{\}/);
+  assert.match(widgetControls, /presentation\.kds\?\.mode === 'auto' \? \{\}/);
+});
+
+test('nomes dos controles descrevem o efeito real sem adicionar novas opções', () => {
+  assert.match(widgetControls, /LIMITE DE ALTURA/);
+  assert.match(widgetControls, /Sem limite/);
+  assert.match(widgetControls, /ESTILO/);
+  assert.match(widgetControls, /Sem sombra/);
+  assert.match(widgetControls, /TÍTULO DO WIDGET/);
+  assert.match(generalControls, /Tela KDS \/ TV/);
+  assert.match(generalControls, /Distância de visualização/);
 });
 
 test('Preview da Fábrica ocupa apenas um botão e abre em popup', () => {
