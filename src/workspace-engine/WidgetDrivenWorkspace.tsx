@@ -7,15 +7,27 @@ import { normalizeWorkspaceWidgets } from './widgetCatalog';
 import { WorkspaceDefinition, WorkspaceViewport, WorkspaceWidgetDefinition, WorkspaceWidgetSpan } from './types';
 import { getWorkspaceWidgetRenderer } from './widgetRuntimeRegistry';
 
-const spanClass = (span: WorkspaceWidgetSpan | undefined) => {
+const kdsSpanClass = (span: WorkspaceWidgetSpan | undefined, orientation: 'landscape' | 'portrait') => {
+  if (orientation === 'portrait') {
+    switch (span) {
+      case 1:
+      case 'button': return 'md:col-span-1';
+      case 2:
+      case 3:
+      case 4:
+      case 'full':
+      default: return 'md:col-span-2';
+    }
+  }
+
   switch (span) {
     case 1:
-    case 'button': return 'xl:col-span-1';
-    case 2: return 'xl:col-span-2';
-    case 3: return 'xl:col-span-3';
+    case 'button': return 'lg:col-span-1 xl:col-span-1';
+    case 2: return 'lg:col-span-2 xl:col-span-2';
+    case 3: return 'lg:col-span-3 xl:col-span-3';
     case 4:
     case 'full':
-    default: return 'xl:col-span-4';
+    default: return 'lg:col-span-3 xl:col-span-4';
   }
 };
 
@@ -107,6 +119,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
   const kdsOrientation = kds?.orientation || 'landscape';
   const kdsDensity = kds?.density || 'normal';
   const kdsDistance = kds?.viewingDistance || 'medium';
+  const showAdministrativeControls = !isKds || kds?.hideAdministrativeControls !== true;
 
   useEffect(() => {
     if (!openWidgetId || typeof document === 'undefined') return;
@@ -150,7 +163,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     </section>;
   };
 
-  return <div className={`${kdsShellClass} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`} data-workspace-runtime="widget-driven" data-workspace-id={definition.id} data-workspace-viewport={viewport} data-kds-orientation={isKds ? kdsOrientation : undefined} data-kds-density={isKds ? kdsDensity : undefined} data-kds-viewing-distance={isKds ? kdsDistance : undefined} data-kds-fullscreen={isKds ? String(kds?.fullscreen === true) : undefined}>
+  return <div className={`${kdsShellClass} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`} data-workspace-runtime="widget-driven" data-workspace-id={definition.id} data-workspace-viewport={viewport} data-kds-orientation={isKds ? kdsOrientation : undefined} data-kds-density={isKds ? kdsDensity : undefined} data-kds-viewing-distance={isKds ? kdsDistance : undefined} data-kds-fullscreen={isKds ? String(kds?.fullscreen === true) : undefined} data-kds-admin-controls-hidden={isKds ? String(!showAdministrativeControls) : undefined}>
     <header className={`sticky top-0 z-30 border-b ${isKds ? 'border-slate-800 bg-slate-950/95' : 'border-slate-200 bg-white/95'} backdrop-blur`}>
       <div className={`mx-auto flex max-w-[1800px] items-center justify-between gap-4 ${isKds && kdsDensity === 'large' ? 'px-8 py-5' : 'px-4 py-3 sm:px-6'}`}>
         <div>
@@ -162,14 +175,14 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
             {header?.showDate !== false && <div className={`text-[10px] font-bold capitalize ${isKds ? 'text-slate-300' : 'text-slate-500'}`}>{dateText}</div>}
             {header?.showTime !== false && <div className={`text-xl font-black tabular-nums ${isKds ? 'text-white' : 'text-slate-900'}`}>{timeText}</div>}
           </div>
-          {!isKds && <><span className="hidden text-right text-[10px] text-slate-500 lg:block">{header?.showUser !== false && <strong className="block text-slate-700">{currentUser?.nome || 'Usuário'}</strong>}{definition.sectors.join(' · ')}</span><WorkspaceUserMenu /><button onClick={logout} className="flex h-9 items-center gap-2 rounded-xl border border-slate-200 px-3 text-[10px] font-black text-slate-600 transition hover:bg-slate-50"><LogOut className="h-3.5 w-3.5" />Sair</button></>}
+          {showAdministrativeControls && <><span className={`hidden text-right text-[10px] lg:block ${isKds ? 'text-slate-300' : 'text-slate-500'}`}>{header?.showUser !== false && <strong className={`block ${isKds ? 'text-white' : 'text-slate-700'}`}>{currentUser?.nome || 'Usuário'}</strong>}{definition.sectors.join(' · ')}</span><WorkspaceUserMenu /><button onClick={logout} className={`flex h-9 items-center gap-2 rounded-xl border px-3 text-[10px] font-black transition ${isKds ? 'border-slate-700 text-slate-200 hover:bg-slate-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}><LogOut className="h-3.5 w-3.5" />Sair</button></>}
         </div>
       </div>
     </header>
     <main className={`mx-auto max-w-[1800px] ${viewport === 'mobile' ? 'flex flex-col gap-4 p-4' : isKds ? `${kdsGridClass} ${kdsDensityClass}` : 'grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-4 md:auto-rows-[8px] md:[grid-auto-flow:dense] xl:grid-cols-12'}`}>
       {widgets.map(widget => viewport === 'desktop'
         ? <MasonryCell key={widget.id} span={widget.span}>{renderWidget(widget)}</MasonryCell>
-        : <div key={widget.id} className={isKds ? spanClass(widget.span) : ''}>{renderWidget(widget)}</div>)}
+        : <div key={widget.id} className={isKds ? kdsSpanClass(widget.span, kdsOrientation) : ''}>{renderWidget(widget)}</div>)}
     </main>
     {openWidget && typeof document !== 'undefined' && createPortal(<div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={openWidget.title || openWidget.type} onMouseDown={event => { if (event.target === event.currentTarget) setOpenWidgetId(null); }}><div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[1600px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"><div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 sm:px-5"><div><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Widget</p><h2 className="text-sm font-black text-slate-900">{openWidget.title || openWidget.type}</h2></div><button type="button" onClick={() => setOpenWidgetId(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" aria-label="Fechar widget"><X className="h-4 w-4" /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">{OpenRenderer ? <OpenRenderer workspace={definition} widget={openWidget} /> : null}</div></div></div>, document.body)}
   </div>;
