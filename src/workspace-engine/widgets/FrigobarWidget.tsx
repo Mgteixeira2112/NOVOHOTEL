@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { BedDouble, PackageCheck, RefreshCw, ShoppingCart, Warehouse } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { frigobarCore, type MinibarRestockSource, type MinibarRoomSnapshot } from '../../frigobar-core';
+import { hotelIdentityService } from '../../services/hotelIdentityService';
 import type { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
 
 const money = (value: number) =>
@@ -12,12 +13,12 @@ const operationKey = (prefix: string) =>
 
 export const FrigobarWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget }) => {
   const { hotelConfig, rooms, reservations, guests } = useHotel();
-  const hotelId = hotelConfig.id || '';
   const activeReservations = useMemo(
     () => reservations.filter(item => item.status === 'checkin_realizado' && item.quarto_id),
     [reservations],
   );
 
+  const [hotelId, setHotelId] = useState(hotelConfig.id || '');
   const [roomId, setRoomId] = useState('');
   const [snapshot, setSnapshot] = useState<MinibarRoomSnapshot | null>(null);
   const [sources, setSources] = useState<MinibarRestockSource[]>([]);
@@ -29,6 +30,19 @@ export const FrigobarWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget
 
   const canConsume = widget.actions?.consumeMinibar !== false && widget.permissions?.edit !== false;
   const canRestock = widget.actions?.restockMinibar !== false && widget.permissions?.edit !== false;
+
+  useEffect(() => {
+    let active = true;
+    void hotelIdentityService.getActiveHotelId(hotelConfig.id).then(id => {
+      if (active) setHotelId(id);
+    }).catch(err => {
+      if (active) {
+        setHotelId('');
+        setError(err instanceof Error ? err.message : 'Não foi possível identificar o hotel ativo.');
+      }
+    });
+    return () => { active = false; };
+  }, [hotelConfig.id]);
 
   useEffect(() => {
     if (!roomId && activeReservations[0]?.quarto_id) setRoomId(activeReservations[0].quarto_id);
@@ -129,11 +143,10 @@ export const FrigobarWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget
               return <option key={item.id} value={item.quarto_id}>Q. {itemRoom?.numero || '—'} · {itemGuest?.nome || item.codigo || item.id}</option>;
             })}
           </select>
-          <button type="button" onClick={() => void load()} disabled={loading || !roomId} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-40" title="Atualizar"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
+          <button type="button" onClick={() => void load()} disabled={loading || !roomId || !hotelId} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 text-slate-600 disabled:opacity-40" title="Atualizar"><RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /></button>
         </div>
       </div>
 
-      {!hotelId && <div className="mt-4 rounded-2xl bg-amber-50 p-3 text-[10px] font-bold text-amber-800">O hotel ativo ainda não possui ID Supabase disponível.</div>}
       {!activeReservations.length && <div className="mt-4 rounded-2xl bg-slate-50 p-6 text-center text-xs text-slate-500">Nenhuma hospedagem ativa para operação de Frigobar.</div>}
       {error && <div className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-700">{error}</div>}
       {notice && <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[10px] font-bold text-emerald-700">{notice}</div>}
