@@ -4,6 +4,9 @@ import test from 'node:test';
 
 const editor = readFileSync('src/components/admin/WorkspaceDesktopLayoutEditor.tsx', 'utf8');
 const general = readFileSync('src/components/admin/WorkspaceGeneralPresentationControls.tsx', 'utf8');
+const editorModule = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'utf8');
+const configStore = readFileSync('src/workspace-engine/workspaceConfigStore.ts', 'utf8');
+const widgetCatalog = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
 
 test('editor visual Desktop usa somente ordem e largura já existentes no contrato', () => {
   assert.match(editor, /a\.order \?\? 0.*b\.order \?\? 0/);
@@ -36,4 +39,14 @@ test('editor fica dentro dos controles de apresentação e mantém Tablet por he
   assert.match(general, /WorkspaceDesktopLayoutEditor/);
   assert.match(general, /<WorkspaceDesktopLayoutEditor definition=\{definition\} onChange=\{onChange\} \/>/);
   assert.match(editor, /Tablet herda esta composição/);
+});
+
+test('ordem e largura do editor usam a persistência oficial já existente do Workspace', () => {
+  assert.match(editorModule, /saveWorkspaceOverride\(\{ \.\.\.definition, widgets: normalizeWorkspaceWidgets\(definition\.widgets\) \}/);
+  assert.match(configStore, /const normalized = \{ \.\.\.definition, widgets: normalizeWorkspaceWidgets\(definition\.widgets\) \}/);
+  assert.match(configStore, /definition: normalized/);
+  assert.match(configStore, /workspace_engine_configs/);
+  assert.match(widgetCatalog, /order: widget\.order \?\? index/);
+  assert.match(widgetCatalog, /presentation: normalizeWidgetPresentation\(widget, catalog\?\.defaultSpan\)/);
+  assert.doesNotMatch(editor, /workspace_engine_configs|saveWorkspaceOverride|upsert/);
 });
