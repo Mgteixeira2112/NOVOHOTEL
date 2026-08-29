@@ -69,6 +69,9 @@ export const getWorkspaceDeviceMode = (
   const configured = definition.presentation?.devices?.[viewport];
   if (configured) return configured;
   if (viewport === 'desktop') return 'auto';
+  if (viewport === 'tablet') {
+    return definition.widgets.some(widget => hasOverrideValues(widget.presentation?.tablet)) ? 'custom' : 'auto';
+  }
   if (viewport === 'mobile') {
     return definition.widgets.some(widget => hasOverrideValues(widget.presentation?.mobile)) ? 'custom' : 'auto';
   }
@@ -87,7 +90,19 @@ export const resolveWidgetPresentation = (
 ): ResolvedWidgetPresentation => {
   const base = normalizeWidgetPresentation(widget);
   const deviceMode = getWorkspaceDeviceMode(definition, viewport);
-  const override = viewport === 'desktop' ? base.desktop : viewport === 'mobile' ? base.mobile : base.kds;
+
+  // Tablet starts by inheriting the complete Desktop presentation contract.
+  if (viewport === 'tablet' && deviceMode === 'auto') {
+    return resolveWidgetPresentation(definition, widget, 'desktop');
+  }
+
+  const override = viewport === 'desktop'
+    ? base.desktop
+    : viewport === 'tablet'
+      ? base.tablet
+      : viewport === 'mobile'
+        ? base.mobile
+        : base.kds;
   const useCustom = deviceMode === 'custom' && customOverrideEnabled(override);
 
   let display: ResolvedWidgetPresentation['display'] = base.display || 'panel';

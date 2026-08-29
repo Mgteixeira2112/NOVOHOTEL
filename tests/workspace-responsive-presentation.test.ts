@@ -11,7 +11,7 @@ const widgetControls = readFileSync('src/components/admin/WorkspaceWidgetPresent
 const preview = readFileSync('src/components/admin/WorkspacePreviewPanel.tsx', 'utf8');
 
 test('apresentação responsiva permanece separada do contrato funcional do widget', () => {
-  assert.match(types, /WorkspaceViewport = 'desktop' \| 'mobile' \| 'kds'/);
+  assert.match(types, /WorkspaceViewport = 'desktop' \| 'tablet' \| 'mobile' \| 'kds'/);
   assert.match(types, /WorkspaceWidgetDisplay = 'panel' \| 'button'/);
   assert.match(types, /WorkspaceWidgetWidth = 'small' \| 'medium' \| 'large' \| 'full'/);
   assert.match(types, /presentation\?: WorkspaceWidgetPresentation/);
@@ -88,8 +88,9 @@ test('Fábrica expõe aparência padrão, personalizações condicionais e Previ
   assert.match(widgetControls, /desktopMode === 'custom'/);
   assert.match(widgetControls, /mobileMode === 'custom'/);
   assert.match(widgetControls, /kdsMode === 'custom'/);
-  assert.match(preview, /<WidgetDrivenWorkspace definition=\{definition\} forcedViewport=\{viewport\} previewMode \/>/);
+  assert.match(preview, /<WidgetDrivenWorkspace definition=\{definition\} forcedViewport=\{runtimeViewport\} previewMode \/>/);
   assert.match(preview, /Desktop/);
+  assert.match(preview, /Tablet/);
   assert.match(preview, /Celular/);
   assert.match(preview, /KDS \/ TV/);
 });

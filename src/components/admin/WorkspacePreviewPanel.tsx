@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Eye, Monitor, Smartphone, Tv, X } from 'lucide-react';
+import { Eye, Monitor, Smartphone, Tablet, Tv, X } from 'lucide-react';
 import { WidgetDrivenWorkspace } from '../../workspace-engine/WidgetDrivenWorkspace';
 import { WorkspaceDefinition, WorkspaceViewport } from '../../workspace-engine/types';
 
@@ -9,6 +9,7 @@ interface WorkspacePreviewPanelProps {
 
 const options: Array<{ id: WorkspaceViewport; label: string; Icon: typeof Monitor }> = [
   { id: 'desktop', label: 'Desktop', Icon: Monitor },
+  { id: 'tablet', label: 'Tablet', Icon: Tablet },
   { id: 'mobile', label: 'Celular', Icon: Smartphone },
   { id: 'kds', label: 'KDS / TV', Icon: Tv },
 ];
@@ -16,7 +17,14 @@ const options: Array<{ id: WorkspaceViewport; label: string; Icon: typeof Monito
 export const WorkspacePreviewPanel: React.FC<WorkspacePreviewPanelProps> = ({ definition }) => {
   const [viewport, setViewport] = useState<WorkspaceViewport>('desktop');
   const [open, setOpen] = useState(false);
-  const frameClass = viewport === 'mobile' ? 'max-w-[420px]' : viewport === 'kds' ? 'max-w-[1280px]' : 'max-w-[1440px]';
+  const frameClass = viewport === 'mobile'
+    ? 'max-w-[420px]'
+    : viewport === 'tablet'
+      ? 'max-w-[1024px]'
+      : viewport === 'kds'
+        ? 'max-w-[1280px]'
+        : 'max-w-[1440px]';
+  const runtimeViewport: WorkspaceViewport = viewport === 'tablet' ? 'desktop' : viewport;
 
   useEffect(() => {
     if (!open) return;
@@ -49,7 +57,7 @@ export const WorkspacePreviewPanel: React.FC<WorkspacePreviewPanelProps> = ({ de
         <div className="min-h-0 flex-1 overflow-auto bg-stone-100 p-3 sm:p-4" data-workspace-preview-viewport={viewport}>
           <div className={`mx-auto min-w-0 overflow-hidden rounded-xl border border-stone-300 bg-white shadow-sm ${frameClass}`}>
             <div className="pointer-events-none select-none" aria-hidden="true">
-              <WidgetDrivenWorkspace definition={definition} forcedViewport={viewport} previewMode />
+              <WidgetDrivenWorkspace definition={definition} forcedViewport={runtimeViewport} previewMode />
             </div>
           </div>
         </div>

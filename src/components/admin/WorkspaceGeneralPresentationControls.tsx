@@ -15,6 +15,7 @@ export const WorkspaceGeneralPresentationControls: React.FC<WorkspaceGeneralPres
   const kds = presentation.kds || {};
   const devices = presentation.devices || {};
   const desktopMode = getWorkspaceDeviceMode(definition, 'desktop');
+  const tabletMode = getWorkspaceDeviceMode(definition, 'tablet');
   const mobileMode = getWorkspaceDeviceMode(definition, 'mobile');
   const kdsMode = getWorkspaceDeviceMode(definition, 'kds');
 
@@ -26,12 +27,13 @@ export const WorkspaceGeneralPresentationControls: React.FC<WorkspaceGeneralPres
   };
 
   return <div className="rounded-3xl border border-stone-200 bg-white p-5" data-workspace-general-presentation>
-    <div><h3 className="text-sm font-black text-stone-900">Aparência do Workspace</h3><p className="mt-1 text-[10px] text-stone-500">A aparência padrão vale para todos os dispositivos. Personalizações por dispositivo só aparecem nos widgets quando o dispositivo estiver em Personalizar.</p></div>
+    <div><h3 className="text-sm font-black text-stone-900">Aparência do Workspace</h3><p className="mt-1 text-[10px] text-stone-500">A aparência padrão vale para todos os dispositivos. Tablet herda Desktop enquanto estiver em Automático.</p></div>
 
     <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
       <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Apresentação por dispositivo</p>
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
+      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <label className="text-xs font-bold text-stone-600">Desktop<select value={desktopMode} onChange={e => updateDeviceMode('desktop', e.target.value as WorkspaceDevicePresentationMode)} className={fieldClass}><option value="auto">Automático</option><option value="custom">Personalizar</option></select></label>
+        <label className="text-xs font-bold text-stone-600">Tablet<select value={tabletMode} onChange={e => updateDeviceMode('tablet', e.target.value as WorkspaceDevicePresentationMode)} className={fieldClass}><option value="auto">Herdar Desktop</option><option value="custom">Personalizar</option></select></label>
         <label className="text-xs font-bold text-stone-600">Celular<select value={mobileMode} onChange={e => updateDeviceMode('mobile', e.target.value as WorkspaceDevicePresentationMode)} className={fieldClass}><option value="auto">Adaptar automaticamente</option><option value="custom">Personalizar</option></select></label>
         <label className="text-xs font-bold text-stone-600">KDS / TV<select value={kdsMode} onChange={e => updateDeviceMode('kds', e.target.value as WorkspaceDevicePresentationMode)} className={fieldClass}><option value="disabled">Desativado</option><option value="auto">Adaptar automaticamente</option><option value="custom">Personalizar</option></select></label>
       </div>
