@@ -1,0 +1,71 @@
+/* Desktop-only presentation: connect Workspace widgets into one visual surface. */
+@media (min-width: 768px) {
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] > main {
+    width: calc(100% - 3rem);
+    margin: 1.5rem auto 2rem;
+    padding: 0 !important;
+    gap: 1px !important;
+    grid-auto-rows: 23px !important;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+    border-radius: 1.5rem;
+    background: #e2e8f0;
+    box-shadow: 0 12px 34px rgba(15, 23, 42, 0.06);
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-masonry-cell] {
+    min-width: 0;
+    background: #ffffff;
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-masonry-content] {
+    height: 100%;
+    min-width: 0;
+    background: #ffffff;
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-workspace-widget] {
+    min-height: 100%;
+    padding: 1rem;
+    background: #ffffff;
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-widget-presentation-header] {
+    margin-bottom: 0.75rem !important;
+    padding-inline: 0 !important;
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-widget-display="panel"] > :not([data-widget-presentation-header]) {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-widget-display="button"] {
+    padding: 0;
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-widget-display="button"] > button {
+    min-height: 5.5rem;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: #ffffff;
+  }
+
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-widget-display="button"] > button:hover {
+    transform: none;
+    background: #fffdf7;
+  }
+
+  /* Multiple button widgets naturally share the same grid row according to their existing widths. */
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] [data-masonry-cell]:has([data-widget-display="button"]) {
+    background: #ffffff;
+  }
+}
+
+@media (min-width: 1280px) {
+  [data-workspace-runtime="widget-driven"][data-workspace-viewport="desktop"] > main {
+    width: calc(100% - 3rem);
+  }
+}
