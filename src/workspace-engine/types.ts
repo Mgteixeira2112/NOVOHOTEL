@@ -33,7 +33,7 @@ export type WorkspaceWidgetType =
   | 'checkins';
 
 export type WorkspaceScope = 'mine' | 'sector';
-export type WorkspaceWidgetSpan = 1 | 2 | 3 | 4 | 'full';
+export type WorkspaceWidgetSpan = 1 | 2 | 3 | 4 | 'full' | 'button';
 export type WorkspaceWidgetDataSource =
   | 'dashboard'
   | 'finance'
