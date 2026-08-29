@@ -15,11 +15,11 @@ test('composição Desktop mantém superfície contínua sem alterar o Masonry g
 });
 
 test('todos os botões Desktop ficam em uma única faixa horizontal dentro da superfície', () => {
-  assert.match(runtime, /const desktopButtons = entries\.filter\(entry => entry\.presentation\.display === 'button'\)/);
-  assert.match(runtime, /const desktopSurfaceEntries = entries\.filter\(entry => entry\.presentation\.display !== 'button'/);
-  assert.match(runtime, /flex w-max min-w-full gap-2/);
-  assert.match(runtime, /overflow-x-auto/);
+  assert.match(runtime, /const desktopButtons = viewport === 'desktop' \? entries\.filter\(entry => entry\.presentation\.display === 'button'\) : \[\]/);
+  assert.match(runtime, /const desktopEntries = viewport === 'desktop' \? entries\.filter\(entry => entry\.presentation\.display !== 'button'\) : entries/);
+  assert.match(runtime, /flex w-full flex-nowrap gap-2 overflow-x-auto/);
   assert.match(runtime, /desktopButtons\.map/);
+  assert.match(runtime, /buttonSurfaceIndex/);
 });
 
 test('painéis full continuam sem cabeçalho e casca externa redundantes dentro da fusão', () => {
