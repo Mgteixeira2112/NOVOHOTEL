@@ -52,6 +52,14 @@ test('runtime aplica configuração KDS de orientação, densidade, distância e
   assert.match(runtime, /data-kds-fullscreen/);
 });
 
+test('KDS respeita visibilidade dos controles administrativos e spans seguros por orientação', () => {
+  assert.match(runtime, /hideAdministrativeControls/);
+  assert.match(runtime, /showAdministrativeControls/);
+  assert.match(runtime, /kdsSpanClass\(widget\.span, kdsOrientation\)/);
+  assert.match(runtime, /orientation === 'portrait'/);
+  assert.match(runtime, /data-kds-admin-controls-hidden/);
+});
+
 test('fábrica expõe controles de apresentação mobile e KDS', () => {
   assert.match(editor, /Aparência do Workspace/);
   assert.match(editor, /Habilitar modo KDS \/ TV/);
