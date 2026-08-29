@@ -138,6 +138,133 @@
   }
 }
 
+/* Workspace Factory polish: visual-only scope anchored to its unique editor grid. */
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) {
+  --workspace-factory-border: #e7e5e4;
+  --workspace-factory-soft: #fafaf9;
+  --workspace-factory-muted: #78716c;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .rounded-3xl:first-child {
+  border-color: var(--workspace-factory-border);
+  box-shadow: 0 12px 36px rgba(28, 25, 23, 0.05);
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid[class*="lg:grid-cols-[280px_1fr]"] {
+  align-items: start;
+  gap: 1.25rem;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) aside {
+  position: sticky;
+  top: 5.25rem;
+  max-height: calc(100dvh - 6.25rem);
+  overflow-y: auto;
+  border-color: var(--workspace-factory-border);
+  box-shadow: 0 10px 30px rgba(28, 25, 23, 0.04);
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) aside > button + button {
+  margin-top: 0.25rem;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .rounded-3xl {
+  border-color: var(--workspace-factory-border);
+  box-shadow: 0 8px 26px rgba(28, 25, 23, 0.035);
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .rounded-3xl:nth-of-type(2) {
+  background: linear-gradient(180deg, #fffdf8 0%, #ffffff 100%);
+  border-color: #fde7b0;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section input:focus-visible,
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section select:focus-visible,
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section button:focus-visible {
+  outline: 2px solid var(--theme-primary-ring);
+  outline-offset: 2px;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .space-y-3 > .rounded-3xl {
+  border-color: #e7e5e4;
+  box-shadow: 0 10px 28px rgba(28, 25, 23, 0.045);
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .space-y-3 > .rounded-3xl > .flex > .grid[class*="xl:grid-cols-4"] {
+  border-top-color: #e7e5e4;
+  background: var(--workspace-factory-soft);
+  margin-inline: -0.25rem;
+  padding: 1rem 0.25rem 0;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .space-y-3 > .rounded-3xl > .flex > .grid[class*="lg:grid-cols-2"] > .rounded-2xl {
+  min-width: 0;
+  border-color: #e7e5e4;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .space-y-3 > .rounded-3xl > .flex > .grid[class*="lg:grid-cols-2"] > .bg-stone-50 {
+  border-left: 3px solid #f59e0b;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .space-y-3 > .rounded-3xl > .flex > .grid[class*="lg:grid-cols-2"] > .bg-slate-50 {
+  border-left: 3px solid #64748b;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section label {
+  line-height: 1.35;
+}
+
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section input,
+.space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section select {
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+@media (max-width: 1023px) {
+  .space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) aside {
+    position: static;
+    display: flex;
+    max-height: none;
+    align-items: stretch;
+    gap: 0.5rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.75rem;
+    scroll-snap-type: x proximity;
+  }
+
+  .space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) aside > div:first-child {
+    min-width: 9rem;
+    margin-bottom: 0;
+    align-self: center;
+  }
+
+  .space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) aside > button {
+    min-width: 12.5rem;
+    scroll-snap-align: start;
+  }
+
+  .space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) aside > button + button {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .rounded-3xl:first-child > div > .flex {
+    width: 100%;
+  }
+
+  .space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .rounded-3xl:first-child button {
+    flex: 1 1 calc(50% - 0.5rem);
+    justify-content: center;
+    min-width: 8rem;
+  }
+
+  .space-y-5:has(> .grid[class*="lg:grid-cols-[280px_1fr]"]) > .grid > section > .space-y-3 > .rounded-3xl {
+    padding: 1rem;
+  }
+}
+
 @media (max-width: 767px) {
   .mobile-stack { display: flex; flex-direction: column; }
   .mobile-full { width: 100%; }
