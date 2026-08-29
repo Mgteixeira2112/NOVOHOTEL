@@ -11,7 +11,15 @@ import { defaultRoomMapActionsForSector } from '../../workspace-engine/widgets/r
 import { KanbanWidgetAutomationEditor } from './KanbanWidgetAutomationEditor';
 import { RoomMapWidgetEditor } from './RoomMapWidgetEditor';
 
-const spanOptions: WorkspaceWidgetSpan[] = [1, 2, 3, 4, 'full'];
+const spanOptions: WorkspaceWidgetSpan[] = [1, 2, 3, 4, 'full', 'button'];
+const spanLabels: Record<WorkspaceWidgetSpan, string> = {
+  1: 'Compacto',
+  2: 'Médio',
+  3: 'Grande',
+  4: 'Extra grande',
+  full: 'Largura total',
+  button: 'Botão / popup',
+};
 const categoryLabels = { operacao: 'Operação', dados: 'Dados do hotel', equipe: 'Equipe', atalhos: 'Atalhos' } as const;
 const readinessLabels: Record<WorkspaceWidgetReadiness, string> = {
   ready: 'Pronto',
@@ -190,7 +198,7 @@ export const WorkspaceEditorModule: React.FC = () => {
                   {!availability.allowed && <p className="mt-2 text-[10px] font-bold text-rose-700">Incompatível com o setor atual: {availability.reason}</p>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <select value={String(widget.span ?? catalog?.defaultSpan ?? 'full')} onChange={e => updateWidget(widget.id, { span: e.target.value === 'full' ? 'full' : Number(e.target.value) as WorkspaceWidgetSpan })} className="h-9 rounded-xl border border-stone-200 bg-white px-2 text-xs font-bold">{spanOptions.map(span => <option key={String(span)} value={String(span)}>Largura {span === 'full' ? 'total' : span}</option>)}</select>
+                  <select value={String(widget.span ?? catalog?.defaultSpan ?? 'full')} onChange={e => updateWidget(widget.id, { span: e.target.value === 'full' || e.target.value === 'button' ? e.target.value as WorkspaceWidgetSpan : Number(e.target.value) as WorkspaceWidgetSpan })} className="h-9 min-w-36 rounded-xl border border-stone-200 bg-white px-3 text-xs font-bold" aria-label={`Exibição de ${widget.title || widget.type}`}>{spanOptions.map(span => <option key={String(span)} value={String(span)}>{spanLabels[span]}</option>)}</select>
                   <button onClick={() => moveWidget(widget.id, -1)} className="h-9 w-9 grid place-items-center rounded-xl border border-stone-200"><ArrowUp className="w-4 h-4" /></button>
                   <button onClick={() => moveWidget(widget.id, 1)} className="h-9 w-9 grid place-items-center rounded-xl border border-stone-200"><ArrowDown className="w-4 h-4" /></button>
                   <button disabled={widget.enabled === false && !availability.allowed} title={widget.enabled === false && !availability.allowed ? 'Este widget não pode ser ativado no setor atual.' : undefined} onClick={() => updateWidget(widget.id, { enabled: widget.enabled === false })} className={`h-9 px-3 rounded-xl text-xs font-black flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${widget.enabled === false ? 'bg-stone-100 text-stone-600' : 'bg-emerald-100 text-emerald-800'}`}>{widget.enabled === false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}{widget.enabled === false ? 'Desativado' : 'Ativo'}</button>
