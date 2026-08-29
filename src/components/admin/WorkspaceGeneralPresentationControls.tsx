@@ -1,6 +1,7 @@
 import React from 'react';
 import { getWorkspaceDeviceMode } from '../../workspace-engine/presentation';
 import { WorkspaceDefinition, WorkspaceDevicePresentationMode, WorkspaceViewport } from '../../workspace-engine/types';
+import { WorkspaceDesktopLayoutEditor } from './WorkspaceDesktopLayoutEditor';
 
 interface WorkspaceGeneralPresentationControlsProps {
   definition: WorkspaceDefinition;
@@ -38,6 +39,8 @@ export const WorkspaceGeneralPresentationControls: React.FC<WorkspaceGeneralPres
         <label className="text-xs font-bold text-stone-600">KDS / TV<select value={kdsMode} onChange={e => updateDeviceMode('kds', e.target.value as WorkspaceDevicePresentationMode)} className={fieldClass}><option value="disabled">Desativado</option><option value="auto">Adaptar automaticamente</option><option value="custom">Personalizar</option></select></label>
       </div>
     </div>
+
+    <WorkspaceDesktopLayoutEditor definition={definition} onChange={onChange} />
 
     <div className="mt-4">
       <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Cabeçalho do Workspace</p>
