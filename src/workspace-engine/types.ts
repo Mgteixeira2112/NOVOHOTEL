@@ -11,6 +11,7 @@ export type WorkspaceWidgetType =
   | 'metrics'
   | 'dashboard'
   | 'stay-finance'
+  | 'frigobar'
   | 'task-kanban'
   | 'room-map'
   | 'room-details'
@@ -36,6 +37,7 @@ export type WorkspaceWidgetSpan = 1 | 2 | 3 | 4 | 'full';
 export type WorkspaceWidgetDataSource =
   | 'dashboard'
   | 'finance'
+  | 'frigobar'
   | 'kanban'
   | 'rooms'
   | 'reservations'
@@ -63,6 +65,8 @@ export interface WorkspaceWidgetActions {
   editRoom?: boolean;
   requestGovernance?: boolean;
   requestMaintenance?: boolean;
+  consumeMinibar?: boolean;
+  restockMinibar?: boolean;
   [action: string]: boolean | undefined;
 }
 
