@@ -91,3 +91,13 @@ test('Fábrica expõe apresentação geral, overrides por dispositivo e Preview 
   assert.match(preview, /Celular/);
   assert.match(preview, /KDS \/ TV/);
 });
+
+test('Preview da Fábrica ocupa apenas um botão e abre em popup', () => {
+  assert.match(preview, /data-workspace-preview-open/);
+  assert.match(preview, /data-workspace-preview-popup/);
+  assert.match(preview, /role="dialog"/);
+  assert.match(preview, /aria-modal="true"/);
+  assert.match(preview, /setOpen\(true\)/);
+  assert.match(preview, /setOpen\(false\)/);
+  assert.match(preview, /event\.key === 'Escape'/);
+});
