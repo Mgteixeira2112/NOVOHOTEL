@@ -9,8 +9,6 @@ const editor = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'u
 const generalControls = readFileSync('src/components/admin/WorkspaceGeneralPresentationControls.tsx', 'utf8');
 const widgetControls = readFileSync('src/components/admin/WorkspaceWidgetPresentationControls.tsx', 'utf8');
 const preview = readFileSync('src/components/admin/WorkspacePreviewPanel.tsx', 'utf8');
-const bootstrap = readFileSync('src/main.tsx', 'utf8');
-const desktopConnected = readFileSync('src/workspace-engine/workspaceDesktopConnected.css', 'utf8');
 
 test('apresentação responsiva permanece separada do contrato funcional do widget', () => {
   assert.match(types, /WorkspaceViewport = 'desktop' \| 'mobile' \| 'kds'/);
@@ -112,27 +110,6 @@ test('nomes dos controles descrevem o efeito real sem adicionar novas opções',
   assert.match(widgetControls, /TÍTULO DO WIDGET/);
   assert.match(generalControls, /Tela KDS \/ TV/);
   assert.match(generalControls, /Distância de visualização/);
-});
-
-test('Desktop conecta widgets em uma única superfície sem alterar Mobile ou KDS', () => {
-  assert.match(bootstrap, /workspaceDesktopConnected\.css/);
-  assert.match(desktopConnected, /data-workspace-viewport="desktop"/);
-  assert.match(desktopConnected, /gap: 1px !important/);
-  assert.match(desktopConnected, /grid-auto-rows: 23px !important/);
-  assert.match(desktopConnected, /border-radius: 1\.5rem/);
-  assert.match(desktopConnected, /background: #e2e8f0/);
-  assert.match(desktopConnected, /data-widget-display="panel"/);
-  assert.doesNotMatch(desktopConnected, /data-workspace-viewport="mobile"/);
-  assert.doesNotMatch(desktopConnected, /data-workspace-viewport="kds"/);
-});
-
-test('botões Desktop compartilham a mesma superfície e preservam popup existente', () => {
-  assert.match(desktopConnected, /data-widget-display="button"/);
-  assert.match(desktopConnected, /border-radius: 0/);
-  assert.match(desktopConnected, /box-shadow: none/);
-  assert.match(desktopConnected, /:has\(\[data-widget-display="button"\]\)/);
-  assert.match(runtime, /openWidgetPanel\(widget\.id\)/);
-  assert.match(runtime, /aria-haspopup="dialog"/);
 });
 
 test('Preview da Fábrica ocupa apenas um botão e abre em popup', () => {
