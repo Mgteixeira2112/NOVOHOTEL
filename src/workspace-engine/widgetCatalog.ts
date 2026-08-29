@@ -1,7 +1,9 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
+import { legacySpanToWidth, normalizeWidgetPresentation } from './presentation';
 import { WorkspaceWidgetDefinition, WorkspaceWidgetType } from './types';
 
 export type WorkspaceWidgetReadiness = 'ready' | 'configurable' | 'planned';
+export type WorkspaceWidgetKdsSuitability = 'supported' | 'limited' | 'unsupported';
 
 export interface WorkspaceWidgetCatalogItem {
   type: WorkspaceWidgetType;
@@ -63,6 +65,19 @@ export const getWidgetAvailability = (type: WorkspaceWidgetType, sector: Operati
   return { allowed: true, readiness: item.readiness, reason: item.readinessNote || '' };
 };
 
+const kdsSuitability: Partial<Record<WorkspaceWidgetType, { suitability: WorkspaceWidgetKdsSuitability; reason: string }>> = {
+  'stay-finance': { suitability: 'limited', reason: 'Fluxos financeiros detalhados exigem interação próxima; prefira resumo ou ocultação no KDS.' },
+  frigobar: { suitability: 'limited', reason: 'Operações de consumo e reposição exigem interação; use somente quando o monitor for interativo.' },
+  'room-details': { suitability: 'limited', reason: 'Painel contextual depende de seleção e ações de detalhe.' },
+  guests: { suitability: 'limited', reason: 'Cadastro e busca de hóspedes não são ideais para visualização a distância.' },
+  'reservations-list': { suitability: 'limited', reason: 'Criação e edição de reservas exigem interação próxima.' },
+  'quick-actions': { suitability: 'unsupported', reason: 'Ações rápidas dependem de interação direta e não são adequadas ao KDS automático.' },
+  shortcuts: { suitability: 'unsupported', reason: 'Atalhos dependem de navegação interativa e não são adequados ao KDS automático.' },
+};
+
+export const getWidgetKdsSuitability = (type: WorkspaceWidgetType) =>
+  kdsSuitability[type] || { suitability: 'supported' as const, reason: '' };
+
 export const createWorkspaceWidget = (
   type: WorkspaceWidgetType,
   options?: { boardId?: string; order?: number },
@@ -70,18 +85,26 @@ export const createWorkspaceWidget = (
   const item = getWidgetCatalogItem(type);
   if (item?.legacy) throw new Error(`Widget legado ${type} não pode ser criado pela Fábrica.`);
   const suffix = Math.random().toString(36).slice(2, 8);
+  const span = item?.defaultSpan ?? 'full';
   return {
     id: `widget-${type}-${Date.now().toString(36)}-${suffix}`,
     type,
     title: item?.label || type,
     boardId: item?.requiresBoard ? options?.boardId : undefined,
     order: options?.order ?? 10,
-    span: item?.defaultSpan ?? 'full',
+    span,
     enabled: true,
     dataSource: item?.defaultDataSource,
     filters: {},
     actions: {},
     permissions: { view: true },
+    presentation: {
+      display: span === 'button' ? 'button' : 'panel',
+      width: legacySpanToWidth(span),
+      height: 'auto',
+      visual: 'standard',
+      header: 'full',
+    },
     settings: {},
   };
 };
@@ -103,6 +126,7 @@ export const normalizeWorkspaceWidgets = (widgets: WorkspaceWidgetDefinition[]) 
         filters: widget.filters ?? {},
         actions: widget.actions ?? {},
         permissions: widget.permissions ?? { view: true },
+        presentation: normalizeWidgetPresentation(widget, catalog?.defaultSpan),
         settings: widget.settings ?? {},
       };
     })
