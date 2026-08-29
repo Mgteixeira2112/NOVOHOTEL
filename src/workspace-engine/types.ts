@@ -1,6 +1,52 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 
 export type WorkspaceLayout = 'operational' | 'management';
+export type WorkspaceViewport = 'desktop' | 'mobile' | 'kds';
+export type WorkspaceWidgetHeight = 'auto' | 'low' | 'medium' | 'high';
+export type WorkspaceWidgetVisualStyle = 'minimal' | 'standard' | 'highlight';
+export type WorkspaceWidgetHeaderStyle = 'full' | 'compact' | 'hidden';
+
+export interface WorkspaceHeaderPresentation {
+  showHotel?: boolean;
+  showWorkspace?: boolean;
+  showDate?: boolean;
+  showTime?: boolean;
+  showUser?: boolean;
+  showStatus?: boolean;
+  showOperationalDate?: boolean;
+  hourFormat?: '24h' | '12h';
+  timezone?: string;
+}
+
+export interface WorkspaceKdsPresentation {
+  enabled?: boolean;
+  orientation?: 'landscape' | 'portrait';
+  density?: 'compact' | 'normal' | 'large';
+  viewingDistance?: 'near' | 'medium' | 'far';
+  fullscreen?: boolean;
+  hideAdministrativeControls?: boolean;
+}
+
+export interface WorkspacePresentation {
+  header?: WorkspaceHeaderPresentation;
+  kds?: WorkspaceKdsPresentation;
+}
+
+export interface WorkspaceWidgetPresentation {
+  height?: WorkspaceWidgetHeight;
+  visual?: WorkspaceWidgetVisualStyle;
+  header?: WorkspaceWidgetHeaderStyle;
+  mobile?: {
+    hidden?: boolean;
+    order?: number;
+    display?: 'panel' | 'summary' | 'button';
+  };
+  kds?: {
+    hidden?: boolean;
+    order?: number;
+    display?: 'panel' | 'highlight';
+  };
+}
 
 /**
  * Every visible or interactive element rendered inside a Workspace must be
@@ -82,6 +128,7 @@ export interface WorkspaceWidgetDefinition {
   filters?: Record<string, unknown>;
   actions?: WorkspaceWidgetActions;
   permissions?: WorkspaceWidgetPermissions;
+  presentation?: WorkspaceWidgetPresentation;
   settings?: Record<string, unknown>;
 }
 
@@ -92,5 +139,6 @@ export interface WorkspaceDefinition {
   sectors: OperationalSectorId[];
   layout: WorkspaceLayout;
   defaultScope: WorkspaceScope;
+  presentation?: WorkspacePresentation;
   widgets: WorkspaceWidgetDefinition[];
 }
