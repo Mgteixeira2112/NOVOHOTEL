@@ -11,7 +11,7 @@ const definition: WorkspaceDefinition = {
   id: 'tablet-contract',
   name: 'Tablet contract',
   description: '',
-  sectors: ['operacao'],
+  sectors: [],
   layout: 'operational',
   defaultScope: 'sector',
   presentation: { devices: { desktop: 'custom', tablet: 'auto' } },
