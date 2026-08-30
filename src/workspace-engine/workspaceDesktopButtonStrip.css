@@ -1,16 +1,26 @@
+[data-desktop-connected-surface] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+[data-desktop-button-strip],
 [data-desktop-button-strip] > div {
-  align-items: center;
-  justify-content: center;
-  flex-wrap: nowrap !important;
-  overflow-x: hidden !important;
-  overflow-y: hidden !important;
-  gap: 0.375rem !important;
+  display: contents;
 }
 
 [data-desktop-button-strip] [data-widget-display='button'] {
+  order: -1;
   min-width: 0 !important;
   max-width: 12rem;
-  flex: 1 1 8rem !important;
+  flex: 1 1 0 !important;
+  padding: 0.5rem 0.1875rem;
+}
+
+[data-desktop-panel-grid] {
+  order: 0;
+  width: 100%;
+  flex: 0 0 100%;
 }
 
 [data-desktop-button-strip] [data-widget-display='button'] > button {
