@@ -45,14 +45,13 @@ test('matriz atual de widgets sem renderer fica explícita para evolução contr
   assert.deepEqual(missing, [
     'maintenance:configurable',
     'orders:planned',
-    'quick-actions:configurable',
     'shortcuts:configurable',
     'team:configurable',
   ]);
 });
 
-test('baseline registra exatamente os 14 renderers operacionais existentes', () => {
-  assert.equal(registered.size, 14);
+test('baseline registra exatamente os 15 renderers operacionais existentes', () => {
+  assert.equal(registered.size, 15);
   for (const type of [
     'metrics',
     'dashboard',
@@ -61,6 +60,7 @@ test('baseline registra exatamente os 14 renderers operacionais existentes', () 
     'task-kanban',
     'room-map',
     'room-details',
+    'quick-actions',
     'guests',
     'reservations-list',
     'occupancy-calendar',
