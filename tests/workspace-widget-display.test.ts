@@ -6,6 +6,7 @@ const types = readFileSync('src/workspace-engine/types.ts', 'utf8');
 const runtime = readFileSync('src/workspace-engine/WidgetDrivenWorkspace.tsx', 'utf8');
 const presentation = readFileSync('src/workspace-engine/presentation.ts', 'utf8');
 const controls = readFileSync('src/components/admin/WorkspaceWidgetPresentationControls.tsx', 'utf8');
+const desktopEditor = readFileSync('src/components/admin/WorkspaceDesktopLayoutEditor.tsx', 'utf8');
 
 test('largura e modo de exibição são contratos independentes e span fica apenas como legado', () => {
   assert.match(types, /WorkspaceWidgetDisplay = 'panel' \| 'button'/);
@@ -13,12 +14,17 @@ test('largura e modo de exibição são contratos independentes e span fica apen
   assert.match(types, /Legacy layout contract kept only for persisted definitions/);
   assert.match(types, /WorkspaceWidgetSpan = 1 \| 2 \| 3 \| 4 \| 'full' \| 'button'/);
   assert.match(controls, /EXIBIÇÃO/);
-  assert.match(controls, /LARGURA/);
-  assert.match(controls, /Pequena/);
-  assert.match(controls, /Média/);
-  assert.match(controls, /Grande/);
-  assert.match(controls, /Total/);
+  assert.doesNotMatch(controls, />LARGURA</);
   assert.match(controls, /Botão \/ popup/);
+  assert.match(desktopEditor, /WorkspaceWidgetWidth/);
+  assert.match(desktopEditor, /const widths: WorkspaceWidgetWidth\[\] = \['small', 'medium', 'large', 'full'\]/);
+  assert.match(desktopEditor, /updateWidth/);
+  assert.match(desktopEditor, /presentation: \{ \.\.\.widget\.presentation, width \}/);
+  assert.match(desktopEditor, /data-workspace-layout-size=\{option\}/);
+  assert.match(desktopEditor, /25%/);
+  assert.match(desktopEditor, /50%/);
+  assert.match(desktopEditor, /75%/);
+  assert.match(desktopEditor, /100%/);
 });
 
 test('definições antigas com span button continuam legíveis sem misturar largura e display novos', () => {

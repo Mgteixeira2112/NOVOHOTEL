@@ -142,7 +142,7 @@ export const WorkspaceEditorModule: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2"><LayoutTemplate className="w-5 h-5 text-amber-600" /><h2 className="text-lg font-black">Fábrica de Workspaces</h2></div>
-          <p className="mt-1 text-xs text-stone-500">Monte ambientes operacionais e controle a apresentação Desktop, Mobile e KDS / TV sem alterar os engines de negócio.</p>
+          <p className="mt-1 text-xs text-stone-500">Monte ambientes operacionais e controle a apresentação Desktop, Tablet, Celular e KDS / TV sem alterar os engines de negócio.</p>
           <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-stone-500"><span>Hotel: {hotelId}</span><span>•</span>{syncSource === 'supabase' ? <span className="inline-flex items-center gap-1 text-emerald-700"><Cloud className="w-3.5 h-3.5" /> Sincronizado</span> : syncSource === 'local' ? <span className="inline-flex items-center gap-1 text-amber-700"><CloudOff className="w-3.5 h-3.5" /> Fallback local</span> : <span>Carregando configuração…</span>}</div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -173,7 +173,7 @@ export const WorkspaceEditorModule: React.FC = () => {
         </div>
 
         <WorkspaceGeneralPresentationControls definition={selected} onChange={updateSelected} />
-        <WorkspacePreviewPanel definition={selected} />
+        <WorkspacePreviewPanel definition={selected} onChange={updateSelected} />
 
         <div className="rounded-3xl border border-stone-200 bg-white p-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

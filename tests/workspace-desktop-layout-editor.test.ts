@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const editor = readFileSync('src/components/admin/WorkspaceDesktopLayoutEditor.tsx', 'utf8');
 const general = readFileSync('src/components/admin/WorkspaceGeneralPresentationControls.tsx', 'utf8');
+const preview = readFileSync('src/components/admin/WorkspacePreviewPanel.tsx', 'utf8');
+const widgetPresentation = readFileSync('src/components/admin/WorkspaceWidgetPresentationControls.tsx', 'utf8');
 const editorModule = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'utf8');
 const configStore = readFileSync('src/workspace-engine/workspaceConfigStore.ts', 'utf8');
 const widgetCatalog = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
@@ -35,10 +37,22 @@ test('largura pode ser ajustada por alça horizontal ou tamanho explícito', () 
   assert.match(editor, /100%/);
 });
 
-test('editor fica dentro dos controles de apresentação e mantém Tablet por herança', () => {
-  assert.match(general, /WorkspaceDesktopLayoutEditor/);
-  assert.match(general, /<WorkspaceDesktopLayoutEditor definition=\{definition\} onChange=\{onChange\} \/>/);
+test('editor Desktop vive no preview e não fica duplicado na aparência geral', () => {
+  assert.match(preview, /WorkspaceDesktopLayoutEditor/);
+  assert.match(preview, /editingDesktop/);
+  assert.match(preview, /data-workspace-preview-desktop-editor/);
+  assert.match(preview, /<WorkspaceDesktopLayoutEditor definition=\{definition\} onChange=\{onChange\} \/>/);
+  assert.doesNotMatch(general, /WorkspaceDesktopLayoutEditor/);
+  assert.match(editorModule, /<WorkspacePreviewPanel definition=\{selected\} onChange=\{updateSelected\} \/>/);
   assert.match(editor, /Tablet herda esta composição/);
+});
+
+test('controles manuais de largura Desktop não competem com o editor visual', () => {
+  assert.doesNotMatch(widgetPresentation, /data-widget-desktop-customization/);
+  assert.doesNotMatch(widgetPresentation, />LARGURA<select/);
+  assert.match(widgetPresentation, /Ordem e largura Desktop são editadas no preview/);
+  assert.match(widgetPresentation, /data-widget-mobile-customization/);
+  assert.match(widgetPresentation, /data-widget-kds-customization/);
 });
 
 test('ordem e largura do editor usam a persistência oficial já existente do Workspace', () => {
