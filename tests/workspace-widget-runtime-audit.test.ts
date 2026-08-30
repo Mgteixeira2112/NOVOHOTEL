@@ -36,7 +36,7 @@ test('nenhum widget marcado ready pode ficar sem renderer builtin', () => {
   assert.deepEqual(readyWithoutRenderer, []);
 });
 
-test('matriz atual de widgets sem renderer fica explícita para evolução controlada', () => {
+test('Workspace 1.0 deixa somente Pedidos e Atalhos fora do runtime e ambos são planned', () => {
   const missing = catalogEntries
     .filter(item => !registered.has(item.type))
     .map(item => `${item.type}:${item.readiness}`)
@@ -44,13 +44,12 @@ test('matriz atual de widgets sem renderer fica explícita para evolução contr
 
   assert.deepEqual(missing, [
     'orders:planned',
-    'shortcuts:configurable',
-    'team:configurable',
+    'shortcuts:planned',
   ]);
 });
 
-test('baseline registra exatamente os 16 renderers operacionais existentes', () => {
-  assert.equal(registered.size, 16);
+test('baseline Workspace 1.0 registra exatamente 17 renderers operacionais', () => {
+  assert.equal(registered.size, 17);
   for (const type of [
     'metrics',
     'dashboard',
@@ -61,6 +60,7 @@ test('baseline registra exatamente os 16 renderers operacionais existentes', () 
     'room-details',
     'quick-actions',
     'maintenance',
+    'team',
     'guests',
     'reservations-list',
     'occupancy-calendar',
