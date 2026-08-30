@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import test from 'node:test';
+const orders=readFileSync('src/workspace-engine/widgets/OrdersWidget.tsx','utf8');const team=readFileSync('src/workspace-engine/widgets/TeamWidget.tsx','utf8');const shortcuts=readFileSync('src/workspace-engine/widgets/ShortcutsWidget.tsx','utf8');
+test('Pedidos reutiliza exclusivamente serviço e realtime KDS existentes',()=>{assert.match(orders,/listarKds/);assert.match(orders,/atualizarStatusKds/);assert.match(orders,/subscribeToKdsRealtime/);assert.doesNotMatch(orders,/supabase\.from|localStorage/);});
+test('Equipe reutiliza usuários do HotelContext e vínculo setorial oficial',()=>{assert.match(team,/useHotel/);assert.match(team,/fetchUserOperationalSectorsState/);assert.doesNotMatch(team,/supabase\.from|localStorage/);});
+test('Atalhos aceita somente configuração do Workspace e protocolos web seguros',()=>{assert.match(shortcuts,/widget\.settings\?\.shortcuts/);assert.match(shortcuts,/https:|http:/);assert.doesNotMatch(shortcuts,/supabase\.from|localStorage/);});
