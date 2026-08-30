@@ -5,14 +5,19 @@ import test from 'node:test';
 const css = readFileSync('src/workspace-engine/workspaceDesktopButtonStrip.css', 'utf8');
 const main = readFileSync('src/main.tsx', 'utf8');
 
-test('Workspace Desktop mantém os botões em uma única linha centralizada e sem scroll', () => {
+test('Workspace Desktop reúne todos os botões no topo em uma única linha sem scroll', () => {
   assert.match(main, /workspaceDesktopButtonStrip\.css/);
-  assert.match(css, /\[data-desktop-button-strip\] \[data-widget-display='button'\]/);
-  assert.match(css, /justify-content: center;/);
-  assert.match(css, /flex-wrap: nowrap !important;/);
-  assert.match(css, /overflow-x: hidden !important;/);
+  assert.match(css, /\[data-desktop-connected-surface\]/);
+  assert.match(css, /display: flex;/);
+  assert.match(css, /flex-wrap: wrap;/);
+  assert.match(css, /\[data-desktop-button-strip\],/);
+  assert.match(css, /\[data-desktop-button-strip\] > div/);
+  assert.match(css, /display: contents;/);
+  assert.match(css, /order: -1;/);
   assert.match(css, /min-width: 0 !important;/);
-  assert.match(css, /flex: 1 1 8rem !important;/);
+  assert.match(css, /flex: 1 1 0 !important;/);
+  assert.match(css, /\[data-desktop-panel-grid\]/);
+  assert.match(css, /flex: 0 0 100%;/);
   assert.doesNotMatch(css, /overflow-x: auto/);
   assert.doesNotMatch(css, /scrollbar-width/);
   assert.match(css, /text-overflow: ellipsis;/);
