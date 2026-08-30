@@ -150,19 +150,15 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   const openWidgetPanel = (widgetId: string) => { if (!previewMode) setOpenWidgetId(widgetId); };
 
-  const desktopButtons = viewport === 'desktop' ? entries.filter(entry => entry.presentation.display === 'button') : [];
-  const desktopEntries = viewport === 'desktop' ? entries.filter(entry => entry.presentation.display !== 'button') : entries;
-  const desktopGroups: Array<{ kind: 'single' | 'surface'; items: typeof entries }> = [];
+  const desktopSegments: Array<{ kind: 'panels' | 'buttons'; items: typeof entries }> = [];
   if (viewport === 'desktop') {
-    desktopEntries.forEach(entry => {
-      const isFullPanel = entry.presentation.width === 'full';
-      const kind = isFullPanel ? 'surface' : 'single';
-      const previous = desktopGroups[desktopGroups.length - 1];
-      if (kind === 'surface' && previous?.kind === 'surface') previous.items.push(entry);
-      else desktopGroups.push({ kind, items: [entry] });
+    entries.forEach(entry => {
+      const kind = entry.presentation.display === 'button' ? 'buttons' : 'panels';
+      const previous = desktopSegments[desktopSegments.length - 1];
+      if (previous?.kind === kind) previous.items.push(entry);
+      else desktopSegments.push({ kind, items: [entry] });
     });
   }
-  const buttonSurfaceIndex = desktopGroups.findIndex(group => group.kind === 'surface');
 
   const renderWidget = (
     widget: WorkspaceWidgetDefinition,
@@ -193,35 +189,23 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     </section>;
   };
 
-  const renderButtonStrip = () => desktopButtons.length ? <div className="bg-white p-2" data-desktop-button-strip>
-    <div className="flex w-full flex-nowrap gap-2 overflow-x-auto">
-      {desktopButtons.map(({ widget, presentation }) => <React.Fragment key={widget.id}>{renderWidget(widget, presentation, { buttonInStrip: true })}</React.Fragment>)}
-    </div>
-  </div> : null;
-
-  const renderDesktopGroup = (group: (typeof desktopGroups)[number], index: number) => {
-    const first = group.items[0];
-    if (!first) return null;
-
-    if (group.kind === 'surface') {
-      const insertButtonsHere = index === buttonSurfaceIndex && desktopButtons.length > 0;
-      const preferredIndex = group.items.reduce((lastIndex, entry, itemIndex) =>
-        entry.widget.type === 'metrics' || entry.widget.type === 'alerts' ? itemIndex : lastIndex, -1);
-      const buttonInsertAfter = preferredIndex >= 0 ? preferredIndex : 0;
-
-      return <MasonryCell key={`desktop-surface-${first.widget.id}-${index}`} width="full">
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200" data-desktop-connected-surface>
-          {group.items.map(({ widget, presentation }, itemIndex) => <React.Fragment key={widget.id}>
-            <div className="min-w-0 bg-white" data-desktop-connected-item>
-              {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
+  const renderDesktopSurface = () => {
+    if (!desktopSegments.length) return null;
+    return <MasonryCell width="full">
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm divide-y divide-slate-200" data-desktop-connected-surface>
+        {desktopSegments.map((segment, segmentIndex) => segment.kind === 'buttons'
+          ? <div key={`desktop-buttons-${segmentIndex}`} className="bg-white p-2" data-desktop-button-strip>
+              <div className="flex w-full flex-nowrap gap-2 overflow-x-auto">
+                {segment.items.map(({ widget, presentation }) => <React.Fragment key={widget.id}>{renderWidget(widget, presentation, { buttonInStrip: true })}</React.Fragment>)}
+              </div>
             </div>
-            {insertButtonsHere && itemIndex === buttonInsertAfter ? renderButtonStrip() : null}
-          </React.Fragment>)}
-        </div>
-      </MasonryCell>;
-    }
-
-    return <MasonryCell key={first.widget.id} width={first.presentation.width}>{renderWidget(first.widget, first.presentation)}</MasonryCell>;
+          : <div key={`desktop-panels-${segmentIndex}`} className="grid grid-cols-1 bg-white md:grid-cols-4 xl:grid-cols-12" data-desktop-panel-grid>
+              {segment.items.map(({ widget, presentation }) => <div key={widget.id} className={`${masonrySpanClass(presentation.width)} min-w-0 bg-white`} data-desktop-connected-item data-desktop-item-width={presentation.width}>
+                {renderWidget(widget, presentation, { suppressHeader: true, connectedPanel: true })}
+              </div>)}
+            </div>)}
+      </div>
+    </MasonryCell>;
   };
 
   return <div className={`${kdsShellClass} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`} data-workspace-runtime="widget-driven" data-workspace-id={definition.id} data-workspace-viewport={viewport} data-workspace-device-mode={deviceMode} data-workspace-preview={previewMode ? 'true' : undefined} data-kds-orientation={isKds ? kdsOrientation : undefined} data-kds-density={isKds ? kdsDensity : undefined} data-kds-viewing-distance={isKds ? kdsDistance : undefined} data-kds-fullscreen={isKds ? String(kds?.fullscreen === true) : undefined} data-kds-realtime={isKds ? String(realtimeEnabled) : undefined} data-kds-admin-controls-hidden={isKds ? String(!showAdministrativeControls) : undefined} data-kds-editing-controls-hidden={isKds ? String(!showEditingControls) : undefined}>
@@ -246,7 +230,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     </header>
     {isKdsDisabled ? <main className="mx-auto grid min-h-[50vh] max-w-[1800px] place-items-center p-8"><div className="max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center"><p className="text-xs font-black uppercase tracking-wider text-amber-300">KDS / TV</p><h2 className="mt-2 text-2xl font-black text-white">Apresentação desativada</h2><p className="mt-2 text-sm text-slate-300">Ative ou personalize o KDS na Fábrica de Workspaces.</p></div></main> : <main className={`mx-auto max-w-[1800px] ${viewport === 'mobile' ? 'flex flex-col gap-4 p-4' : isKds ? `${kdsGridClass} ${kdsDensityClass}` : 'grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-4 md:auto-rows-[8px] md:[grid-auto-flow:dense] xl:grid-cols-12'}`}>
       {viewport === 'desktop'
-        ? desktopGroups.map(renderDesktopGroup)
+        ? renderDesktopSurface()
         : entries.map(({ widget, presentation }) => <div key={widget.id} className={isKds ? kdsSpanClass(presentation.width, kdsOrientation) : ''}>{renderWidget(widget, presentation)}</div>)}
     </main>}
     {openWidget && !previewMode && typeof document !== 'undefined' && createPortal(<div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={openWidget.title || openWidget.type} onMouseDown={event => { if (event.target === event.currentTarget) setOpenWidgetId(null); }}><div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[1600px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"><div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 sm:px-5"><div><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Widget</p><h2 className="text-sm font-black text-slate-900">{openWidget.title || openWidget.type}</h2></div><button type="button" onClick={() => setOpenWidgetId(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" aria-label="Fechar widget"><X className="h-4 w-4" /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">{OpenRenderer ? <OpenRenderer workspace={definition} widget={openWidget} /> : null}</div></div></div>, document.body)}
