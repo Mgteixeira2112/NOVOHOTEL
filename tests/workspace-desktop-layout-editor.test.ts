@@ -17,16 +17,26 @@ test('editor visual Desktop usa somente ordem e largura já existentes no contra
   assert.doesNotMatch(editor, /supabase|migration|localStorage|fetch\(/i);
 });
 
-test('composição Desktop permite reordenar por arraste sem tocar no renderer funcional', () => {
+test('editor Desktop renderiza o próprio runtime e mede os widgets reais', () => {
+  assert.match(editor, /import \{ WidgetDrivenWorkspace \}/);
+  assert.match(editor, /<WidgetDrivenWorkspace definition=\{definition\} forcedViewport="desktop" previewMode \/>/);
+  assert.match(editor, /data-workspace-layout-runtime/);
+  assert.match(editor, /querySelectorAll<HTMLElement>\('\[data-widget-id\]'\)/);
+  assert.match(editor, /ResizeObserver/);
+  assert.match(editor, /data-workspace-layout-overlay/);
+  assert.doesNotMatch(editor, /col-span-3|col-span-6|col-span-9|col-span-12/);
+});
+
+test('composição Desktop permite reordenar por arraste sobre o runtime sem alterar renderers', () => {
   assert.match(editor, /draggable/);
   assert.match(editor, /onDragStart/);
   assert.match(editor, /onDrop/);
   assert.match(editor, /next\.splice\(sourceIndex, 1\)/);
   assert.match(editor, /order: \(index \+ 1\) \* 10/);
-  assert.doesNotMatch(editor, /WidgetDrivenWorkspace|Renderer|renderWidget/);
+  assert.match(editor, /pointer-events-none select-none/);
 });
 
-test('largura pode ser ajustada por alça horizontal ou tamanho explícito', () => {
+test('largura é ajustada pela alça horizontal em passos 25 50 75 100', () => {
   assert.match(editor, /data-workspace-layout-resize/);
   assert.match(editor, /pointermove/);
   assert.match(editor, /cursor-ew-resize/);
@@ -35,6 +45,7 @@ test('largura pode ser ajustada por alça horizontal ou tamanho explícito', () 
   assert.match(editor, /50%/);
   assert.match(editor, /75%/);
   assert.match(editor, /100%/);
+  assert.match(editor, /canvasWidth \/ 12 \* 3/);
 });
 
 test('editor Desktop vive no preview e não fica duplicado na aparência geral', () => {
@@ -44,7 +55,7 @@ test('editor Desktop vive no preview e não fica duplicado na aparência geral',
   assert.match(preview, /<WorkspaceDesktopLayoutEditor definition=\{definition\} onChange=\{onChange\} \/>/);
   assert.doesNotMatch(general, /WorkspaceDesktopLayoutEditor/);
   assert.match(editorModule, /<WorkspacePreviewPanel definition=\{selected\} onChange=\{updateSelected\} \/>/);
-  assert.match(editor, /Tablet herda esta composição/);
+  assert.match(editor, /Esta é a renderização real do Workspace/);
 });
 
 test('controles manuais de largura Desktop não competem com o editor visual', () => {
