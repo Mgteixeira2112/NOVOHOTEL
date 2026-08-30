@@ -2,6 +2,7 @@ import { registerWorkspaceWidgetRenderer } from './widgetRuntimeRegistry';
 import { TaskKanbanWidget } from './widgets/TaskKanbanWidget';
 import { ReceptionRoomMapWidget } from './widgets/ReceptionRoomMapWidget';
 import { RoomDetailsWidget } from './widgets/RoomDetailsWidget';
+import { QuickActionsWidget } from './widgets/QuickActionsWidget';
 import { ArrivalsWidget, DeparturesWidget, ReceptionAlertsWidget, ReceptionSummaryWidget } from './widgets/ReceptionInfoWidgets';
 import { ActiveStaysWidget, GuestsWidget } from './widgets/ReceptionGuestStayWidgets';
 import { ReservationsWidget } from './widgets/ReservationsWidget';
@@ -21,6 +22,7 @@ export const registerBuiltinWorkspaceWidgets = () => {
   registerWorkspaceWidgetRenderer('task-kanban', TaskKanbanWidget);
   registerWorkspaceWidgetRenderer('room-map', ReceptionRoomMapWidget);
   registerWorkspaceWidgetRenderer('room-details', RoomDetailsWidget);
+  registerWorkspaceWidgetRenderer('quick-actions', QuickActionsWidget);
   registerWorkspaceWidgetRenderer('guests', GuestsWidget);
   registerWorkspaceWidgetRenderer('reservations-list', ReservationsWidget);
   registerWorkspaceWidgetRenderer('occupancy-calendar', OccupancyCalendarWidget);
