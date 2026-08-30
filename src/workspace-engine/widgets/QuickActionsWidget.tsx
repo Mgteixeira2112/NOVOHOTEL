@@ -40,9 +40,9 @@ const ACTIONS_BY_SECTOR: Record<OperationalSectorId, QuickActionDefinition[]> = 
     { type: 'frigobar', label: 'Frigobar', description: 'Abrir reposição do quarto', icon: ReceiptText },
   ],
   manutencao: [
+    { type: 'maintenance', label: 'Manutenção', description: 'Abrir ordens técnicas do setor', icon: Wrench },
     { type: 'room-map', label: 'Mapa de quartos', description: 'Localizar quartos e estados', icon: BedDouble },
     { type: 'room-details', label: 'Detalhes do quarto', description: 'Abrir contexto técnico do quarto', icon: Wrench },
-    { type: 'task-kanban', label: 'Tarefas', description: 'Abrir ordens técnicas existentes', icon: ClipboardList },
     { type: 'alerts', label: 'Alertas', description: 'Ver pendências técnicas', icon: Bell },
   ],
   cozinha: [
