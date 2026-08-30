@@ -1,73 +1,17 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 import { WorkspaceDefinition, WorkspaceWidgetDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
-
-export const WORKSPACE_BOARD_OPTIONS = [
-  { id: 'kanban-default-board', sector: 'operacao' as OperationalSectorId, label: 'Operação Geral' },
-  { id: 'kanban-board-governanca', sector: 'governanca' as OperationalSectorId, label: 'Governança' },
-  { id: 'kanban-board-recepcao', sector: 'recepcao' as OperationalSectorId, label: 'Recepção' },
-  { id: 'kanban-board-manutencao', sector: 'manutencao' as OperationalSectorId, label: 'Manutenção' },
-  { id: 'kanban-board-cozinha', sector: 'cozinha' as OperationalSectorId, label: 'Cozinha & Room Service' },
-] as const;
-
-export const defaultBoardForSector = (sector: OperationalSectorId): string =>
-  WORKSPACE_BOARD_OPTIONS.find(option => option.sector === sector)?.id || 'kanban-default-board';
-
-const slug = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'personalizado';
-
-const defaultWidgets = (id: string, sector: OperationalSectorId, boardId: string): WorkspaceWidgetDefinition[] => {
-  if (sector === 'recepcao') return [
-    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo operacional', order: 10, span: 'full', enabled: true },
-    { id: `${id}-arrivals`, type: 'arrivals', title: 'Chegadas de hoje', order: 20, span: 1, enabled: true },
-    { id: `${id}-departures`, type: 'departures', title: 'Saídas de hoje', order: 30, span: 1, enabled: true },
-    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas da recepção', order: 40, span: 2, enabled: true },
-    { id: `${id}-rooms`, type: 'room-map', title: 'Mapa de quartos', order: 50, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transferRoom: true } },
-    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Kanban de tarefas', order: 60, span: 'full', enabled: true, dataSource: 'kanban' },
-  ];
-  if (sector === 'manutencao') return [
-    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas da manutenção', order: 10, span: 2, enabled: true, dataSource: 'composite' },
-    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo da manutenção', order: 20, span: 2, enabled: true, dataSource: 'composite' },
-    { id: `${id}-maintenance`, type: 'maintenance', boardId, title: 'Ordens de manutenção', order: 30, span: 'full', enabled: true, dataSource: 'maintenance' },
-    { id: `${id}-rooms`, type: 'room-map', title: 'Mapa técnico de quartos', order: 40, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: false, checkout: false, transferRoom: false, editRoom: false, deleteRoom: false } },
-    { id: `${id}-room-details`, type: 'room-details', title: 'Detalhes do quarto', order: 50, span: 2, enabled: true, dataSource: 'composite' },
-    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas técnicos', order: 60, span: 2, enabled: true, dataSource: 'composite' },
-  ];
-  return [
-    { id: `${id}-metrics`, type: 'metrics', boardId, order: 10, span: 'full', enabled: true },
-    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Fluxo operacional', order: 20, span: 'full', enabled: true, dataSource: 'kanban' },
-    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas', order: 30, span: 2, enabled: false },
-    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas', order: 40, span: 2, enabled: false },
-  ];
+export const WORKSPACE_BOARD_OPTIONS=[{id:'kanban-default-board',sector:'operacao' as OperationalSectorId,label:'Operação Geral'},{id:'kanban-board-governanca',sector:'governanca' as OperationalSectorId,label:'Governança'},{id:'kanban-board-recepcao',sector:'recepcao' as OperationalSectorId,label:'Recepção'},{id:'kanban-board-manutencao',sector:'manutencao' as OperationalSectorId,label:'Manutenção'},{id:'kanban-board-cozinha',sector:'cozinha' as OperationalSectorId,label:'Cozinha & Room Service'}] as const;
+export const defaultBoardForSector=(sector:OperationalSectorId):string=>WORKSPACE_BOARD_OPTIONS.find(option=>option.sector===sector)?.id||'kanban-default-board';
+const slug=(value:string)=>value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'personalizado';
+const w=(id:string,type:WorkspaceWidgetDefinition['type'],title:string,order:number,extra:Partial<WorkspaceWidgetDefinition>={}):WorkspaceWidgetDefinition=>({id:`${id}-${type}-${order}`,type,title,order,span:2,enabled:true,...extra});
+const defaultWidgets=(id:string,sector:OperationalSectorId,boardId:string):WorkspaceWidgetDefinition[]=>{
+ if(sector==='recepcao')return [w(id,'quick-actions','Ações rápidas da recepção',10),w(id,'metrics','Resumo operacional',20,{span:2}),w(id,'arrivals','Chegadas de hoje',30),w(id,'departures','Saídas de hoje',40),w(id,'alerts','Alertas da recepção',50),w(id,'room-map','Mapa de quartos',60,{span:'full',dataSource:'rooms',actions:{checkin:true,checkout:true,transferRoom:true}}),w(id,'task-kanban','Kanban de tarefas',70,{span:'full',boardId,dataSource:'kanban'}),w(id,'team','Equipe da recepção',80,{dataSource:'users'})];
+ if(sector==='governanca')return [w(id,'quick-actions','Ações rápidas da governança',10),w(id,'metrics','Resumo da governança',20),w(id,'room-map','Mapa de limpeza e liberação',30,{span:'full',dataSource:'rooms',actions:{checkin:false,checkout:false,transferRoom:false,editRoom:false,deleteRoom:false}}),w(id,'task-kanban','Fluxo da governança',40,{span:'full',boardId,dataSource:'kanban'}),w(id,'frigobar','Frigobar e reposição',50,{span:'full',dataSource:'frigobar',actions:{consumeMinibar:false,restockMinibar:true}}),w(id,'room-details','Detalhes do quarto',60),w(id,'alerts','Alertas da governança',70),w(id,'team','Equipe da governança',80,{dataSource:'users'})];
+ if(sector==='manutencao')return [w(id,'quick-actions','Ações rápidas da manutenção',10),w(id,'metrics','Resumo da manutenção',20),w(id,'maintenance','Ordens de manutenção',30,{span:'full',boardId,dataSource:'maintenance'}),w(id,'room-map','Mapa técnico de quartos',40,{span:'full',dataSource:'rooms',actions:{checkin:false,checkout:false,transferRoom:false,editRoom:false,deleteRoom:false}}),w(id,'room-details','Detalhes do quarto',50),w(id,'alerts','Alertas técnicos',60),w(id,'team','Equipe de manutenção',70,{dataSource:'users'})];
+ if(sector==='cozinha')return [w(id,'quick-actions','Ações rápidas da cozinha',10),w(id,'metrics','Resumo da cozinha',20),w(id,'orders','Pedidos da cozinha',30,{span:'full',dataSource:'orders',filters:{kdsSector:'COZINHA'},presentation:{kds:{mode:'custom',hidden:false,display:'highlight',width:'full',height:'high',visual:'highlight',header:'compact'}}}),w(id,'task-kanban','Tarefas da cozinha',40,{span:'full',boardId,dataSource:'kanban'}),w(id,'alerts','Alertas da cozinha',50),w(id,'team','Equipe da cozinha',60,{dataSource:'users'})];
+ return [w(id,'quick-actions','Ações rápidas da operação',10),w(id,'dashboard','Dashboard operacional',20,{span:'full',dataSource:'dashboard'}),w(id,'metrics','Indicadores operacionais',30,{span:'full'}),w(id,'task-kanban','Fluxo operacional',40,{span:'full',boardId,dataSource:'kanban'}),w(id,'alerts','Alertas operacionais',50),w(id,'team','Equipe operacional',60,{dataSource:'users'})];
 };
-
-export const createWorkspaceDefinition = (input: { name: string; sector: OperationalSectorId; boardId?: string; id?: string; }): WorkspaceDefinition => {
-  const boardId = input.boardId || defaultBoardForSector(input.sector);
-  const id = input.id || `workspace-custom-${slug(input.name)}-${Date.now().toString(36)}`;
-  return { id, name: input.name, description: `Ambiente operacional personalizado para ${input.name}.`, sectors: [input.sector], layout: 'operational', defaultScope: 'sector', widgets: normalizeWorkspaceWidgets(defaultWidgets(id, input.sector, boardId)) };
-};
-
-export const duplicateWorkspaceDefinition = (source: WorkspaceDefinition): WorkspaceDefinition => {
-  const id = `workspace-custom-${slug(source.name)}-copia-${Date.now().toString(36)}`;
-  return { ...source, id, name: `${source.name} — Cópia`, widgets: normalizeWorkspaceWidgets(source.widgets.map(widget => ({ ...widget, id: `${id}-${widget.type}-${Math.random().toString(36).slice(2, 7)}` }))) };
-};
-
-export const setWorkspaceSectorAndBoard = (definition: WorkspaceDefinition, sector: OperationalSectorId, boardId: string = defaultBoardForSector(sector)): WorkspaceDefinition => {
-  const previousSector = definition.sectors[0];
-  if (sector === 'manutencao' && previousSector !== 'manutencao') {
-    return {
-      ...definition,
-      sectors: [sector],
-      widgets: normalizeWorkspaceWidgets(defaultWidgets(definition.id, sector, boardId)),
-    };
-  }
-
-  return {
-    ...definition,
-    sectors: [sector],
-    widgets: definition.widgets.map(widget =>
-      widget.type === 'metrics' || widget.type === 'task-kanban' || widget.type === 'maintenance' || widget.type === 'kanban-cards'
-        ? { ...widget, boardId }
-        : widget,
-    ),
-  };
-};
+export const createWorkspaceDefinition=(input:{name:string;sector:OperationalSectorId;boardId?:string;id?:string;}):WorkspaceDefinition=>{const boardId=input.boardId||defaultBoardForSector(input.sector);const id=input.id||`workspace-custom-${slug(input.name)}-${Date.now().toString(36)}`;return{id,name:input.name,description:`Ambiente operacional personalizado para ${input.name}.`,sectors:[input.sector],layout:'operational',defaultScope:'sector',widgets:normalizeWorkspaceWidgets(defaultWidgets(id,input.sector,boardId))};};
+export const duplicateWorkspaceDefinition=(source:WorkspaceDefinition):WorkspaceDefinition=>{const id=`workspace-custom-${slug(source.name)}-copia-${Date.now().toString(36)}`;return{...source,id,name:`${source.name} — Cópia`,widgets:normalizeWorkspaceWidgets(source.widgets.map(widget=>({...widget,id:`${id}-${widget.type}-${Math.random().toString(36).slice(2,7)}`})))};};
+export const setWorkspaceSectorAndBoard=(definition:WorkspaceDefinition,sector:OperationalSectorId,boardId:string=defaultBoardForSector(sector)):WorkspaceDefinition=>{const previousSector=definition.sectors[0];if(previousSector!==sector)return{...definition,sectors:[sector],widgets:normalizeWorkspaceWidgets(defaultWidgets(definition.id,sector,boardId))};return{...definition,sectors:[sector],widgets:definition.widgets.map(widget=>['metrics','task-kanban','maintenance','kanban-cards'].includes(widget.type)?{...widget,boardId}:widget)};};
