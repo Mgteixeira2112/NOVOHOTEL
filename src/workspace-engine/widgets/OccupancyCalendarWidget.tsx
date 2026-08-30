@@ -4,6 +4,7 @@ import { useHotel } from '../../context/HotelContext';
 import { supabase } from '../../lib/supabase';
 import { Reserva } from '../../types';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
+import { addLocalDays, localDateKey } from './localDate';
 
 type RoomBlock = {
   id: string;
@@ -13,13 +14,8 @@ type RoomBlock = {
   motivo: string;
 };
 
-const DAY_MS = 86400000;
 const ACTIVE_RESERVATION_STATUSES = ['pendente', 'confirmada', 'checkin_realizado'];
 
-const isoDate = (date: Date) => date.toISOString().slice(0, 10);
-const addDays = (value: string, days: number) => isoDate(new Date(`${value}T12:00:00Z`).getTime() + days * DAY_MS > 0
-  ? new Date(new Date(`${value}T12:00:00Z`).getTime() + days * DAY_MS)
-  : new Date(`${value}T12:00:00Z`));
 const dateBR = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 const weekday = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
 const reservationStart = (reservation: Reserva) => reservation.data_checkin || reservation.checkin || '';
@@ -28,18 +24,18 @@ const containsDay = (start: string, end: string, day: string) => !!start && !!en
 
 export const OccupancyCalendarWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget }) => {
   const { rooms, reservations, guests, syncFromSupabase } = useHotel();
-  const [startDate, setStartDate] = useState(() => isoDate(new Date()));
+  const [startDate, setStartDate] = useState(() => localDateKey());
   const [daysVisible, setDaysVisible] = useState(14);
   const [blocks, setBlocks] = useState<RoomBlock[]>([]);
   const [loadingBlocks, setLoadingBlocks] = useState(false);
   const [error, setError] = useState('');
 
-  const days = useMemo(() => Array.from({ length: daysVisible }, (_, index) => addDays(startDate, index)), [startDate, daysVisible]);
+  const days = useMemo(() => Array.from({ length: daysVisible }, (_, index) => addLocalDays(startDate, index)), [startDate, daysVisible]);
 
   const loadBlocks = async () => {
     setLoadingBlocks(true);
     setError('');
-    const rangeEnd = addDays(startDate, daysVisible);
+    const rangeEnd = addLocalDays(startDate, daysVisible);
     const { data, error: queryError } = await supabase
       .from('bloqueios')
       .select('id,quarto_id,data_inicio,data_fim,motivo')
@@ -89,9 +85,9 @@ export const OccupancyCalendarWidget: React.FC<WorkspaceWidgetRuntimeContext> = 
         <p className="mt-1 text-[10px] text-slate-400">Reservas e hospedagens bloqueiam o período [check-in, check-out). Bloqueios operacionais aparecem no mesmo calendário.</p>
       </div>
       <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => setStartDate(addDays(startDate, -daysVisible))} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200"><ChevronLeft className="h-4 w-4"/></button>
-        <button type="button" onClick={() => setStartDate(isoDate(new Date()))} className="h-9 rounded-xl border border-slate-200 px-3 text-[10px] font-black">Hoje</button>
-        <button type="button" onClick={() => setStartDate(addDays(startDate, daysVisible))} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200"><ChevronRight className="h-4 w-4"/></button>
+        <button type="button" onClick={() => setStartDate(addLocalDays(startDate, -daysVisible))} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200"><ChevronLeft className="h-4 w-4"/></button>
+        <button type="button" onClick={() => setStartDate(localDateKey())} className="h-9 rounded-xl border border-slate-200 px-3 text-[10px] font-black">Hoje</button>
+        <button type="button" onClick={() => setStartDate(addLocalDays(startDate, daysVisible))} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200"><ChevronRight className="h-4 w-4"/></button>
         <select value={daysVisible} onChange={event => setDaysVisible(Number(event.target.value))} className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-[10px] font-black">
           <option value={7}>7 dias</option><option value={14}>14 dias</option><option value={30}>30 dias</option>
         </select>
