@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import './workspace-engine/widgets/taskKanbanLayout.css';
+import './workspace-engine/workspaceDesktopButtonStrip.css';
 import { registerServiceWorker } from './pwa/registerServiceWorker';
 import { GlobalErrorBoundary } from './components/common/GlobalErrorBoundary';
 
