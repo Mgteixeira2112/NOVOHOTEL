@@ -9,19 +9,11 @@ import { receptionGuestStayService } from '../../modules/recepcao/receptionGuest
 import { RECEPTION_ROOMS_BOARD_ID, receptionRoomKanbanService } from '../../modules/recepcao/receptionRoomKanbanService';
 import { receptionStayService } from '../../modules/recepcao/receptionStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
+import { addLocalDays, localDateKey } from './localDate';
 import { readRoomMapWidgetPresentation, roomMapActionEnabled } from './roomMapWidgetPresentation';
 
 const GOVERNANCE_BOARD_ID = 'kanban-board-governanca';
 const GOVERNANCE_RELEASED_COLUMN_ID = 'gov-col-liberado';
-
-const dateInput = (offsetDays = 0) => {
-  const date = new Date();
-  date.setDate(date.getDate() + offsetDays);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
 
 type GovernanceRoomCard = {
   room_id?: string | null;
@@ -38,8 +30,8 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
   const [stayActionId, setStayActionId] = useState<string | null>(null);
   const [checkinRoom, setCheckinRoom] = useState<Quarto | null>(null);
   const [checkinGuestId, setCheckinGuestId] = useState('');
-  const [checkinDate, setCheckinDate] = useState(dateInput(0));
-  const [checkoutDate, setCheckoutDate] = useState(dateInput(1));
+  const [checkinDate, setCheckinDate] = useState(localDateKey());
+  const [checkoutDate, setCheckoutDate] = useState(addLocalDays(localDateKey(), 1));
   const [checkinGuestCount, setCheckinGuestCount] = useState(1);
   const [error, setError] = useState('');
   const presentation = readRoomMapWidgetPresentation(widget);
@@ -140,8 +132,9 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
   const startCheckin = (room: Quarto) => {
     setCheckinRoom(room);
     setCheckinGuestId('');
-    setCheckinDate(dateInput(0));
-    setCheckoutDate(dateInput(1));
+    const today = localDateKey();
+    setCheckinDate(today);
+    setCheckoutDate(addLocalDays(today, 1));
     setCheckinGuestCount(1);
     setError('');
   };
