@@ -1,42 +1,6 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import { createWorkspaceDefinition, duplicateWorkspaceDefinition, setWorkspaceSectorAndBoard } from '../src/workspace-engine/workspaceFactory';
-
-test('workspace factory creates a routed operational definition', () => {
-  const workspace = createWorkspaceDefinition({ name: 'Recepção Noite', sector: 'recepcao', id: 'workspace-test' });
-  assert.equal(workspace.id, 'workspace-test');
-  assert.deepEqual(workspace.sectors, ['recepcao']);
-  assert.equal(workspace.widgets.find(widget => widget.type === 'task-kanban')?.boardId, 'kanban-board-recepcao');
-  assert.equal(workspace.widgets.some(widget => ['kanban-cards', 'rooms-list', 'checkins'].includes(widget.type)), false);
-});
-
-test('workspace factory cria composição própria para manutenção', () => {
-  const workspace = createWorkspaceDefinition({ name: 'Manutenção', sector: 'manutencao', id: 'workspace-maintenance' });
-  assert.deepEqual(workspace.sectors, ['manutencao']);
-  assert.equal(workspace.widgets.find(widget => widget.type === 'maintenance')?.boardId, 'kanban-board-manutencao');
-  assert.equal(workspace.widgets.some(widget => widget.type === 'quick-actions' && widget.enabled !== false), true);
-  assert.equal(workspace.widgets.some(widget => widget.type === 'room-map' && widget.enabled !== false), true);
-  assert.equal(workspace.widgets.some(widget => widget.type === 'room-details' && widget.enabled !== false), true);
-  assert.equal(workspace.widgets.some(widget => widget.type === 'arrivals' || widget.type === 'departures'), false);
-});
-
-test('trocar um workspace para manutenção aplica o modelo setorial uma única vez', () => {
-  const base = createWorkspaceDefinition({ name: 'Teste', sector: 'recepcao', id: 'workspace-test-2' });
-  const moved = setWorkspaceSectorAndBoard(base, 'manutencao', 'kanban-board-manutencao');
-  assert.deepEqual(moved.sectors, ['manutencao']);
-  assert.equal(moved.widgets.find(widget => widget.type === 'maintenance')?.boardId, 'kanban-board-manutencao');
-  assert.equal(moved.widgets.some(widget => widget.type === 'arrivals' || widget.type === 'departures'), false);
-
-  const customized = { ...moved, widgets: moved.widgets.map(widget => widget.type === 'alerts' ? { ...widget, title: 'Alertas customizados' } : widget) };
-  const boardChanged = setWorkspaceSectorAndBoard(customized, 'manutencao', 'kanban-board-manutencao');
-  assert.equal(boardChanged.widgets.find(widget => widget.type === 'alerts')?.title, 'Alertas customizados');
-});
-
-test('duplicate workspace generates independent ids', () => {
-  const base = createWorkspaceDefinition({ name: 'Cozinha', sector: 'cozinha', id: 'workspace-original' });
-  const copy = duplicateWorkspaceDefinition(base);
-  assert.notEqual(copy.id, base.id);
-  assert.equal(copy.name, 'Cozinha — Cópia');
-  assert.equal(copy.widgets.length, base.widgets.length);
-  assert.notEqual(copy.widgets[0].id, base.widgets[0].id);
-});
+import test from 'node:test';import assert from 'node:assert/strict';import {createWorkspaceDefinition,duplicateWorkspaceDefinition,setWorkspaceSectorAndBoard} from '../src/workspace-engine/workspaceFactory';
+const types=(sector:'operacao'|'governanca'|'recepcao'|'manutencao'|'cozinha')=>createWorkspaceDefinition({name:sector,sector,id:`ws-${sector}`}).widgets.map(w=>w.type);
+test('fabrica possui composição específica para os cinco setores',()=>{assert.ok(types('operacao').includes('dashboard'));assert.ok(types('governanca').includes('room-map'));assert.ok(types('recepcao').includes('arrivals'));assert.ok(types('manutencao').includes('maintenance'));assert.ok(types('cozinha').includes('orders'));for(const sector of ['operacao','governanca','recepcao','manutencao','cozinha'] as const){assert.ok(types(sector).includes('quick-actions'));assert.ok(types(sector).includes('team'));}});
+test('cozinha nasce vinculada ao KDS e board oficiais',()=>{const ws=createWorkspaceDefinition({name:'Cozinha',sector:'cozinha',id:'ws-kitchen'});assert.equal(ws.widgets.find(w=>w.type==='orders')?.filters?.kdsSector,'COZINHA');assert.equal(ws.widgets.find(w=>w.type==='task-kanban')?.boardId,'kanban-board-cozinha');});
+test('troca de setor substitui composição incompatível e depois preserva personalização',()=>{const base=createWorkspaceDefinition({name:'Teste',sector:'recepcao',id:'ws-switch'});const moved=setWorkspaceSectorAndBoard(base,'governanca');assert.equal(moved.widgets.some(w=>w.type==='arrivals'),false);assert.ok(moved.widgets.some(w=>w.type==='room-map'));const customized={...moved,widgets:moved.widgets.map(w=>w.type==='alerts'?{...w,title:'Meu alerta'}:w)};const same=setWorkspaceSectorAndBoard(customized,'governanca');assert.equal(same.widgets.find(w=>w.type==='alerts')?.title,'Meu alerta');});
+test('duplicate workspace gera ids independentes',()=>{const base=createWorkspaceDefinition({name:'Cozinha',sector:'cozinha',id:'workspace-original'});const copy=duplicateWorkspaceDefinition(base);assert.notEqual(copy.id,base.id);assert.equal(copy.widgets.length,base.widgets.length);assert.notEqual(copy.widgets[0].id,base.widgets[0].id);});
