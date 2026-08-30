@@ -16,10 +16,10 @@ const ACTIONS_BY_SECTOR: Record<OperationalSectorId, QuickActionDefinition[]> = 
   operacao: [
     { type: 'dashboard', label: 'Dashboard', description: 'Abrir visão gerencial', icon: LayoutDashboard },
     { type: 'metrics', label: 'Indicadores', description: 'Ver resumo operacional', icon: Gauge },
-    { type: 'alerts', label: 'Alertas', description: 'Ver pendências atuais', icon: Bell },
     { type: 'task-kanban', label: 'Tarefas', description: 'Abrir quadro operacional', icon: ClipboardList },
-    { type: 'room-map', label: 'Mapa de quartos', description: 'Ver situação dos quartos', icon: BedDouble },
+    { type: 'alerts', label: 'Alertas', description: 'Ver pendências atuais', icon: Bell },
     { type: 'frigobar', label: 'Frigobar', description: 'Abrir operação de frigobar', icon: ReceiptText },
+    { type: 'team', label: 'Equipe', description: 'Ver equipe operacional', icon: Users },
   ],
   recepcao: [
     { type: 'arrivals', label: 'Chegadas', description: 'Ver chegadas e check-in', icon: CalendarCheck },
@@ -31,6 +31,7 @@ const ACTIONS_BY_SECTOR: Record<OperationalSectorId, QuickActionDefinition[]> = 
     { type: 'room-details', label: 'Detalhes do quarto', description: 'Abrir contexto do quarto', icon: BedDouble },
     { type: 'stay-finance', label: 'Financeiro', description: 'Abrir Folio da hospedagem', icon: WalletCards },
     { type: 'frigobar', label: 'Frigobar', description: 'Abrir operação de frigobar', icon: ReceiptText },
+    { type: 'team', label: 'Equipe', description: 'Ver equipe da recepção', icon: Users },
   ],
   governanca: [
     { type: 'room-map', label: 'Mapa de quartos', description: 'Ver limpeza e liberação', icon: BedDouble },
@@ -38,17 +39,20 @@ const ACTIONS_BY_SECTOR: Record<OperationalSectorId, QuickActionDefinition[]> = 
     { type: 'task-kanban', label: 'Tarefas', description: 'Abrir tarefas da Governança', icon: ClipboardList },
     { type: 'alerts', label: 'Alertas', description: 'Ver quartos que exigem atenção', icon: Bell },
     { type: 'frigobar', label: 'Frigobar', description: 'Abrir reposição do quarto', icon: ReceiptText },
+    { type: 'team', label: 'Equipe', description: 'Ver equipe da governança', icon: Users },
   ],
   manutencao: [
     { type: 'maintenance', label: 'Manutenção', description: 'Abrir ordens técnicas do setor', icon: Wrench },
     { type: 'room-map', label: 'Mapa de quartos', description: 'Localizar quartos e estados', icon: BedDouble },
     { type: 'room-details', label: 'Detalhes do quarto', description: 'Abrir contexto técnico do quarto', icon: Wrench },
     { type: 'alerts', label: 'Alertas', description: 'Ver pendências técnicas', icon: Bell },
+    { type: 'team', label: 'Equipe', description: 'Ver equipe de manutenção', icon: Users },
   ],
   cozinha: [
     { type: 'task-kanban', label: 'Tarefas', description: 'Abrir fila operacional', icon: UtensilsCrossed },
     { type: 'alerts', label: 'Alertas', description: 'Ver pendências da operação', icon: Bell },
     { type: 'dashboard', label: 'Dashboard', description: 'Ver indicadores disponíveis', icon: LayoutDashboard },
+    { type: 'team', label: 'Equipe', description: 'Ver equipe da cozinha', icon: Users },
   ],
 };
 
