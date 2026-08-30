@@ -24,6 +24,14 @@ const defaultWidgets = (id: string, sector: OperationalSectorId, boardId: string
     { id: `${id}-rooms`, type: 'room-map', title: 'Mapa de quartos', order: 50, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transferRoom: true } },
     { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Kanban de tarefas', order: 60, span: 'full', enabled: true, dataSource: 'kanban' },
   ];
+  if (sector === 'manutencao') return [
+    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas da manutenção', order: 10, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo da manutenção', order: 20, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-maintenance`, type: 'maintenance', boardId, title: 'Ordens de manutenção', order: 30, span: 'full', enabled: true, dataSource: 'maintenance' },
+    { id: `${id}-rooms`, type: 'room-map', title: 'Mapa técnico de quartos', order: 40, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: false, checkout: false, transferRoom: false, editRoom: false, deleteRoom: false } },
+    { id: `${id}-room-details`, type: 'room-details', title: 'Detalhes do quarto', order: 50, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas técnicos', order: 60, span: 2, enabled: true, dataSource: 'composite' },
+  ];
   return [
     { id: `${id}-metrics`, type: 'metrics', boardId, order: 10, span: 'full', enabled: true },
     { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Fluxo operacional', order: 20, span: 'full', enabled: true, dataSource: 'kanban' },
@@ -43,8 +51,23 @@ export const duplicateWorkspaceDefinition = (source: WorkspaceDefinition): Works
   return { ...source, id, name: `${source.name} — Cópia`, widgets: normalizeWorkspaceWidgets(source.widgets.map(widget => ({ ...widget, id: `${id}-${widget.type}-${Math.random().toString(36).slice(2, 7)}` }))) };
 };
 
-export const setWorkspaceSectorAndBoard = (definition: WorkspaceDefinition, sector: OperationalSectorId, boardId: string = defaultBoardForSector(sector)): WorkspaceDefinition => ({
-  ...definition,
-  sectors: [sector],
-  widgets: definition.widgets.map(widget => widget.type === 'metrics' || widget.type === 'task-kanban' || widget.type === 'kanban-cards' ? { ...widget, boardId } : widget),
-});
+export const setWorkspaceSectorAndBoard = (definition: WorkspaceDefinition, sector: OperationalSectorId, boardId: string = defaultBoardForSector(sector)): WorkspaceDefinition => {
+  const previousSector = definition.sectors[0];
+  if (sector === 'manutencao' && previousSector !== 'manutencao') {
+    return {
+      ...definition,
+      sectors: [sector],
+      widgets: normalizeWorkspaceWidgets(defaultWidgets(definition.id, sector, boardId)),
+    };
+  }
+
+  return {
+    ...definition,
+    sectors: [sector],
+    widgets: definition.widgets.map(widget =>
+      widget.type === 'metrics' || widget.type === 'task-kanban' || widget.type === 'maintenance' || widget.type === 'kanban-cards'
+        ? { ...widget, boardId }
+        : widget,
+    ),
+  };
+};
