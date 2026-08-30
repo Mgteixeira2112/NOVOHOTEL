@@ -3,16 +3,16 @@ import { AlertTriangle, CalendarDays, LogIn, LogOut } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { receptionStayService } from '../../modules/recepcao/receptionStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
+import { localDateKey } from './localDate';
 
 const dateKey = (value?: string | null) => String(value || '').slice(0, 10);
-const todayKey = () => new Date().toISOString().slice(0, 10);
 const normalize = (value?: string | null) => String(value || '').trim().toLowerCase();
 
 const ReservationList: React.FC<WorkspaceWidgetRuntimeContext & { mode: 'arrivals' | 'departures' }> = ({ widget, mode }) => {
   const { reservations, guests, rooms, currentUser, syncFromSupabase } = useHotel();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const today = todayKey();
+  const today = localDateKey();
   const items = useMemo(() => reservations.filter(reservation => {
     const value = mode === 'arrivals' ? reservation.data_checkin || reservation.checkin : reservation.data_checkout || reservation.checkout;
     if (dateKey(value) !== today || ['cancelada', 'checkout_concluido'].includes(reservation.status)) return false;
@@ -25,7 +25,8 @@ const ReservationList: React.FC<WorkspaceWidgetRuntimeContext & { mode: 'arrival
     try {
       if (mode === 'arrivals') await receptionStayService.checkin(id, currentUser?.id);
       else await receptionStayService.checkout(id, currentUser?.id);
-      await syncFromSupabase();
+      const synced = await syncFromSupabase();
+      if (!synced.success) throw new Error(synced.message || `Operação concluída, mas não foi possível atualizar os dados do ${mode === 'arrivals' ? 'check-in' : 'check-out'}.`);
     } catch (e: any) { setError(e?.message || `Não foi possível realizar o ${mode === 'arrivals' ? 'check-in' : 'check-out'}.`); }
     finally { setBusy(null); }
   };
