@@ -24,3 +24,21 @@ test('Chegadas e Saídas usam calendário local e validam sincronização após 
   assert.match(source, /receptionStayService\.checkin/);
   assert.match(source, /receptionStayService\.checkout/);
 });
+
+test('Reservas inicia entrada e saída pelo calendário local', () => {
+  const source = read('src/workspace-engine/widgets/ReservationsWidget.tsx');
+  assert.match(source, /localDateKey, tomorrowLocalDateKey/);
+  assert.match(source, /checkin: localDateKey\(\)/);
+  assert.match(source, /checkout: tomorrowLocalDateKey\(\)/);
+  assert.doesNotMatch(source, /toISOString\(\)\.slice\(0, 10\)/);
+});
+
+test('Calendário de ocupação navega exclusivamente por datas locais', () => {
+  const source = read('src/workspace-engine/widgets/OccupancyCalendarWidget.tsx');
+  assert.match(source, /addLocalDays, localDateKey/);
+  assert.match(source, /useState\(\(\) => localDateKey\(\)\)/);
+  assert.match(source, /addLocalDays\(startDate, daysVisible\)/);
+  assert.match(source, /setStartDate\(localDateKey\(\)\)/);
+  assert.doesNotMatch(source, /toISOString\(\)\.slice\(0, 10\)/);
+  assert.doesNotMatch(source, /DAY_MS/);
+});

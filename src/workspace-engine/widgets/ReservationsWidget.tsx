@@ -4,9 +4,7 @@ import { useHotel } from '../../context/HotelContext';
 import { Reserva } from '../../types';
 import { AvailableRoom, receptionGuestStayService } from '../../modules/recepcao/receptionGuestStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
-
-const today = () => new Date().toISOString().slice(0, 10);
-const tomorrow = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+import { localDateKey, tomorrowLocalDateKey } from './localDate';
 
 type ReservationFilter = 'all' | 'upcoming' | 'active' | 'finished' | 'cancelled';
 
@@ -21,8 +19,8 @@ type ReservationForm = {
 
 const emptyForm = (): ReservationForm => ({
   guestId: '',
-  checkin: today(),
-  checkout: tomorrow(),
+  checkin: localDateKey(),
+  checkout: tomorrowLocalDateKey(),
   guests: 1,
   bedScheme: '',
   roomId: '',
