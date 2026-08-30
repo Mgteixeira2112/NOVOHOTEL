@@ -1,19 +1,18 @@
-import { describe, expect, test } from 'bun:test';
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import test from 'node:test';
 
 const css = readFileSync('src/workspace-engine/workspaceDesktopButtonStrip.css', 'utf8');
 const main = readFileSync('src/main.tsx', 'utf8');
 
-describe('Workspace Desktop compact button strip', () => {
-  test('keeps many button widgets readable in one horizontal strip', () => {
-    expect(main).toContain("import './workspace-engine/workspaceDesktopButtonStrip.css';");
-    expect(css).toContain("[data-desktop-button-strip] [data-widget-display='button']");
-    expect(css).toContain('min-width: 10rem !important;');
-    expect(css).toContain('flex: 0 0 auto !important;');
-    expect(css).toContain('min-height: 3.25rem !important;');
-    expect(css).toContain("> button > div > p");
-    expect(css).toContain('display: none;');
-    expect(css).toContain('text-overflow: ellipsis;');
-    expect(css).toContain('white-space: nowrap;');
-  });
+test('Workspace Desktop mantém muitos widgets em uma faixa compacta e legível', () => {
+  assert.match(main, /workspaceDesktopButtonStrip\.css/);
+  assert.match(css, /\[data-desktop-button-strip\] \[data-widget-display='button'\]/);
+  assert.match(css, /min-width: 10rem !important;/);
+  assert.match(css, /flex: 0 0 auto !important;/);
+  assert.match(css, /min-height: 3\.25rem !important;/);
+  assert.match(css, /> button > div > p/);
+  assert.match(css, /display: none;/);
+  assert.match(css, /text-overflow: ellipsis;/);
+  assert.match(css, /white-space: nowrap;/);
 });
