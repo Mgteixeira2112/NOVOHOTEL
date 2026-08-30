@@ -17,13 +17,27 @@ const slug = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/
 
 const defaultWidgets = (id: string, sector: OperationalSectorId, boardId: string): WorkspaceWidgetDefinition[] => {
   if (sector === 'recepcao') return [
-    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo operacional', order: 10, span: 'full', enabled: true },
-    { id: `${id}-arrivals`, type: 'arrivals', title: 'Chegadas de hoje', order: 20, span: 1, enabled: true },
-    { id: `${id}-departures`, type: 'departures', title: 'Saídas de hoje', order: 30, span: 1, enabled: true },
-    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas da recepção', order: 40, span: 2, enabled: true },
-    { id: `${id}-rooms`, type: 'room-map', title: 'Mapa de quartos', order: 50, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transferRoom: true } },
-    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Kanban de tarefas', order: 60, span: 'full', enabled: true, dataSource: 'kanban' },
+    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas da recepção', order: 10, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo operacional', order: 20, span: 2, enabled: true },
+    { id: `${id}-arrivals`, type: 'arrivals', title: 'Chegadas de hoje', order: 30, span: 1, enabled: true },
+    { id: `${id}-departures`, type: 'departures', title: 'Saídas de hoje', order: 40, span: 1, enabled: true },
+    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas da recepção', order: 50, span: 2, enabled: true },
+    { id: `${id}-rooms`, type: 'room-map', title: 'Mapa de quartos', order: 60, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: true, checkout: true, transferRoom: true } },
+    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Kanban de tarefas', order: 70, span: 'full', enabled: true, dataSource: 'kanban' },
+    { id: `${id}-team`, type: 'team', title: 'Equipe da recepção', order: 80, span: 2, enabled: true, dataSource: 'users' },
   ];
+
+  if (sector === 'governanca') return [
+    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas da governança', order: 10, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo da governança', order: 20, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-rooms`, type: 'room-map', title: 'Mapa de quartos da governança', order: 30, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: false, checkout: false, transferRoom: false, editRoom: false, deleteRoom: false, requestMaintenance: true } },
+    { id: `${id}-room-details`, type: 'room-details', title: 'Detalhes do quarto', order: 40, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Tarefas da governança', order: 50, span: 'full', enabled: true, dataSource: 'kanban' },
+    { id: `${id}-frigobar`, type: 'frigobar', title: 'Frigobar e reposição', order: 60, span: 'full', enabled: true, dataSource: 'frigobar', actions: { consumeMinibar: false, restockMinibar: true } },
+    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas da governança', order: 70, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-team`, type: 'team', title: 'Equipe da governança', order: 80, span: 2, enabled: true, dataSource: 'users' },
+  ];
+
   if (sector === 'manutencao') return [
     { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas da manutenção', order: 10, span: 2, enabled: true, dataSource: 'composite' },
     { id: `${id}-metrics`, type: 'metrics', title: 'Resumo da manutenção', order: 20, span: 2, enabled: true, dataSource: 'composite' },
@@ -31,12 +45,26 @@ const defaultWidgets = (id: string, sector: OperationalSectorId, boardId: string
     { id: `${id}-rooms`, type: 'room-map', title: 'Mapa técnico de quartos', order: 40, span: 'full', enabled: true, dataSource: 'rooms', actions: { checkin: false, checkout: false, transferRoom: false, editRoom: false, deleteRoom: false } },
     { id: `${id}-room-details`, type: 'room-details', title: 'Detalhes do quarto', order: 50, span: 2, enabled: true, dataSource: 'composite' },
     { id: `${id}-alerts`, type: 'alerts', title: 'Alertas técnicos', order: 60, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-team`, type: 'team', title: 'Equipe de manutenção', order: 70, span: 2, enabled: true, dataSource: 'users' },
   ];
+
+  if (sector === 'cozinha') return [
+    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas da cozinha', order: 10, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo da cozinha', order: 20, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Fila operacional da cozinha', order: 30, span: 'full', enabled: true, dataSource: 'kanban' },
+    { id: `${id}-dashboard`, type: 'dashboard', title: 'Dashboard da cozinha', order: 40, span: 'full', enabled: true, dataSource: 'dashboard' },
+    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas da cozinha', order: 50, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-team`, type: 'team', title: 'Equipe da cozinha', order: 60, span: 2, enabled: true, dataSource: 'users' },
+  ];
+
   return [
-    { id: `${id}-metrics`, type: 'metrics', boardId, order: 10, span: 'full', enabled: true },
-    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Fluxo operacional', order: 20, span: 'full', enabled: true, dataSource: 'kanban' },
-    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas', order: 30, span: 2, enabled: false },
-    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas', order: 40, span: 2, enabled: false },
+    { id: `${id}-actions`, type: 'quick-actions', title: 'Ações rápidas da operação', order: 10, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-metrics`, type: 'metrics', title: 'Resumo da operação', order: 20, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-dashboard`, type: 'dashboard', title: 'Dashboard operacional', order: 30, span: 'full', enabled: true, dataSource: 'dashboard' },
+    { id: `${id}-tasks`, type: 'task-kanban', boardId, title: 'Fluxo operacional', order: 40, span: 'full', enabled: true, dataSource: 'kanban' },
+    { id: `${id}-alerts`, type: 'alerts', title: 'Alertas operacionais', order: 50, span: 2, enabled: true, dataSource: 'composite' },
+    { id: `${id}-frigobar`, type: 'frigobar', title: 'Frigobar', order: 60, span: 'full', enabled: true, dataSource: 'frigobar' },
+    { id: `${id}-team`, type: 'team', title: 'Equipe operacional', order: 70, span: 2, enabled: true, dataSource: 'users' },
   ];
 };
 
@@ -53,7 +81,7 @@ export const duplicateWorkspaceDefinition = (source: WorkspaceDefinition): Works
 
 export const setWorkspaceSectorAndBoard = (definition: WorkspaceDefinition, sector: OperationalSectorId, boardId: string = defaultBoardForSector(sector)): WorkspaceDefinition => {
   const previousSector = definition.sectors[0];
-  if (sector === 'manutencao' && previousSector !== 'manutencao') {
+  if (previousSector !== sector) {
     return {
       ...definition,
       sectors: [sector],
