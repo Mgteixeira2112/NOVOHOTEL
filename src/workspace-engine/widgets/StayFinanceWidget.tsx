@@ -22,9 +22,13 @@ const operationKey = (prefix: string) =>
 
 export const StayFinanceWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget }) => {
   const { reservations, guests, rooms } = useHotel();
+  const activeRoomIds = useMemo(
+    () => new Set(rooms.filter(room => room.ativo !== false).map(room => room.id)),
+    [rooms],
+  );
   const activeReservations = useMemo(
-    () => reservations.filter(item => item.status === 'checkin_realizado' && item.quarto_id),
-    [reservations],
+    () => reservations.filter(item => item.status === 'checkin_realizado' && item.quarto_id && activeRoomIds.has(item.quarto_id)),
+    [reservations, activeRoomIds],
   );
   const [reservationId, setReservationId] = useState('');
   const [stayId, setStayId] = useState<string | null>(null);
