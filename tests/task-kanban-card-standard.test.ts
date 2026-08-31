@@ -5,7 +5,7 @@ import test from 'node:test';
 const widgetSource = readFileSync('src/workspace-engine/widgets/TaskKanbanWidget.tsx', 'utf8');
 const layoutSource = readFileSync('src/workspace-engine/widgets/taskKanbanLayout.css', 'utf8');
 const mainSource = readFileSync('src/main.tsx', 'utf8');
-const registrySource = readFileSync('src/workspace-engine/registry.ts', 'utf8');
+const officialFactorySource = readFileSync('src/workspace-engine/workspaceOfficialFactory.ts', 'utf8');
 
 test('Widget Kanban inicia em Meu setor', () => {
   assert.match(widgetSource, /useState<WorkspaceScope>\('sector'\)/);
@@ -13,9 +13,9 @@ test('Widget Kanban inicia em Meu setor', () => {
 });
 
 test('Workspaces operacionais padrão usam escopo setor', () => {
-  const mineDefaults = registrySource.match(/defaultScope:\s*'mine'/g) || [];
+  const mineDefaults = officialFactorySource.match(/defaultScope:\s*'mine'/g) || [];
   assert.equal(mineDefaults.length, 0);
-  assert.match(registrySource, /defaultScope:\s*'sector'/);
+  assert.match(officialFactorySource, /defaultScope:\s*'sector'/);
 });
 
 test('card do Widget Kanban exibe o padrão operacional essencial', () => {
