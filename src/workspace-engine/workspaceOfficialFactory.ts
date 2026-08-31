@@ -1,5 +1,5 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
-import { WorkspaceDefinition, WorkspaceWidgetDefinition } from './types';
+import { WorkspaceDefinition, WorkspaceLayout, WorkspaceScope, WorkspaceWidgetDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
 import { createWorkspaceDefinition } from './workspaceFactory';
 
@@ -8,13 +8,16 @@ export type OfficialWorkspaceId =
   | 'workspace-recepcao'
   | 'workspace-operacao'
   | 'workspace-manutencao'
-  | 'workspace-cozinha';
+  | 'workspace-cozinha'
+  | 'workspace-administrativo';
 
 interface OfficialWorkspaceTemplate {
   id: OfficialWorkspaceId;
   name: string;
   description: string;
-  sector: OperationalSectorId;
+  sectors: OperationalSectorId[];
+  layout: WorkspaceLayout;
+  defaultScope: WorkspaceScope;
   widgets: WorkspaceWidgetDefinition[];
 }
 
@@ -29,15 +32,19 @@ const createSectorWidgets = (id: OfficialWorkspaceId, name: string, sector: Oper
  * Widget ids and the current compositions for Governança and Recepção are
  * intentionally preserved so that existing hotel overrides keep matching the
  * same base Workspace after the cutover from the historical hardcoded registry.
- * New official sectors reuse createWorkspaceDefinition() so their composition
- * remains owned by the existing Workspace Factory instead of being duplicated.
+ * New official operational sectors reuse createWorkspaceDefinition() so their
+ * composition remains owned by the existing Workspace Factory instead of being
+ * duplicated. Administrative management is represented as a Workspace layout,
+ * not as a new operational sector.
  */
 export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] = [
   {
     id: 'workspace-governanca',
     name: 'Governança',
     description: 'Operação de quartos e tarefas do setor',
-    sector: 'governanca',
+    sectors: ['governanca'],
+    layout: 'operational',
+    defaultScope: 'sector',
     widgets: [
       { id: 'governanca-metrics', type: 'metrics', boardId: 'kanban-board-governanca', order: 10, span: 'full' },
       { id: 'governanca-kanban', type: 'kanban-cards', boardId: 'kanban-board-governanca', title: 'Central de trabalho', order: 20, span: 'full' },
@@ -49,7 +56,9 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     id: 'workspace-recepcao',
     name: 'Recepção',
     description: 'Atendimento, hóspedes, reservas, quartos e solicitações do setor',
-    sector: 'recepcao',
+    sectors: ['recepcao'],
+    layout: 'operational',
+    defaultScope: 'sector',
     widgets: [
       { id: 'recepcao-metrics', type: 'metrics', title: 'Resumo operacional', order: 10, span: 'full', enabled: true },
       { id: 'recepcao-chegadas', type: 'arrivals', title: 'Chegadas de hoje', order: 20, span: 1, enabled: true },
@@ -67,22 +76,42 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     id: 'workspace-operacao',
     name: 'Operação Geral',
     description: 'Visão transversal da operação do hotel',
-    sector: 'operacao',
+    sectors: ['operacao'],
+    layout: 'operational',
+    defaultScope: 'sector',
     widgets: createSectorWidgets('workspace-operacao', 'Operação Geral', 'operacao'),
   },
   {
     id: 'workspace-manutencao',
     name: 'Manutenção',
     description: 'Chamados, reparos e ordens de serviço técnicas',
-    sector: 'manutencao',
+    sectors: ['manutencao'],
+    layout: 'operational',
+    defaultScope: 'sector',
     widgets: createSectorWidgets('workspace-manutencao', 'Manutenção', 'manutencao'),
   },
   {
     id: 'workspace-cozinha',
     name: 'Cozinha & Room Service',
     description: 'Pedidos, preparo e entrega de alimentos e bebidas',
-    sector: 'cozinha',
+    sectors: ['cozinha'],
+    layout: 'operational',
+    defaultScope: 'sector',
     widgets: createSectorWidgets('workspace-cozinha', 'Cozinha & Room Service', 'cozinha'),
+  },
+  {
+    id: 'workspace-administrativo',
+    name: 'Administrativo',
+    description: 'Gestão de acessos, automações, configurações e supervisão do Hotel OS',
+    sectors: [],
+    layout: 'management',
+    defaultScope: 'mine',
+    widgets: [
+      { id: 'administrativo-central', type: 'hotel-os-admin', title: 'Central Hotel OS', order: 10, span: 'full', enabled: true, dataSource: 'composite' },
+      { id: 'administrativo-acessos', type: 'user-access', title: 'Equipe & Acessos', order: 20, span: 'full', enabled: true, dataSource: 'users' },
+      { id: 'administrativo-automacoes', type: 'automation-admin', title: 'Automações & Fechaduras', order: 30, span: 'full', enabled: true, dataSource: 'composite' },
+      { id: 'administrativo-configuracoes', type: 'settings-admin', title: 'Configurações & Design', order: 40, span: 'full', enabled: true, dataSource: 'composite' },
+    ],
   },
 ] as const;
 
@@ -94,9 +123,9 @@ export const createOfficialWorkspaceDefinition = (workspaceId: OfficialWorkspace
     id: template.id,
     name: template.name,
     description: template.description,
-    sectors: [template.sector],
-    layout: 'operational',
-    defaultScope: 'sector',
+    sectors: [...template.sectors],
+    layout: template.layout,
+    defaultScope: template.defaultScope,
     widgets: normalizeWorkspaceWidgets(template.widgets.map(widget => ({
       ...widget,
       actions: widget.actions ? { ...widget.actions } : undefined,
