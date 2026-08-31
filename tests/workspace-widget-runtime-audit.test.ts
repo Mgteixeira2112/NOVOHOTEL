@@ -7,6 +7,7 @@ const registrationSource = readFileSync('src/workspace-engine/registerBuiltinWid
 const userAccessSource = readFileSync('src/workspace-engine/widgets/UserAccessWidget.tsx', 'utf8');
 const automationAdminSource = readFileSync('src/workspace-engine/widgets/AutomationAdminWidget.tsx', 'utf8');
 const settingsAdminSource = readFileSync('src/workspace-engine/widgets/SettingsAdminWidget.tsx', 'utf8');
+const hotelOSAdminSource = readFileSync('src/workspace-engine/widgets/HotelOSCommandCenterWidget.tsx', 'utf8');
 
 const visibleCatalogSource = catalogSource.slice(
   catalogSource.indexOf('const allWorkspaceWidgetCatalog'),
@@ -24,7 +25,7 @@ const registeredTypes = Array.from(
 const registered = new Set(registeredTypes);
 
 test('todo widget oficial tem maturidade explícita e tipos únicos', () => {
-  assert.equal(catalogEntries.length, 22, 'a biblioteca oficial deve manter 22 tipos auditados nesta baseline');
+  assert.equal(catalogEntries.length, 23, 'a biblioteca oficial deve manter 23 tipos auditados nesta baseline');
   assert.equal(new Set(catalogEntries.map(item => item.type)).size, catalogEntries.length, 'não pode haver tipo oficial duplicado');
   for (const item of catalogEntries) {
     assert.ok(['ready', 'configurable', 'planned'].includes(item.readiness), `maturidade ausente: ${item.type}`);
@@ -51,8 +52,8 @@ test('somente Pedidos e Atalhos ficam fora do runtime e ambos são planned', () 
   ]);
 });
 
-test('runtime registra 17 renderers operacionais e três adapters administrativos', () => {
-  assert.equal(registered.size, 20);
+test('runtime registra 17 renderers operacionais e quatro adapters administrativos', () => {
+  assert.equal(registered.size, 21);
   for (const type of [
     'metrics',
     'dashboard',
@@ -67,6 +68,7 @@ test('runtime registra 17 renderers operacionais e três adapters administrativo
     'user-access',
     'automation-admin',
     'settings-admin',
+    'hotel-os-admin',
     'guests',
     'reservations-list',
     'occupancy-calendar',
@@ -95,4 +97,10 @@ test('Configurações & Design é somente adapter de apresentação do módulo a
   assert.match(settingsAdminSource, /SettingsModule/);
   assert.match(settingsAdminSource, /data-workspace-settings-admin-adapter/);
   assert.doesNotMatch(settingsAdminSource, /supabase|localStorage|sessionStorage|fetch\(|insert\(|update\(|delete\(/i);
+});
+
+test('Central Hotel OS é somente adapter de apresentação do módulo administrativo existente', () => {
+  assert.match(hotelOSAdminSource, /HotelOSCommandCenter/);
+  assert.match(hotelOSAdminSource, /data-workspace-hotel-os-command-center-adapter/);
+  assert.doesNotMatch(hotelOSAdminSource, /supabase|localStorage|sessionStorage|fetch\(|insert\(|update\(|delete\(/i);
 });
