@@ -6,6 +6,7 @@ import { QuickActionsWidget } from './widgets/QuickActionsWidget';
 import { MaintenanceWidget } from './widgets/MaintenanceWidget';
 import { TeamWidget } from './widgets/TeamWidget';
 import { UserAccessWidget } from './widgets/UserAccessWidget';
+import { AutomationAdminWidget } from './widgets/AutomationAdminWidget';
 import { ArrivalsWidget, DeparturesWidget, ReceptionAlertsWidget, ReceptionSummaryWidget } from './widgets/ReceptionInfoWidgets';
 import { ActiveStaysWidget, GuestsWidget } from './widgets/ReceptionGuestStayWidgets';
 import { ReservationsWidget } from './widgets/ReservationsWidget';
@@ -29,6 +30,7 @@ export const registerBuiltinWorkspaceWidgets = () => {
   registerWorkspaceWidgetRenderer('maintenance', MaintenanceWidget);
   registerWorkspaceWidgetRenderer('team', TeamWidget);
   registerWorkspaceWidgetRenderer('user-access', UserAccessWidget);
+  registerWorkspaceWidgetRenderer('automation-admin', AutomationAdminWidget);
   registerWorkspaceWidgetRenderer('guests', GuestsWidget);
   registerWorkspaceWidgetRenderer('reservations-list', ReservationsWidget);
   registerWorkspaceWidgetRenderer('occupancy-calendar', OccupancyCalendarWidget);
