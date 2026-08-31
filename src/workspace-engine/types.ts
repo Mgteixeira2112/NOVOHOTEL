@@ -95,6 +95,7 @@ export type WorkspaceWidgetType =
   | 'user-access'
   | 'automation-admin'
   | 'settings-admin'
+  | 'hotel-os-admin'
   | 'shortcuts'
   // Legacy aliases kept while existing saved definitions are migrated.
   | 'kanban-cards'
