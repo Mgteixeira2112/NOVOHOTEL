@@ -38,7 +38,7 @@ test('biblioteca classifica disponibilidade e maturidade por setor', () => {
   assert.deepEqual(getWidgetAvailability('orders', 'cozinha'), {
     allowed: false,
     readiness: 'planned',
-    reason: 'Contrato reservado; renderer operacional ainda será consolidado.',
+    reason: 'Fora do Workspace 1.0: não existe renderer operacional consolidado e nenhum motor novo será criado aqui.',
   });
 });
 
