@@ -1,8 +1,14 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
 import { WorkspaceDefinition, WorkspaceWidgetDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
+import { createWorkspaceDefinition } from './workspaceFactory';
 
-export type OfficialWorkspaceId = 'workspace-governanca' | 'workspace-recepcao';
+export type OfficialWorkspaceId =
+  | 'workspace-governanca'
+  | 'workspace-recepcao'
+  | 'workspace-operacao'
+  | 'workspace-manutencao'
+  | 'workspace-cozinha';
 
 interface OfficialWorkspaceTemplate {
   id: OfficialWorkspaceId;
@@ -12,14 +18,19 @@ interface OfficialWorkspaceTemplate {
   widgets: WorkspaceWidgetDefinition[];
 }
 
+const createSectorWidgets = (id: OfficialWorkspaceId, name: string, sector: OperationalSectorId): WorkspaceWidgetDefinition[] =>
+  createWorkspaceDefinition({ id, name, sector }).widgets;
+
 /**
  * Official templates are inputs of the Workspace Factory, never runtime
  * instances by themselves. The registry receives only definitions generated
  * by createOfficialWorkspaceDefinition().
  *
- * Widget ids and the current compositions are intentionally preserved so that
- * existing hotel overrides keep matching the same base Workspace after the
- * cutover from the historical hardcoded registry.
+ * Widget ids and the current compositions for Governança and Recepção are
+ * intentionally preserved so that existing hotel overrides keep matching the
+ * same base Workspace after the cutover from the historical hardcoded registry.
+ * New official sectors reuse createWorkspaceDefinition() so their composition
+ * remains owned by the existing Workspace Factory instead of being duplicated.
  */
 export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] = [
   {
@@ -51,6 +62,27 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
       { id: 'recepcao-estadias', type: 'active-stays', title: 'Hóspedes hospedados', order: 80, span: 'full', enabled: true, dataSource: 'composite', actions: { checkout: true } },
       { id: 'recepcao-kanban', type: 'task-kanban', boardId: 'kanban-board-recepcao', title: 'Kanban de tarefas', order: 90, span: 'full', enabled: true, dataSource: 'kanban' },
     ],
+  },
+  {
+    id: 'workspace-operacao',
+    name: 'Operação Geral',
+    description: 'Visão transversal da operação do hotel',
+    sector: 'operacao',
+    widgets: createSectorWidgets('workspace-operacao', 'Operação Geral', 'operacao'),
+  },
+  {
+    id: 'workspace-manutencao',
+    name: 'Manutenção',
+    description: 'Chamados, reparos e ordens de serviço técnicas',
+    sector: 'manutencao',
+    widgets: createSectorWidgets('workspace-manutencao', 'Manutenção', 'manutencao'),
+  },
+  {
+    id: 'workspace-cozinha',
+    name: 'Cozinha & Room Service',
+    description: 'Pedidos, preparo e entrega de alimentos e bebidas',
+    sector: 'cozinha',
+    widgets: createSectorWidgets('workspace-cozinha', 'Cozinha & Room Service', 'cozinha'),
   },
 ] as const;
 
