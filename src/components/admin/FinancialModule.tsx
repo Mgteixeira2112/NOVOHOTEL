@@ -1,41 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useHotel } from '../../context/HotelContext';
 import { formatCurrency } from '../../utils/formatters';
-import { 
-  DollarSign, 
-  CreditCard, 
-  QrCode, 
-  TrendingUp, 
-  Download, 
-  Layers, 
-  FileText, 
-  Sliders, 
-  Key, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Plus, 
-  Link as LinkIcon,
-  ShieldCheck,
-  CheckCircle2,
-  Clock
+import {
+  CreditCard,
+  QrCode,
+  TrendingUp,
+  FileText,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
-import { 
-  DespesaOperacional, 
-  ContaReceber, 
-  PixKeyConfig, 
-  PixPspConfig, 
-  GatewayConfig, 
-  PaymentLink, 
+import {
+  DespesaOperacional,
+  ContaReceber,
+  PixKeyConfig,
+  PixPspConfig,
+  GatewayConfig,
+  PaymentLink,
   HotelFinancialKpis,
-  PaymentMethod 
+  PaymentMethod,
 } from '../../types/financial';
-import { 
-  INITIAL_EXPENSES, 
-  INITIAL_RECEIVABLES, 
-  INITIAL_PIX_KEYS, 
-  INITIAL_PIX_PSP, 
-  INITIAL_GATEWAY_CONFIGS, 
-  INITIAL_PAYMENT_LINKS 
+import {
+  INITIAL_PIX_KEYS,
+  INITIAL_PIX_PSP,
+  INITIAL_GATEWAY_CONFIGS,
+  INITIAL_PAYMENT_LINKS,
 } from '../../data/mockFinancialData';
 
 import { FinancialOverviewTab } from './financial/FinancialOverviewTab';
@@ -45,43 +33,35 @@ import { PixConfigTab } from './financial/PixConfigTab';
 import { CreditCardGatewaysTab } from './financial/CreditCardGatewaysTab';
 import { TransactionsAuditTab } from './financial/TransactionsAuditTab';
 import { PaymentLinkModal } from './financial/PaymentLinkModal';
-import { NewExpenseModal } from './financial/NewExpenseModal';
-import { NewReceivableModal } from './financial/NewReceivableModal';
 import { ReceiptModal } from './financial/ReceiptModal';
+import { useAdministrativeFinanceUi } from './financial/useAdministrativeFinanceUi';
 
-export type FinancialSubTab = 
-  | 'overview' 
-  | 'receivables' 
-  | 'payables' 
-  | 'pix_config' 
-  | 'gateways' 
+export type FinancialSubTab =
+  | 'overview'
+  | 'receivables'
+  | 'payables'
+  | 'pix_config'
+  | 'gateways'
   | 'transactions';
 
 export const FinancialModule: React.FC = () => {
   const { payments, reservations, guests, hotelConfig, rooms } = useHotel();
+  const {
+    receivables,
+    payables: expenses,
+    ready: administrativeFinanceReady,
+    missingSources,
+    loading: administrativeFinanceLoading,
+    error: administrativeFinanceError,
+    settleReceivable,
+    settlePayable,
+  } = useAdministrativeFinanceUi();
 
-  // Sub-abas do módulo financeiro
   const [activeTab, setActiveTab] = useState<FinancialSubTab>('overview');
 
-  // Estado das Contas e Configurações com LocalStorage
-  const [expenses, setExpenses] = useState<DespesaOperacional[]>(() => {
-    try {
-      const saved = localStorage.getItem('ITAJUBA_PMS_EXPENSES_V1');
-      return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
-    } catch {
-      return INITIAL_EXPENSES;
-    }
-  });
-
-  const [receivables, setReceivables] = useState<ContaReceber[]>(() => {
-    try {
-      const saved = localStorage.getItem('ITAJUBA_PMS_RECEIVABLES_V1');
-      return saved ? JSON.parse(saved) : INITIAL_RECEIVABLES;
-    } catch {
-      return INITIAL_RECEIVABLES;
-    }
-  });
-
+  // PIX, gateways e links ainda permanecem no legado até seus contratos oficiais
+  // serem auditados em uma etapa própria. Contas a pagar/receber não usam mais
+  // mock ou localStorage neste módulo.
   const [pixKeys, setPixKeys] = useState<PixKeyConfig[]>(() => {
     try {
       const saved = localStorage.getItem('ITAJUBA_PMS_PIX_KEYS_V1');
@@ -118,23 +98,6 @@ export const FinancialModule: React.FC = () => {
     }
   });
 
-  // Salvar no localStorage sempre que alterar
-  useEffect(() => {
-    try {
-      localStorage.setItem('ITAJUBA_PMS_EXPENSES_V1', JSON.stringify(expenses));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [expenses]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ITAJUBA_PMS_RECEIVABLES_V1', JSON.stringify(receivables));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [receivables]);
-
   useEffect(() => {
     try {
       localStorage.setItem('ITAJUBA_PMS_PIX_KEYS_V1', JSON.stringify(pixKeys));
@@ -167,46 +130,46 @@ export const FinancialModule: React.FC = () => {
     }
   }, [paymentLinks]);
 
-  // Modais
   const [paymentLinkModalOpen, setPaymentLinkModalOpen] = useState(false);
   const [selectedReceivableForLink, setSelectedReceivableForLink] = useState<ContaReceber | null>(null);
-
-  const [newExpenseModalOpen, setNewExpenseModalOpen] = useState(false);
-  const [newReceivableModalOpen, setNewReceivableModalOpen] = useState(false);
-
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [receiptReceivable, setReceiptReceivable] = useState<ContaReceber | null>(null);
   const [receiptExpense, setReceiptExpense] = useState<DespesaOperacional | null>(null);
 
-  // Cálculos de Indicadores Financeiros e KPIs Hoteleiros (PMS)
   const approvedPayments = payments.filter((p) => p.status === 'aprovado');
   const totalRevenue = approvedPayments.reduce((acc, p) => acc + p.valor, 0);
 
   const pixRevenue = approvedPayments.filter((p) => p.metodo === 'pix').reduce((acc, p) => acc + p.valor, 0);
   const cardCreditRevenue = approvedPayments.filter((p) => p.metodo === 'cartao_credito').reduce((acc, p) => acc + p.valor, 0);
   const cardDebitRevenue = approvedPayments.filter((p) => p.metodo === 'cartao_debito').reduce((acc, p) => acc + p.valor, 0);
-  const otherRevenue = approvedPayments.filter((p) => p.metodo !== 'pix' && p.metodo !== 'cartao_credito' && p.metodo !== 'cartao_debito').reduce((acc, p) => acc + p.valor, 0);
+  const otherRevenue = approvedPayments
+    .filter((p) => p.metodo !== 'pix' && p.metodo !== 'cartao_credito' && p.metodo !== 'cartao_debito')
+    .reduce((acc, p) => acc + p.valor, 0);
 
-  // Custos Operacionais
   const totalExpenses = expenses.reduce((acc, e) => acc + e.valor, 0);
-  const paidExpenses = expenses.filter(e => e.status === 'pago').reduce((acc, e) => acc + e.valor, 0);
-  const pendingExpenses = expenses.filter(e => e.status === 'pendente' || e.status === 'atrasado').reduce((acc, e) => acc + e.valor, 0);
+  const paidExpenses = expenses.filter((e) => e.status === 'pago').reduce((acc, e) => acc + e.valor, 0);
+  const pendingExpenses = expenses
+    .filter((e) => e.status === 'pendente' || e.status === 'atrasado')
+    .reduce((acc, e) => acc + e.valor, 0);
 
-  // Recebíveis
-  const pendingReceivables = receivables.filter(r => r.status === 'pendente' || r.status === 'parcial' || r.status === 'atrasado').reduce((acc, r) => acc + r.saldo_pendente, 0);
-  const overdueReceivables = receivables.filter(r => r.status === 'atrasado').reduce((acc, r) => acc + r.saldo_pendente, 0);
+  const pendingReceivables = receivables
+    .filter((r) => r.status === 'pendente' || r.status === 'parcial' || r.status === 'atrasado')
+    .reduce((acc, r) => acc + r.saldo_pendente, 0);
+  const overdueReceivables = receivables
+    .filter((r) => r.status === 'atrasado')
+    .reduce((acc, r) => acc + r.saldo_pendente, 0);
 
-  // Deduções MDR Estimadas de Cartão
-  const estimatedGatewayFees = (cardCreditRevenue * 0.029) + (cardDebitRevenue * 0.015);
+  const estimatedGatewayFees = cardCreditRevenue * 0.029 + cardDebitRevenue * 0.015;
   const netRevenue = totalRevenue - estimatedGatewayFees;
   const operationalProfit = netRevenue - paidExpenses;
   const operationalMargin = totalRevenue > 0 ? (operationalProfit / totalRevenue) * 100 : 0;
 
-  // RevPAR & ADR
   const totalRoomsCount = rooms.length || 6;
-  const occupiedRoomsCount = reservations.filter(r => r.status === 'confirmada' || r.status === 'checkin_realizado').length;
+  const occupiedRoomsCount = reservations.filter(
+    (r) => r.status === 'confirmada' || r.status === 'checkin_realizado',
+  ).length;
   const occupancyRate = totalRoomsCount > 0 ? (occupiedRoomsCount / totalRoomsCount) * 100 : 75;
-  const averageDailyRate = occupiedRoomsCount > 0 ? totalRevenue / occupiedRoomsCount : (totalRevenue > 0 ? totalRevenue / 3 : 260);
+  const averageDailyRate = occupiedRoomsCount > 0 ? totalRevenue / occupiedRoomsCount : totalRevenue > 0 ? totalRevenue / 3 : 260;
   const revPar = (averageDailyRate * occupancyRate) / 100;
   const averageTicket = approvedPayments.length > 0 ? totalRevenue / approvedPayments.length : 0;
 
@@ -228,67 +191,45 @@ export const FinancialModule: React.FC = () => {
     receita_pix: pixRevenue,
     receita_cartao_credito: cardCreditRevenue,
     receita_cartao_debito: cardDebitRevenue,
-    receita_outros: otherRevenue
+    receita_outros: otherRevenue,
   };
 
-  const primaryPixKey = pixKeys.find(k => k.ativo) || pixKeys[0];
-  const primaryGateway = (Object.values(gateways) as GatewayConfig[]).find(g => g.is_primary) || (Object.values(gateways) as GatewayConfig[])[0];
+  const primaryPixKey = pixKeys.find((k) => k.ativo) || pixKeys[0];
+  const primaryGateway =
+    (Object.values(gateways) as GatewayConfig[]).find((g) => g.is_primary) ||
+    (Object.values(gateways) as GatewayConfig[])[0];
 
-  // Ações de Contas a Pagar
-  const handleAddExpense = (expenseData: Omit<DespesaOperacional, 'id' | 'created_at'>) => {
-    const newExp: DespesaOperacional = {
-      ...expenseData,
-      id: 'desp-' + Date.now(),
-      created_at: new Date().toISOString()
-    };
-    setExpenses(prev => [newExp, ...prev]);
+  const handleUnsupportedAccountMutation = () => {
+    alert('Esta operação está indisponível até existir um contrato oficial de criação/exclusão no Financeiro Administrativo.');
   };
 
-  const handleSettleExpense = (id: string, method: PaymentMethod) => {
-    setExpenses(prev => prev.map(e => e.id === id ? {
-      ...e,
-      status: 'pago',
-      data_pagamento: new Date().toISOString(),
-      metodo_pagamento: method
-    } : e));
+  const handleSettleExpense = async (id: string, method: PaymentMethod) => {
+    const expense = expenses.find((item) => item.id === id);
+    if (!expense) return;
+
+    try {
+      await settlePayable(id, expense.valor, method);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Não foi possível liquidar a conta a pagar.');
+    }
   };
 
-  const handleDeleteExpense = (id: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
+  const handleSettleReceivable = async (id: string, method: PaymentMethod) => {
+    const receivable = receivables.find((item) => item.id === id);
+    if (!receivable || receivable.saldo_pendente <= 0) return;
+
+    try {
+      await settleReceivable(id, receivable.saldo_pendente, method);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Não foi possível liquidar a conta a receber.');
+    }
   };
 
-  // Ações de Contas a Receber
-  const handleAddReceivable = (recData: Omit<ContaReceber, 'id' | 'created_at'>) => {
-    const newRec: ContaReceber = {
-      ...recData,
-      id: 'rec-' + Date.now(),
-      created_at: new Date().toISOString()
-    };
-    setReceivables(prev => [newRec, ...prev]);
-  };
-
-  const handleSettleReceivable = (id: string, method: PaymentMethod) => {
-    setReceivables(prev => prev.map(r => r.id === id ? {
-      ...r,
-      status: 'recebido',
-      saldo_pendente: 0,
-      valor_pago: r.valor_total,
-      data_pagamento: new Date().toISOString(),
-      metodo_pagamento: method
-    } : r));
-  };
-
-  const handleDeleteReceivable = (id: string) => {
-    setReceivables(prev => prev.filter(r => r.id !== id));
-  };
-
-  // Abrir Modal de Link de Pagamento para Recebível específico
   const handleOpenPaymentLinkForReceivable = (rec?: ContaReceber) => {
     setSelectedReceivableForLink(rec || null);
     setPaymentLinkModalOpen(true);
   };
 
-  // Visualizar Recibo
   const handleViewReceiptReceivable = (rec: ContaReceber) => {
     setReceiptReceivable(rec);
     setReceiptExpense(null);
@@ -301,45 +242,49 @@ export const FinancialModule: React.FC = () => {
     setReceiptModalOpen(true);
   };
 
-  // Simulação de Recebimento de Webhook PIX
-  const handleSimulateWebhookPixReceived = (amount: number, txId: string) => {
-    const newRec: ContaReceber = {
-      id: 'rec-wh-' + Date.now(),
-      codigo_reserva: txId,
-      hospede_nome: 'Pagamento PIX Instantâneo via Webhook',
-      hospede_telefone: '(35) 99999-0000',
-      categoria: 'diaria_hospedagem',
-      descricao: `Recebimento PIX Confirmado (TXID: ${txId})`,
-      valor_total: amount,
-      valor_pago: amount,
-      saldo_pendente: 0,
-      data_vencimento: new Date().toISOString().split('T')[0],
-      data_pagamento: new Date().toISOString(),
-      status: 'recebido',
-      metodo_pagamento: 'pix',
-      created_at: new Date().toISOString()
-    };
-    setReceivables(prev => [newRec, ...prev]);
+  const handleSimulateWebhookPixReceived = () => {
+    alert('A simulação PIX não altera mais Contas a Receber. A integração PIX será tratada em uma etapa própria.');
   };
 
   const handleExportReport = () => {
     alert('Relatório Financeiro e DRE exportado com sucesso em formato PDF e planilha CSV!');
   };
 
-  // Abas de Navegação do Módulo Financeiro
-  const subTabsConfig: { id: FinancialSubTab; label: string; icon: React.FC<{ className?: string }>; badge?: string }[] = [
+  const subTabsConfig: {
+    id: FinancialSubTab;
+    label: string;
+    icon: React.FC<{ className?: string }>;
+    badge?: string;
+  }[] = [
     { id: 'overview', label: 'DRE & Visão Geral', icon: TrendingUp },
-    { id: 'receivables', label: 'Contas a Receber & Folio CRM', icon: ArrowUpRight, badge: pendingReceivables > 0 ? formatCurrency(pendingReceivables) : undefined },
-    { id: 'payables', label: 'Contas a Pagar & Despesas', icon: ArrowDownRight, badge: pendingExpenses > 0 ? formatCurrency(pendingExpenses) : undefined },
+    {
+      id: 'receivables',
+      label: 'Contas a Receber & Folio CRM',
+      icon: ArrowUpRight,
+      badge: pendingReceivables > 0 ? formatCurrency(pendingReceivables) : undefined,
+    },
+    {
+      id: 'payables',
+      label: 'Contas a Pagar & Despesas',
+      icon: ArrowDownRight,
+      badge: pendingExpenses > 0 ? formatCurrency(pendingExpenses) : undefined,
+    },
     { id: 'pix_config', label: 'Configuração Chaves PIX & PSP', icon: QrCode },
     { id: 'gateways', label: 'Gateways Cartão de Crédito', icon: CreditCard },
-    { id: 'transactions', label: 'Extrato & Conciliação', icon: FileText }
+    { id: 'transactions', label: 'Extrato & Conciliação', icon: FileText },
   ];
 
   return (
     <div className="space-y-6">
-      
-      {/* Sub-navegação do Módulo Financeiro */}
+      {!administrativeFinanceLoading && !administrativeFinanceReady && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>Financeiro administrativo indisponível.</strong>{' '}
+          {administrativeFinanceError
+            ? administrativeFinanceError
+            : `Fontes oficiais ausentes: ${missingSources.join(', ') || 'não identificadas'}.`}
+        </div>
+      )}
+
       <div className="bg-white p-2 rounded-2xl border border-stone-200 shadow-sm overflow-x-auto">
         <div className="flex items-center gap-1.5 min-w-max">
           {subTabsConfig.map((tab) => {
@@ -359,9 +304,11 @@ export const FinancialModule: React.FC = () => {
                 <Icon className={`w-4 h-4 ${isActive ? 'text-amber-400' : 'text-stone-400'}`} />
                 <span>{tab.label}</span>
                 {tab.badge && (
-                  <span className={`px-2 py-0.2 rounded-full text-[10px] font-mono font-bold ${
-                    isActive ? 'bg-amber-400 text-stone-950' : 'bg-stone-100 text-stone-700'
-                  }`}>
+                  <span
+                    className={`px-2 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                      isActive ? 'bg-amber-400 text-stone-950' : 'bg-stone-100 text-stone-700'
+                    }`}
+                  >
                     {tab.badge}
                   </span>
                 )}
@@ -371,7 +318,6 @@ export const FinancialModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Conteúdo da Sub-aba Ativa */}
       <main>
         {activeTab === 'overview' && (
           <FinancialOverviewTab
@@ -379,8 +325,8 @@ export const FinancialModule: React.FC = () => {
             receivables={receivables}
             expenses={expenses}
             onOpenNewPaymentLink={() => handleOpenPaymentLinkForReceivable()}
-            onOpenNewExpense={() => setNewExpenseModalOpen(true)}
-            onOpenNewReceivable={() => setNewReceivableModalOpen(true)}
+            onOpenNewExpense={handleUnsupportedAccountMutation}
+            onOpenNewReceivable={handleUnsupportedAccountMutation}
             onExportReport={handleExportReport}
           />
         )}
@@ -388,21 +334,21 @@ export const FinancialModule: React.FC = () => {
         {activeTab === 'receivables' && (
           <ReceivablesCrmTab
             receivables={receivables}
-            onOpenNewReceivable={() => setNewReceivableModalOpen(true)}
+            onOpenNewReceivable={handleUnsupportedAccountMutation}
             onOpenPaymentLink={(rec) => handleOpenPaymentLinkForReceivable(rec)}
             onViewReceipt={handleViewReceiptReceivable}
-            onSettleReceivable={handleSettleReceivable}
-            onDeleteReceivable={handleDeleteReceivable}
+            onSettleReceivable={(id, method) => void handleSettleReceivable(id, method)}
+            onDeleteReceivable={handleUnsupportedAccountMutation}
           />
         )}
 
         {activeTab === 'payables' && (
           <PayablesTab
             expenses={expenses}
-            onOpenNewExpense={() => setNewExpenseModalOpen(true)}
+            onOpenNewExpense={handleUnsupportedAccountMutation}
             onViewReceipt={handleViewReceiptExpense}
-            onSettleExpense={handleSettleExpense}
-            onDeleteExpense={handleDeleteExpense}
+            onSettleExpense={(id, method) => void handleSettleExpense(id, method)}
+            onDeleteExpense={handleUnsupportedAccountMutation}
           />
         )}
 
@@ -435,7 +381,6 @@ export const FinancialModule: React.FC = () => {
         )}
       </main>
 
-      {/* Modal: Gerador de Link de Pagamento & PIX Instantâneo */}
       <PaymentLinkModal
         isOpen={paymentLinkModalOpen}
         onClose={() => {
@@ -449,24 +394,9 @@ export const FinancialModule: React.FC = () => {
         initialAmount={selectedReceivableForLink?.saldo_pendente || 0}
         initialDescription={selectedReceivableForLink?.descricao || ''}
         initialReservationCode={selectedReceivableForLink?.codigo_reserva || ''}
-        onSavePaymentLink={(newLink) => setPaymentLinks(prev => [newLink, ...prev])}
+        onSavePaymentLink={(newLink) => setPaymentLinks((prev) => [newLink, ...prev])}
       />
 
-      {/* Modal: Nova Conta a Pagar / Despesa */}
-      <NewExpenseModal
-        isOpen={newExpenseModalOpen}
-        onClose={() => setNewExpenseModalOpen(false)}
-        onAddExpense={handleAddExpense}
-      />
-
-      {/* Modal: Nova Conta a Receber */}
-      <NewReceivableModal
-        isOpen={newReceivableModalOpen}
-        onClose={() => setNewReceivableModalOpen(false)}
-        onAddReceivable={handleAddReceivable}
-      />
-
-      {/* Modal: Recibo Oficial e Comprovante */}
       <ReceiptModal
         isOpen={receiptModalOpen}
         onClose={() => {
@@ -478,7 +408,6 @@ export const FinancialModule: React.FC = () => {
         receivable={receiptReceivable}
         expense={receiptExpense}
       />
-
     </div>
   );
 };
