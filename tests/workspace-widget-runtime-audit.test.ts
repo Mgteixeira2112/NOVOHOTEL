@@ -5,6 +5,7 @@ import test from 'node:test';
 const catalogSource = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
 const registrationSource = readFileSync('src/workspace-engine/registerBuiltinWidgets.ts', 'utf8');
 const userAccessSource = readFileSync('src/workspace-engine/widgets/UserAccessWidget.tsx', 'utf8');
+const automationAdminSource = readFileSync('src/workspace-engine/widgets/AutomationAdminWidget.tsx', 'utf8');
 
 const visibleCatalogSource = catalogSource.slice(
   catalogSource.indexOf('const allWorkspaceWidgetCatalog'),
@@ -22,7 +23,7 @@ const registeredTypes = Array.from(
 const registered = new Set(registeredTypes);
 
 test('todo widget oficial tem maturidade explícita e tipos únicos', () => {
-  assert.equal(catalogEntries.length, 20, 'a biblioteca oficial deve manter 20 tipos auditados nesta baseline');
+  assert.equal(catalogEntries.length, 21, 'a biblioteca oficial deve manter 21 tipos auditados nesta baseline');
   assert.equal(new Set(catalogEntries.map(item => item.type)).size, catalogEntries.length, 'não pode haver tipo oficial duplicado');
   for (const item of catalogEntries) {
     assert.ok(['ready', 'configurable', 'planned'].includes(item.readiness), `maturidade ausente: ${item.type}`);
@@ -49,8 +50,8 @@ test('somente Pedidos e Atalhos ficam fora do runtime e ambos são planned', () 
   ]);
 });
 
-test('runtime registra os 17 renderers operacionais e o adapter administrativo de equipe e acessos', () => {
-  assert.equal(registered.size, 18);
+test('runtime registra 17 renderers operacionais e dois adapters administrativos', () => {
+  assert.equal(registered.size, 19);
   for (const type of [
     'metrics',
     'dashboard',
@@ -63,6 +64,7 @@ test('runtime registra os 17 renderers operacionais e o adapter administrativo d
     'maintenance',
     'team',
     'user-access',
+    'automation-admin',
     'guests',
     'reservations-list',
     'occupancy-calendar',
@@ -79,4 +81,10 @@ test('Equipe & Acessos é somente adapter de apresentação do módulo administr
   assert.match(userAccessSource, /UsersOperationalAccessModule/);
   assert.match(userAccessSource, /data-workspace-user-access-adapter/);
   assert.doesNotMatch(userAccessSource, /supabase|localStorage|sessionStorage|fetch\(|insert\(|update\(|delete\(/i);
+});
+
+test('Automações & Fechaduras é somente adapter de apresentação do módulo administrativo existente', () => {
+  assert.match(automationAdminSource, /AutomationModule/);
+  assert.match(automationAdminSource, /data-workspace-automation-admin-adapter/);
+  assert.doesNotMatch(automationAdminSource, /supabase|localStorage|sessionStorage|fetch\(|insert\(|update\(|delete\(/i);
 });

@@ -41,6 +41,7 @@ const allWorkspaceWidgetCatalog: WorkspaceWidgetCatalogItem[] = [
   { type: 'orders', label: 'Pedidos', description: 'Pedidos e solicitações de cozinha ou room service.', category: 'operacao', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'orders', sectors: ['cozinha', 'recepcao'], readiness: 'planned', readinessNote: 'Fora do Workspace 1.0: não existe renderer operacional consolidado e nenhum motor novo será criado aqui.' },
   { type: 'team', label: 'Equipe', description: 'Pessoas ativas e vínculos setoriais do Workspace.', category: 'equipe', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'users', sectors: allSectors, readiness: 'ready', readinessNote: 'Leitura do diretório de usuários e do vínculo oficial usuário↔setor.' },
   { type: 'user-access', label: 'Equipe & Acessos', description: 'Administração de usuários, perfis e vínculos com setores operacionais reutilizando o módulo existente.', category: 'equipe', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'users', sectors: allSectors, readiness: 'ready', readinessNote: 'Adapter de apresentação do módulo existente de Equipe & Acessos; não cria regras ou persistência paralelas.' },
+  { type: 'automation-admin', label: 'Automações & Fechaduras', description: 'Administração das réguas de comunicação, simulações e fechaduras inteligentes reutilizando o módulo existente.', category: 'operacao', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', sectors: allSectors, readiness: 'ready', readinessNote: 'Adapter de apresentação do módulo administrativo existente de Automações; regras e mutações permanecem no módulo original.' },
   { type: 'shortcuts', label: 'Atalhos', description: 'Links e acessos rápidos a rotinas frequentes.', category: 'atalhos', requiresBoard: false, defaultSpan: 2, defaultDataSource: 'composite', sectors: allSectors, readiness: 'planned', readinessNote: 'Fora do Workspace 1.0: não há contrato de configuração próprio na Fábrica; use Ações rápidas para navegar entre widgets existentes.' },
 
   // Compatibilidade interna para definições já persistidas. Estes aliases não
@@ -74,6 +75,7 @@ const kdsSuitability: Partial<Record<WorkspaceWidgetType, { suitability: Workspa
   'reservations-list': { suitability: 'limited', reason: 'Criação e edição de reservas exigem interação próxima.' },
   'quick-actions': { suitability: 'unsupported', reason: 'Ações rápidas dependem de interação direta e não são adequadas ao KDS automático.' },
   'user-access': { suitability: 'unsupported', reason: 'Administração de usuários e acessos exige interação próxima e não deve aparecer em KDS.' },
+  'automation-admin': { suitability: 'unsupported', reason: 'Configuração e simulação de automações exigem interação administrativa e não devem aparecer em KDS.' },
   shortcuts: { suitability: 'unsupported', reason: 'Atalhos dependem de navegação interativa e não são adequados ao KDS automático.' },
 };
 
