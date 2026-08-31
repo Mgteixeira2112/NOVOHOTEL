@@ -27,18 +27,29 @@ test('Fábrica não oferece board conhecido de outro setor como combinação vá
 });
 
 test('Fábrica separa Templates de Meus Workspaces persistidos', () => {
-  assert.match(workspaceEditorSource, />Templates</);
+  assert.match(workspaceEditorSource, /Templates operacionais/);
+  assert.match(workspaceEditorSource, /Templates de gestão/);
   assert.match(workspaceEditorSource, />Meus Workspaces</);
   assert.match(workspaceEditorSource, /loadWorkspaceOverrides\(hotelId\)/);
   assert.match(workspaceEditorSource, /persistedIds\.has\(definition\.id\)/);
 });
 
+test('Fábrica inclui Administrativo como gestão transversal sem criar setor', () => {
+  assert.match(workspaceEditorSource, /createOfficialWorkspaceDefinition\('workspace-administrativo'\)/);
+  assert.match(workspaceEditorSource, /workspace-template-administrativo/);
+  assert.match(workspaceEditorSource, /Transversal • sem setor operacional/);
+  assert.match(workspaceEditorSource, /selected\.layout === 'operational'/);
+  assert.match(workspaceEditorSource, /Não possui setor nem board operacional/);
+});
+
 test('selecionar template gera somente prévia e criação exige ação explícita', () => {
   const selectTemplate = workspaceEditorSource.match(/const selectTemplate = \(templateId: string\) => \{[\s\S]*?\n  \};/)?.[0] || '';
+  const createFromTemplate = workspaceEditorSource.match(/const createFromTemplate = async \(\) => \{[\s\S]*?\n  \};/)?.[0] || '';
   assert.match(selectTemplate, /kind: 'template'/);
   assert.doesNotMatch(selectTemplate, /saveWorkspaceOverride|persistDefinition/);
-  assert.match(workspaceEditorSource, /const createFromTemplate = async \(\) =>/);
   assert.match(workspaceEditorSource, /Criar Workspace deste template/);
-  assert.match(workspaceEditorSource, /createWorkspaceDefinition\(\{ name: selected\.name, sector: selectedSector \}\)/);
-  assert.match(workspaceEditorSource, /await persistDefinition\(created,/);
+  assert.match(createFromTemplate, /duplicateWorkspaceDefinition\(selected\)/);
+  assert.match(createFromTemplate, /name: selected\.name/);
+  assert.doesNotMatch(createFromTemplate, /createWorkspaceDefinition/);
+  assert.match(createFromTemplate, /await persistDefinition\(created,/);
 });

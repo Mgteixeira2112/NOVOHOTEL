@@ -7,6 +7,7 @@ import { getAllWorkspaceDefinitions } from '../../workspace-engine/registry';
 import { WorkspaceDefinition, WorkspaceWidgetDefinition, WorkspaceWidgetType } from '../../workspace-engine/types';
 import { createWorkspaceWidget, getWidgetAvailability, getWidgetCatalogItem, normalizeWorkspaceWidgets, WorkspaceWidgetReadiness, workspaceWidgetCatalog } from '../../workspace-engine/widgetCatalog';
 import { createWorkspaceDefinition, defaultBoardForSector, duplicateWorkspaceDefinition, setWorkspaceSectorAndBoard, WORKSPACE_BOARD_OPTIONS } from '../../workspace-engine/workspaceFactory';
+import { createOfficialWorkspaceDefinition } from '../../workspace-engine/workspaceOfficialFactory';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, loadWorkspaceOverrides, resetWorkspaceOverride, saveWorkspaceOverride } from '../../workspace-engine/workspaceConfigStore';
 import { defaultRoomMapActionsForSector } from '../../workspace-engine/widgets/roomMapWidgetPresentation';
 import { KanbanWidgetAutomationEditor } from './KanbanWidgetAutomationEditor';
@@ -29,18 +30,27 @@ const readinessClasses: Record<WorkspaceWidgetReadiness, string> = {
 
 type FactorySelection = { kind: 'template' | 'workspace'; id: string };
 
-const buildTemplateLibrary = (): WorkspaceDefinition[] => OPERATIONAL_SECTORS.map(sector =>
-  createWorkspaceDefinition({
-    id: `workspace-template-${sector.id}`,
-    name: sector.label,
-    sector: sector.id,
-  }),
-);
+const buildTemplateLibrary = (): WorkspaceDefinition[] => {
+  const operationalTemplates = OPERATIONAL_SECTORS.map(sector =>
+    createWorkspaceDefinition({
+      id: `workspace-template-${sector.id}`,
+      name: sector.label,
+      sector: sector.id,
+    }),
+  );
+  const administrativeTemplate = createOfficialWorkspaceDefinition('workspace-administrativo');
+  return [
+    ...operationalTemplates,
+    { ...administrativeTemplate, id: 'workspace-template-administrativo' },
+  ];
+};
 
 export const WorkspaceEditorModule: React.FC = () => {
   const { hotelConfig, currentUser } = useHotel();
   const hotelId = hotelConfig?.id || DEFAULT_WORKSPACE_HOTEL_ID;
   const templates = useMemo(() => buildTemplateLibrary(), []);
+  const operationalTemplates = useMemo(() => templates.filter(item => item.layout === 'operational'), [templates]);
+  const managementTemplates = useMemo(() => templates.filter(item => item.layout === 'management'), [templates]);
   const buildPersistedDefinitions = () => {
     const persistedIds = new Set(Object.keys(loadWorkspaceOverrides(hotelId)));
     return getAllWorkspaceDefinitions(hotelId).filter(definition => persistedIds.has(definition.id));
@@ -59,9 +69,12 @@ export const WorkspaceEditorModule: React.FC = () => {
   const selected = isTemplatePreview
     ? templates.find(item => item.id === selection.id)
     : definitions.find(item => item.id === selection.id);
+  const isManagementWorkspace = selected?.layout === 'management';
   const selectedSector = selected?.sectors[0] || 'operacao';
   const selectedBoard = selected?.widgets.find(widget => widget.type === 'task-kanban')?.boardId || defaultBoardForSector(selectedSector);
-  const activeCompatibilityIssues = selected?.widgets.filter(widget => widget.enabled !== false && !getWidgetAvailability(widget.type, selectedSector).allowed) || [];
+  const activeCompatibilityIssues = isManagementWorkspace
+    ? []
+    : selected?.widgets.filter(widget => widget.enabled !== false && !getWidgetAvailability(widget.type, selectedSector).allowed) || [];
   const saveBlocked = activeCompatibilityIssues.length > 0;
 
   useEffect(() => {
@@ -104,7 +117,7 @@ export const WorkspaceEditorModule: React.FC = () => {
     updateSelected({ widgets: widgets.map((widget, order) => ({ ...widget, order: (order + 1) * 10 })) });
   };
   const addWidget = (type: WorkspaceWidgetType) => {
-    if (!selected || isTemplatePreview) return;
+    if (!selected || isTemplatePreview || isManagementWorkspace) return;
     const availability = getWidgetAvailability(type, selectedSector);
     if (!availability.allowed) {
       setMessage(availability.reason || 'Este widget não pode ser usado no setor selecionado.');
@@ -135,7 +148,7 @@ export const WorkspaceEditorModule: React.FC = () => {
   };
   const createFromTemplate = async () => {
     if (!selected || !isTemplatePreview || saving) return;
-    const created = createWorkspaceDefinition({ name: selected.name, sector: selectedSector });
+    const created = { ...duplicateWorkspaceDefinition(selected), name: selected.name };
     setDefinitions(current => [created, ...current]);
     setSelection({ kind: 'workspace', id: created.id });
     await persistDefinition(created, `Workspace ${created.name} criado a partir do template e sincronizado com o hotel.`);
@@ -159,8 +172,8 @@ export const WorkspaceEditorModule: React.FC = () => {
     setMessage(result.persisted ? 'Workspace removido do hotel.' : 'Remoção local concluída; não foi possível atualizar a versão remota agora.');
     setSaving(false);
   };
-  const changeSector = (sector: OperationalSectorId) => selected && !isTemplatePreview && setDefinitions(current => current.map(item => item.id === selected.id ? setWorkspaceSectorAndBoard(item, sector) : item));
-  const changeBoard = (boardId: string) => selected && !isTemplatePreview && setDefinitions(current => current.map(item => item.id === selected.id ? setWorkspaceSectorAndBoard(item, selectedSector, boardId) : item));
+  const changeSector = (sector: OperationalSectorId) => selected && !isTemplatePreview && selected.layout === 'operational' && setDefinitions(current => current.map(item => item.id === selected.id ? setWorkspaceSectorAndBoard(item, sector) : item));
+  const changeBoard = (boardId: string) => selected && !isTemplatePreview && selected.layout === 'operational' && setDefinitions(current => current.map(item => item.id === selected.id ? setWorkspaceSectorAndBoard(item, selectedSector, boardId) : item));
 
   if (!selected) return <div className="rounded-3xl border border-stone-200 bg-white p-8">Nenhum template disponível.</div>;
 
@@ -191,12 +204,16 @@ export const WorkspaceEditorModule: React.FC = () => {
     <div className="grid lg:grid-cols-[280px_1fr] gap-5">
       <aside className="rounded-3xl border border-stone-200 bg-white p-3 h-fit space-y-4">
         <div>
-          <div className="mb-2 flex items-center justify-between px-2"><span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Templates</span><span className="rounded-full bg-stone-100 px-2 py-1 text-[9px] font-black text-stone-500">{templates.length}</span></div>
-          <div className="space-y-1">{templates.map(item => <button key={item.id} onClick={() => selectTemplate(item.id)} className={`w-full text-left rounded-2xl p-3 transition ${isTemplatePreview && selection.id === item.id ? 'bg-stone-950 text-white' : 'hover:bg-stone-100'}`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-black truncate">{item.name}</p><span className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase ${isTemplatePreview && selection.id === item.id ? 'bg-amber-400 text-stone-950' : 'bg-stone-100 text-stone-500'}`}>Template</span></div><p className={`mt-1 text-[10px] ${isTemplatePreview && selection.id === item.id ? 'text-stone-300' : 'text-stone-500'}`}>{item.sectors.join(', ')}</p></button>)}</div>
+          <div className="mb-2 flex items-center justify-between px-2"><span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Templates operacionais</span><span className="rounded-full bg-stone-100 px-2 py-1 text-[9px] font-black text-stone-500">{operationalTemplates.length}</span></div>
+          <div className="space-y-1">{operationalTemplates.map(item => <button key={item.id} onClick={() => selectTemplate(item.id)} className={`w-full text-left rounded-2xl p-3 transition ${isTemplatePreview && selection.id === item.id ? 'bg-stone-950 text-white' : 'hover:bg-stone-100'}`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-black truncate">{item.name}</p><span className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase ${isTemplatePreview && selection.id === item.id ? 'bg-amber-400 text-stone-950' : 'bg-stone-100 text-stone-500'}`}>Template</span></div><p className={`mt-1 text-[10px] ${isTemplatePreview && selection.id === item.id ? 'text-stone-300' : 'text-stone-500'}`}>{item.sectors.join(', ')}</p></button>)}</div>
+        </div>
+        <div className="border-t border-stone-100 pt-4">
+          <div className="mb-2 flex items-center justify-between px-2"><span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Templates de gestão</span><span className="rounded-full bg-stone-100 px-2 py-1 text-[9px] font-black text-stone-500">{managementTemplates.length}</span></div>
+          <div className="space-y-1">{managementTemplates.map(item => <button key={item.id} onClick={() => selectTemplate(item.id)} className={`w-full text-left rounded-2xl p-3 transition ${isTemplatePreview && selection.id === item.id ? 'bg-stone-950 text-white' : 'hover:bg-stone-100'}`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-black truncate">{item.name}</p><span className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase ${isTemplatePreview && selection.id === item.id ? 'bg-amber-400 text-stone-950' : 'bg-stone-100 text-stone-500'}`}>Gestão</span></div><p className={`mt-1 text-[10px] ${isTemplatePreview && selection.id === item.id ? 'text-stone-300' : 'text-stone-500'}`}>Transversal • sem setor operacional</p></button>)}</div>
         </div>
         <div className="border-t border-stone-100 pt-4">
           <div className="mb-2 flex items-center justify-between px-2"><span className="text-[10px] font-black uppercase tracking-wider text-stone-400">Meus Workspaces</span><span className="rounded-full bg-stone-100 px-2 py-1 text-[9px] font-black text-stone-500">{definitions.length}</span></div>
-          {definitions.length === 0 ? <p className="rounded-2xl bg-stone-50 p-3 text-[10px] leading-relaxed text-stone-500">Nenhum Workspace persistido. Escolha um template e crie a primeira instância.</p> : <div className="space-y-1">{definitions.map(item => <button key={item.id} onClick={() => selectWorkspace(item.id)} className={`w-full text-left rounded-2xl p-3 transition ${!isTemplatePreview && selection.id === item.id ? 'bg-stone-950 text-white' : 'hover:bg-stone-100'}`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-black truncate">{item.name}</p><span className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase ${!isTemplatePreview && selection.id === item.id ? 'bg-emerald-300 text-stone-950' : 'bg-emerald-50 text-emerald-700'}`}>Persistido</span></div><p className={`mt-1 text-[10px] ${!isTemplatePreview && selection.id === item.id ? 'text-stone-300' : 'text-stone-500'}`}>{item.sectors.join(', ')}</p></button>)}</div>}
+          {definitions.length === 0 ? <p className="rounded-2xl bg-stone-50 p-3 text-[10px] leading-relaxed text-stone-500">Nenhum Workspace persistido. Escolha um template e crie a primeira instância.</p> : <div className="space-y-1">{definitions.map(item => <button key={item.id} onClick={() => selectWorkspace(item.id)} className={`w-full text-left rounded-2xl p-3 transition ${!isTemplatePreview && selection.id === item.id ? 'bg-stone-950 text-white' : 'hover:bg-stone-100'}`}><div className="flex items-center justify-between gap-2"><p className="text-xs font-black truncate">{item.name}</p><span className={`rounded px-1.5 py-0.5 text-[8px] font-black uppercase ${!isTemplatePreview && selection.id === item.id ? 'bg-emerald-300 text-stone-950' : 'bg-emerald-50 text-emerald-700'}`}>Persistido</span></div><p className={`mt-1 text-[10px] ${!isTemplatePreview && selection.id === item.id ? 'text-stone-300' : 'text-stone-500'}`}>{item.sectors.length ? item.sectors.join(', ') : 'Gestão transversal'}</p></button>)}</div>}
         </div>
       </aside>
 
@@ -211,15 +228,17 @@ export const WorkspaceEditorModule: React.FC = () => {
           <div className="rounded-3xl border border-stone-200 bg-white p-5 grid sm:grid-cols-2 gap-4">
             <label className="text-xs font-bold text-stone-600">Nome<input value={selected.name} onChange={e => updateSelected({ name: e.target.value })} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 font-medium text-stone-900" /></label>
             <label className="text-xs font-bold text-stone-600">Visão inicial<select value={selected.defaultScope} onChange={e => updateSelected({ defaultScope: e.target.value as WorkspaceDefinition['defaultScope'] })} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 bg-white text-stone-900"><option value="mine">Meu trabalho</option><option value="sector">Meu setor</option></select></label>
-            <label className="text-xs font-bold text-stone-600">Setor<select value={selectedSector} onChange={e => changeSector(e.target.value as OperationalSectorId)} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 bg-white text-stone-900">{OPERATIONAL_SECTORS.map(sector => <option key={sector.id} value={sector.id}>{sector.label}</option>)}</select></label>
-            <label className="text-xs font-bold text-stone-600">Board operacional<select value={selectedBoard} onChange={e => changeBoard(e.target.value)} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 bg-white text-stone-900">{WORKSPACE_BOARD_OPTIONS.map(board => <option key={board.id} value={board.id} disabled={board.sector !== selectedSector}>{board.label}{board.sector !== selectedSector ? ' — outro setor' : ''}</option>)}</select></label>
+            {selected.layout === 'operational' ? <>
+              <label className="text-xs font-bold text-stone-600">Setor<select value={selectedSector} onChange={e => changeSector(e.target.value as OperationalSectorId)} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 bg-white text-stone-900">{OPERATIONAL_SECTORS.map(sector => <option key={sector.id} value={sector.id}>{sector.label}</option>)}</select></label>
+              <label className="text-xs font-bold text-stone-600">Board operacional<select value={selectedBoard} onChange={e => changeBoard(e.target.value)} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 bg-white text-stone-900">{WORKSPACE_BOARD_OPTIONS.map(board => <option key={board.id} value={board.id} disabled={board.sector !== selectedSector}>{board.label}{board.sector !== selectedSector ? ' — outro setor' : ''}</option>)}</select></label>
+            </> : <div className="sm:col-span-2 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 text-xs text-stone-600"><strong className="font-black text-stone-900">Workspace de gestão transversal.</strong><p className="mt-1 text-[10px] leading-relaxed">Não possui setor nem board operacional. A composição administrativa permanece independente dos setores do hotel.</p></div>}
             <label className="sm:col-span-2 text-xs font-bold text-stone-600">Descrição<input value={selected.description} onChange={e => updateSelected({ description: e.target.value })} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 font-medium text-stone-900" /></label>
           </div>
 
           <WorkspaceGeneralPresentationControls definition={selected} onChange={updateSelected} />
           <WorkspacePreviewPanel definition={selected} onChange={updateSelected} />
 
-          <div className="rounded-3xl border border-stone-200 bg-white p-5">
+          {selected.layout === 'operational' && <div className="rounded-3xl border border-stone-200 bg-white p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div><h3 className="text-sm font-black text-stone-900">Biblioteca de widgets</h3><p className="mt-1 text-[10px] text-stone-500">A disponibilidade abaixo é calculada para o setor selecionado. Combinações sem implementação funcional ficam bloqueadas.</p></div>
               <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-black"><span className={`rounded-full border px-2 py-1 ${readinessClasses.ready}`}>Pronto</span><span className={`rounded-full border px-2 py-1 ${readinessClasses.configurable}`}>Requer configuração</span><span className={`rounded-full border px-2 py-1 ${readinessClasses.planned}`}>Em desenvolvimento</span></div>
@@ -228,26 +247,26 @@ export const WorkspaceEditorModule: React.FC = () => {
               const availability = getWidgetAvailability(item.type, selectedSector);
               return <button key={item.type} disabled={!availability.allowed} onClick={() => addWidget(item.type)} title={!availability.allowed ? availability.reason : undefined} className={`group rounded-2xl border p-3 text-left transition ${availability.allowed ? 'border-stone-200 hover:border-amber-300 hover:bg-amber-50' : 'border-stone-200 bg-stone-50 opacity-60 cursor-not-allowed'}`}><div className="flex items-start justify-between gap-2"><div><strong className="text-xs text-stone-800">{item.label}</strong><span className={`mt-1.5 block w-fit rounded-full border px-2 py-0.5 text-[8px] font-black ${readinessClasses[availability.readiness]}`}>{readinessLabels[availability.readiness]}</span></div><Plus className={`w-3.5 h-3.5 mt-0.5 ${availability.allowed ? 'text-stone-400 group-hover:text-amber-700' : 'text-stone-300'}`} /></div><p className="mt-2 text-[10px] leading-relaxed text-stone-500">{item.description}</p>{availability.reason && <p className={`mt-2 text-[9px] font-bold leading-relaxed ${availability.allowed ? 'text-amber-700' : 'text-rose-700'}`}>{availability.allowed ? availability.reason : `Indisponível: ${availability.reason}`}</p>}</button>;
             })}</div></div>)}</div>
-          </div>
+          </div>}
 
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1"><h3 className="text-sm font-black text-stone-900">Composição atual</h3><span className="text-[10px] font-bold text-stone-400">{selected.widgets.length} blocos</span></div>
             {[...selected.widgets].sort((a,b)=>(a.order??0)-(b.order??0)).map(widget => {
               const catalog = getWidgetCatalogItem(widget.type);
               const availability = getWidgetAvailability(widget.type, selectedSector);
-              const incompatibleActive = widget.enabled !== false && !availability.allowed;
+              const incompatibleActive = !isManagementWorkspace && widget.enabled !== false && !availability.allowed;
               return <div key={widget.id} className={`rounded-3xl border bg-white p-4 sm:p-5 ${incompatibleActive ? 'border-rose-300 bg-rose-50/30' : widget.enabled === false ? 'border-stone-200 opacity-65' : 'border-amber-200 shadow-sm'}`}>
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col xl:flex-row xl:items-center gap-4">
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-stone-100 px-2 py-1 text-[10px] font-black uppercase text-stone-600">{catalog?.label || widget.type}</span><strong className="text-sm">{widget.title || widget.id}</strong><span className={`rounded-full border px-2 py-0.5 text-[8px] font-black ${readinessClasses[availability.readiness]}`}>{readinessLabels[availability.readiness]}</span></div>
                       <p className="mt-1 text-[10px] text-stone-400">{widget.id}{widget.boardId ? ` • ${widget.boardId}` : ''}</p>
-                      {!availability.allowed && <p className="mt-2 text-[10px] font-bold text-rose-700">Incompatível com o setor atual: {availability.reason}</p>}
+                      {incompatibleActive && <p className="mt-2 text-[10px] font-bold text-rose-700">Incompatível com o setor atual: {availability.reason}</p>}
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button onClick={() => moveWidget(widget.id, -1)} className="h-9 w-9 grid place-items-center rounded-xl border border-stone-200"><ArrowUp className="w-4 h-4" /></button>
                       <button onClick={() => moveWidget(widget.id, 1)} className="h-9 w-9 grid place-items-center rounded-xl border border-stone-200"><ArrowDown className="w-4 h-4" /></button>
-                      <button disabled={widget.enabled === false && !availability.allowed} title={widget.enabled === false && !availability.allowed ? 'Este widget não pode ser ativado no setor atual.' : undefined} onClick={() => updateWidget(widget.id, { enabled: widget.enabled === false })} className={`h-9 px-3 rounded-xl text-xs font-black flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${widget.enabled === false ? 'bg-stone-100 text-stone-600' : 'bg-emerald-100 text-emerald-800'}`}>{widget.enabled === false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}{widget.enabled === false ? 'Desativado' : 'Ativo'}</button>
+                      <button disabled={!isManagementWorkspace && widget.enabled === false && !availability.allowed} title={!isManagementWorkspace && widget.enabled === false && !availability.allowed ? 'Este widget não pode ser ativado no setor atual.' : undefined} onClick={() => updateWidget(widget.id, { enabled: widget.enabled === false })} className={`h-9 px-3 rounded-xl text-xs font-black flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${widget.enabled === false ? 'bg-stone-100 text-stone-600' : 'bg-emerald-100 text-emerald-800'}`}>{widget.enabled === false ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}{widget.enabled === false ? 'Desativado' : 'Ativo'}</button>
                       <button onClick={() => removeWidget(widget.id)} className="h-9 w-9 grid place-items-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700" title="Remover widget"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
