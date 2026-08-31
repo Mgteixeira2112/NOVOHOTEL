@@ -15,7 +15,7 @@ test('adapter preserva valores reais sem fabricar saldo financeiro', () => {
   assert.match(source, /valor_total: total/);
   assert.match(source, /valor_pago: paid/);
   assert.match(source, /Math\.max\(0, total - paid\)/);
-  assert.match(source, /valor: toNumber\(row\.amount\)/);
+  assert.match(source, /valor: Math\.max\(0, total - paid\)/);
 });
 
 test('adapter traduz somente estados de apresentação conhecidos', () => {

@@ -79,11 +79,14 @@ export function adaptAdministrativeReceivable(row: AdministrativeReceivableRow):
 }
 
 export function adaptAdministrativePayable(row: AdministrativePayableRow): DespesaOperacional {
+  const total = toNumber(row.amount);
+  const paid = toNumber(row.paid_amount);
+
   return {
     id: row.id,
     descricao: row.description,
     categoria: 'outros',
-    valor: toNumber(row.amount),
+    valor: Math.max(0, total - paid),
     data_vencimento: row.due_date,
     data_pagamento: row.paid_at ?? undefined,
     status: mapPayableStatus(row.status),
