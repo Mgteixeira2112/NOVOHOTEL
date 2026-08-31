@@ -92,6 +92,7 @@ export type WorkspaceWidgetType =
   | 'maintenance'
   | 'orders'
   | 'team'
+  | 'user-access'
   | 'shortcuts'
   // Legacy aliases kept while existing saved definitions are migrated.
   | 'kanban-cards'

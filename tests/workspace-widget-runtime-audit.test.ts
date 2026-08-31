@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const catalogSource = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
 const registrationSource = readFileSync('src/workspace-engine/registerBuiltinWidgets.ts', 'utf8');
+const userAccessSource = readFileSync('src/workspace-engine/widgets/UserAccessWidget.tsx', 'utf8');
 
 const visibleCatalogSource = catalogSource.slice(
   catalogSource.indexOf('const allWorkspaceWidgetCatalog'),
@@ -21,7 +22,7 @@ const registeredTypes = Array.from(
 const registered = new Set(registeredTypes);
 
 test('todo widget oficial tem maturidade explícita e tipos únicos', () => {
-  assert.equal(catalogEntries.length, 19, 'a biblioteca oficial deve manter 19 tipos auditados nesta baseline');
+  assert.equal(catalogEntries.length, 20, 'a biblioteca oficial deve manter 20 tipos auditados nesta baseline');
   assert.equal(new Set(catalogEntries.map(item => item.type)).size, catalogEntries.length, 'não pode haver tipo oficial duplicado');
   for (const item of catalogEntries) {
     assert.ok(['ready', 'configurable', 'planned'].includes(item.readiness), `maturidade ausente: ${item.type}`);
@@ -36,7 +37,7 @@ test('nenhum widget marcado ready pode ficar sem renderer builtin', () => {
   assert.deepEqual(readyWithoutRenderer, []);
 });
 
-test('Workspace 1.0 deixa somente Pedidos e Atalhos fora do runtime e ambos são planned', () => {
+test('somente Pedidos e Atalhos ficam fora do runtime e ambos são planned', () => {
   const missing = catalogEntries
     .filter(item => !registered.has(item.type))
     .map(item => `${item.type}:${item.readiness}`)
@@ -48,8 +49,8 @@ test('Workspace 1.0 deixa somente Pedidos e Atalhos fora do runtime e ambos são
   ]);
 });
 
-test('baseline Workspace 1.0 registra exatamente 17 renderers operacionais', () => {
-  assert.equal(registered.size, 17);
+test('runtime registra os 17 renderers operacionais e o adapter administrativo de equipe e acessos', () => {
+  assert.equal(registered.size, 18);
   for (const type of [
     'metrics',
     'dashboard',
@@ -61,6 +62,7 @@ test('baseline Workspace 1.0 registra exatamente 17 renderers operacionais', () 
     'quick-actions',
     'maintenance',
     'team',
+    'user-access',
     'guests',
     'reservations-list',
     'occupancy-calendar',
@@ -71,4 +73,10 @@ test('baseline Workspace 1.0 registra exatamente 17 renderers operacionais', () 
   ]) {
     assert.ok(registered.has(type), `renderer builtin ausente: ${type}`);
   }
+});
+
+test('Equipe & Acessos é somente adapter de apresentação do módulo administrativo existente', () => {
+  assert.match(userAccessSource, /UsersOperationalAccessModule/);
+  assert.match(userAccessSource, /data-workspace-user-access-adapter/);
+  assert.doesNotMatch(userAccessSource, /supabase|localStorage|sessionStorage|fetch\(|insert\(|update\(|delete\(/i);
 });
