@@ -8,7 +8,7 @@ test('calendário de ocupação é um widget independente registrado na recepç�
   const types = read('src/workspace-engine/types.ts');
   const catalog = read('src/workspace-engine/widgetCatalog.ts');
   const registry = read('src/workspace-engine/registerBuiltinWidgets.ts');
-  const workspaces = read('src/workspace-engine/registry.ts');
+  const workspaces = read('src/workspace-engine/workspaceOfficialFactory.ts');
 
   assert.match(types, /'occupancy-calendar'/);
   assert.match(catalog, /type: 'occupancy-calendar'/);
