@@ -3,7 +3,7 @@ import { SettingsModule } from '../../components/admin/SettingsModule';
 
 /**
  * Presentation adapter for the existing administrative settings module.
- * Configuration logic, Supabase operations and mutations remain owned by SettingsModule/useHotel.
+ * Configuration logic and data mutations remain owned by SettingsModule/useHotel.
  */
 export const SettingsAdminWidget: React.FC = () => (
   <div data-workspace-settings-admin-adapter>
