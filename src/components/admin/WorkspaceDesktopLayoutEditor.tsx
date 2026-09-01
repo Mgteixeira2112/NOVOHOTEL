@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GripVertical, LocateFixed, Maximize2, Move, RotateCcw } from 'lucide-react';
+import { GripVertical, LocateFixed, Maximize2, Move, PanelLeft, RotateCcw } from 'lucide-react';
 import { WidgetDrivenWorkspace } from '../../workspace-engine/WidgetDrivenWorkspace';
 import { legacySpanToWidth, normalizeWidgetPresentation } from '../../workspace-engine/presentation';
 import {
@@ -25,6 +25,13 @@ interface WidgetOverlayRect {
   height: number;
 }
 
+interface SidebarOverlayRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 const widths: WorkspaceWidgetWidth[] = ['small', 'medium', 'large', 'full'];
 const widthLabels: Record<WorkspaceWidgetWidth, string> = {
   small: '25%',
@@ -41,14 +48,21 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
   const canvasRef = useRef<HTMLDivElement>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [movingSidebar, setMovingSidebar] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [overlayRects, setOverlayRects] = useState<WidgetOverlayRect[]>([]);
+  const [sidebarRect, setSidebarRect] = useState<SidebarOverlayRect | null>(null);
   const ordered = [...definition.widgets].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const sidebar = definition.presentation?.sidebar || {};
   const selectedWidget = definition.widgets.find(widget => widget.id === selectedId);
   const selectedBasePresentation = selectedWidget ? normalizeWidgetPresentation(selectedWidget) : null;
   const selectedDesktop = selectedWidget?.presentation?.desktop?.mode === 'auto'
     ? {}
     : (selectedWidget?.presentation?.desktop || {});
+
+  const updateSidebar = (patch: typeof sidebar) => {
+    onChange({ presentation: { ...definition.presentation, sidebar: { ...sidebar, ...patch } } });
+  };
 
   const updateDesktopOverride = (widgetId: string, patch: Partial<WorkspaceWidgetDevicePresentation>) => {
     onChange({
@@ -170,6 +184,61 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
     window.addEventListener('pointerup', onUp, { once: true });
   };
 
+  const beginSidebarMove = (event: React.PointerEvent<HTMLButtonElement>, rect: SidebarOverlayRect) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setMovingSidebar(true);
+    setSelectedId(null);
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const canvasWidth = Math.max(1, canvas.clientWidth);
+    const canvasHeight = Math.max(canvas.clientHeight, definition.presentation?.surface?.minHeight || 720);
+    const initialLeft = rect.left;
+    const initialTop = typeof sidebar.y === 'number' ? sidebar.y : rect.top;
+
+    const onMove = (pointerEvent: PointerEvent) => {
+      const nextLeft = clamp(initialLeft + pointerEvent.clientX - startX, 0, Math.max(0, canvasWidth - rect.width));
+      const nextTop = clamp(initialTop + pointerEvent.clientY - startY, 0, Math.max(0, canvasHeight - 48));
+      updateSidebar({
+        x: Number(((nextLeft / canvasWidth) * 100).toFixed(2)),
+        y: Math.round(nextTop),
+      });
+    };
+    const onUp = () => {
+      setMovingSidebar(false);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+  };
+
+  const beginSidebarResize = (event: React.PointerEvent<HTMLButtonElement>, rect: SidebarOverlayRect) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const startX = event.clientX;
+    const initialWidth = sidebar.width || rect.width || 240;
+    let lastWidth = Math.round(initialWidth);
+
+    const onMove = (pointerEvent: PointerEvent) => {
+      const canvasWidth = canvasRef.current?.clientWidth || 1200;
+      const nextWidth = Math.round(clamp(initialWidth + pointerEvent.clientX - startX, 160, Math.min(480, canvasWidth)));
+      if (nextWidth === lastWidth) return;
+      lastWidth = nextWidth;
+      updateSidebar({ width: nextWidth });
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once: true });
+  };
+
   const measureWidgets = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -189,6 +258,19 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
       })
       .filter((value): value is WidgetOverlayRect => Boolean(value));
     setOverlayRects(next);
+
+    const sidebarElement = canvas.querySelector<HTMLElement>('[data-workspace-sidebar="desktop"]');
+    if (!sidebarElement) {
+      setSidebarRect(null);
+      return;
+    }
+    const rect = sidebarElement.getBoundingClientRect();
+    setSidebarRect({
+      left: rect.left - canvasRect.left + canvas.scrollLeft,
+      top: rect.top - canvasRect.top + canvas.scrollTop,
+      width: rect.width,
+      height: rect.height,
+    });
   }, []);
 
   useEffect(() => {
@@ -201,6 +283,8 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
     });
     observer.observe(canvas);
     canvas.querySelectorAll<HTMLElement>('[data-widget-id]').forEach(element => observer.observe(element));
+    const sidebarElement = canvas.querySelector<HTMLElement>('[data-workspace-sidebar="desktop"]');
+    if (sidebarElement) observer.observe(sidebarElement);
     window.addEventListener('resize', measureWidgets);
     return () => {
       window.cancelAnimationFrame(frame);
@@ -215,7 +299,7 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
     <div className="mb-3 flex flex-col gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="flex items-center gap-2"><Move className="h-4 w-4 text-amber-600" /><p className="text-xs font-black text-stone-900">Composição visual Desktop</p></div>
-        <p className="mt-1 text-[10px] text-stone-500">Use o alvo para posicionar livremente cada widget sobre a superfície. Arrastar o próprio contorno continua reordenando o fluxo automático; o resize mantém as larguras 25%, 50%, 75% e 100%.</p>
+        <p className="mt-1 text-[10px] text-stone-500">Use o alvo para posicionar livremente cada widget sobre a superfície. O menu lateral ativo também pode ser movido e redimensionado diretamente no canvas. Arrastar o próprio contorno continua reordenando o fluxo automático.</p>
       </div>
       <span className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-stone-500">Editor espacial · Desktop</span>
     </div>
@@ -258,7 +342,7 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
           const active = selectedId === widget.id || draggedId === widget.id || movingId === widget.id;
           return <div
             key={widget.id}
-            draggable={!movingId}
+            draggable={!movingId && !movingSidebar}
             onClick={() => setSelectedId(widget.id)}
             onDragStart={event => {
               setDraggedId(widget.id);
@@ -310,9 +394,37 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
             ><Maximize2 className="h-4 w-4" /></button>
           </div>;
         })}
+
+        {sidebar.enabled === true && sidebarRect && <div
+          className={`group absolute rounded-3xl border-2 border-violet-500 bg-violet-400/10 ${movingSidebar ? 'shadow-[inset_0_0_0_1px_rgba(255,255,255,0.8)]' : ''}`}
+          style={{ left: sidebarRect.left, top: sidebarRect.top, width: sidebarRect.width, height: sidebarRect.height }}
+          data-workspace-sidebar-editor
+        >
+          <div className="absolute left-2 top-2 flex items-center gap-1.5 rounded-lg border border-violet-200 bg-white/95 px-2 py-1 text-[9px] font-black text-violet-800 shadow-sm backdrop-blur">
+            <PanelLeft className="h-3.5 w-3.5" />
+            <span>Menu lateral</span>
+            <span className="rounded bg-violet-100 px-1.5 py-0.5">{Math.round(sidebarRect.width)}px</span>
+          </div>
+          <button
+            type="button"
+            onPointerDown={event => beginSidebarMove(event, sidebarRect)}
+            className="absolute bottom-2 left-2 grid h-8 w-8 cursor-grab place-items-center rounded-lg border border-violet-200 bg-white/95 text-violet-700 shadow-sm backdrop-blur hover:border-violet-400 hover:bg-violet-50"
+            aria-label="Posicionar menu lateral"
+            title="Arraste o menu lateral sobre a superfície"
+            data-workspace-sidebar-move
+          ><Move className="h-4 w-4" /></button>
+          <button
+            type="button"
+            onPointerDown={event => beginSidebarResize(event, sidebarRect)}
+            className="absolute bottom-2 right-2 grid h-8 w-8 cursor-ew-resize place-items-center rounded-lg border border-violet-200 bg-white/95 text-violet-700 shadow-sm backdrop-blur hover:border-violet-400 hover:bg-violet-50"
+            aria-label="Redimensionar menu lateral"
+            title="Arraste horizontalmente para ajustar a largura"
+            data-workspace-sidebar-resize
+          ><Maximize2 className="h-4 w-4" /></button>
+        </div>}
       </div>
     </div>
 
-    <p className="mt-2 text-[9px] leading-relaxed text-stone-400">As coordenadas livres ficam somente em <code>presentation.desktop</code>. Mobile e KDS continuam usando suas estratégias próprias. Widgets sem coordenadas permanecem no Masonry atual.</p>
+    <p className="mt-2 text-[9px] leading-relaxed text-stone-400">As coordenadas livres dos widgets ficam somente em <code>presentation.desktop</code>; o menu lateral usa <code>presentation.sidebar</code>. Mobile e KDS continuam usando suas estratégias próprias. Widgets sem coordenadas permanecem no Masonry atual.</p>
   </div>;
 };
