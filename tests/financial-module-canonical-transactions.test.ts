@@ -20,9 +20,15 @@ test('FinancialModule não usa payments ou guests no extrato', () => {
 test('TransactionsAuditTab recebe OperationalTransaction e não modelos legados', () => {
   assert.match(tabSource, /OperationalTransaction/);
   assert.match(tabSource, /transactions:\s*OperationalTransaction\[\]/);
-  assert.doesNotMatch(tabSource, /Pagamento/);
-  assert.doesNotMatch(tabSource, /Reserva/);
-  assert.doesNotMatch(tabSource, /Hospede/);
+
+  // A regressão deve bloquear os modelos legados, não palavras legítimas da UI
+  // como "Forma de Pagamento".
+  assert.doesNotMatch(tabSource, /import(?:\s+type)?\s*\{[^}]*\bPagamento\b[^}]*\}/s);
+  assert.doesNotMatch(tabSource, /import(?:\s+type)?\s*\{[^}]*\bReserva\b[^}]*\}/s);
+  assert.doesNotMatch(tabSource, /import(?:\s+type)?\s*\{[^}]*\bHospede\b[^}]*\}/s);
+  assert.doesNotMatch(tabSource, /\bpayments:\s*Pagamento\[\]/);
+  assert.doesNotMatch(tabSource, /\breservations:\s*Reserva\[\]/);
+  assert.doesNotMatch(tabSource, /\bguests:\s*Hospede\[\]/);
 });
 
 test('extrato representa payments como entrada e refunds como saída', () => {
