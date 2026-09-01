@@ -7,6 +7,7 @@ import { createGovernanceVisualPresentation } from './governanceVisualTemplate';
 import { createMaintenanceVisualPresentation } from './maintenanceVisualTemplate';
 import { createKitchenVisualPresentation } from './kitchenVisualTemplate';
 import { createOperationsVisualPresentation } from './operationsVisualTemplate';
+import { createAdminVisualPresentation } from './adminVisualTemplate';
 import { WorkspaceDefinition, WorkspaceViewport, WorkspaceWidgetDefinition } from './types';
 import { getWorkspaceVisualSurface } from './visualPresentation';
 
@@ -24,6 +25,7 @@ const detectViewport = (): WorkspaceViewport => {
 
 const resolveVisualPresentation = (definition: WorkspaceDefinition) => {
   if (definition.visualPresentation) return definition.visualPresentation;
+  if (definition.layout === 'management') return createAdminVisualPresentation(definition.widgets);
   if (definition.sectors.includes('recepcao')) return createReceptionVisualPresentation(definition.widgets);
   if (definition.sectors.includes('governanca')) return createGovernanceVisualPresentation(definition.widgets);
   if (definition.sectors.includes('manutencao')) return createMaintenanceVisualPresentation(definition.widgets);
@@ -34,7 +36,7 @@ const resolveVisualPresentation = (definition: WorkspaceDefinition) => {
 
 interface VisualWorkspaceRuntimeProps { definition: WorkspaceDefinition; }
 
-/** Presentation-only operational renderer. Domain behavior remains in existing widgets. */
+/** Presentation-only operational/management renderer. Domain behavior remains in existing widgets. */
 export const VisualWorkspaceRuntime: React.FC<VisualWorkspaceRuntimeProps> = ({ definition }) => {
   const [viewport, setViewport] = useState<WorkspaceViewport>(detectViewport);
   const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export const VisualWorkspaceRuntime: React.FC<VisualWorkspaceRuntimeProps> = ({ 
 
 export const hasVisualWorkspaceRuntime = (definition: WorkspaceDefinition) => Boolean(
   definition.visualPresentation
+  || definition.layout === 'management'
   || definition.sectors.includes('recepcao')
   || definition.sectors.includes('governanca')
   || definition.sectors.includes('manutencao')
