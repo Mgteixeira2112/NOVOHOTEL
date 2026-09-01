@@ -2,107 +2,98 @@ import { supabase } from '../lib/supabase';
 import { WorkspaceDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
 
-const STORAGE_KEY = 'ITAJUBA_WORKSPACE_ENGINE_CONFIG_V2';
-const PENDING_SYNC_KEY = 'ITAJUBA_WORKSPACE_ENGINE_PENDING_SYNC_V1';
 const EVENT_NAME = 'itajuba_workspace_config_changed';
 export const DEFAULT_WORKSPACE_HOTEL_ID = 'default_hotel';
 
-const canUseStorage = () => typeof window !== 'undefined' && !!window.localStorage;
-const storageKey = (hotelId: string) => `${STORAGE_KEY}:${hotelId || DEFAULT_WORKSPACE_HOTEL_ID}`;
-const pendingSyncKey = (hotelId: string) => `${PENDING_SYNC_KEY}:${hotelId || DEFAULT_WORKSPACE_HOTEL_ID}`;
+/**
+ * Cache efêmero da sessão. Nunca é persistido no navegador.
+ * A única fonte persistente de configuração de Workspace é o Supabase.
+ */
+const overridesByHotel = new Map<string, Record<string, WorkspaceDefinition>>();
 
-const stableJsonValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) return value.map(stableJsonValue);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, stableJsonValue(item)]),
-    );
-  }
-  return value;
+const normalizedHotelId = (hotelId?: string) => hotelId || DEFAULT_WORKSPACE_HOTEL_ID;
+
+const replaceMemoryOverrides = (
+  hotelId: string,
+  overrides: Record<string, WorkspaceDefinition>,
+) => {
+  overridesByHotel.set(normalizedHotelId(hotelId), overrides);
 };
 
-export const workspaceDefinitionsEqual = (left: WorkspaceDefinition, right: WorkspaceDefinition) =>
-  JSON.stringify(stableJsonValue(left)) === JSON.stringify(stableJsonValue(right));
-
-export const loadWorkspaceOverrides = (hotelId = DEFAULT_WORKSPACE_HOTEL_ID): Record<string, WorkspaceDefinition> => {
-  if (!canUseStorage()) return {};
-  try {
-    const raw = window.localStorage.getItem(storageKey(hotelId));
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+const dispatchWorkspaceConfigChanged = (workspaceId: string, hotelId: string) => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(EVENT_NAME, {
+    detail: { workspaceId, hotelId: normalizedHotelId(hotelId) },
+  }));
 };
 
-const writeLocalOverrides = (hotelId: string, overrides: Record<string, WorkspaceDefinition>) => {
-  if (!canUseStorage()) return;
-  window.localStorage.setItem(storageKey(hotelId), JSON.stringify(overrides));
-};
+/**
+ * Leitura síncrona usada pelo registry durante o render.
+ * Retorna somente dados já confirmados pelo Supabase e mantidos em memória.
+ */
+export const loadWorkspaceOverrides = (
+  hotelId = DEFAULT_WORKSPACE_HOTEL_ID,
+): Record<string, WorkspaceDefinition> =>
+  overridesByHotel.get(normalizedHotelId(hotelId)) || {};
 
-const loadPendingSyncIds = (hotelId: string): string[] => {
-  if (!canUseStorage()) return [];
-  try {
-    const raw = window.localStorage.getItem(pendingSyncKey(hotelId));
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string') : [];
-  } catch {
-    return [];
-  }
-};
-
-const setPendingSync = (hotelId: string, workspaceId: string, pending: boolean) => {
-  if (!canUseStorage()) return;
-  const ids = new Set(loadPendingSyncIds(hotelId));
-  if (pending) ids.add(workspaceId);
-  else ids.delete(workspaceId);
-  window.localStorage.setItem(pendingSyncKey(hotelId), JSON.stringify([...ids]));
-};
-
-export const mergeWorkspaceDefinition = (base: WorkspaceDefinition, hotelId = DEFAULT_WORKSPACE_HOTEL_ID): WorkspaceDefinition => {
+export const mergeWorkspaceDefinition = (
+  base: WorkspaceDefinition,
+  hotelId = DEFAULT_WORKSPACE_HOTEL_ID,
+): WorkspaceDefinition => {
   const override = loadWorkspaceOverrides(hotelId)[base.id];
   if (!override) return base;
-  return { ...base, ...override, id: base.id, widgets: normalizeWorkspaceWidgets(override.widgets || base.widgets) };
+  return {
+    ...base,
+    ...override,
+    id: base.id,
+    widgets: normalizeWorkspaceWidgets(override.widgets || base.widgets),
+  };
 };
 
-export const hydrateWorkspaceOverridesFromSupabase = async (hotelId = DEFAULT_WORKSPACE_HOTEL_ID) => {
+export const hydrateWorkspaceOverridesFromSupabase = async (
+  hotelId = DEFAULT_WORKSPACE_HOTEL_ID,
+) => {
+  const resolvedHotelId = normalizedHotelId(hotelId);
+
   try {
     const { data, error } = await supabase
       .from('workspace_engine_configs')
       .select('workspace_id, definition')
-      .eq('hotel_id', hotelId);
+      .eq('hotel_id', resolvedHotelId);
+
     if (error) throw error;
 
-    const remoteOverrides = Object.fromEntries((data || []).map(row => [row.workspace_id, row.definition as WorkspaceDefinition]));
-    const localOverrides = loadWorkspaceOverrides(hotelId);
-    const pendingIds = new Set(loadPendingSyncIds(hotelId));
+    const overrides = Object.fromEntries(
+      (data || []).map(row => [
+        row.workspace_id,
+        {
+          ...(row.definition as WorkspaceDefinition),
+          widgets: normalizeWorkspaceWidgets((row.definition as WorkspaceDefinition).widgets || []),
+        },
+      ]),
+    );
 
-    // Uma configuração local ainda não confirmada pelo Supabase é mais nova do que
-    // a cópia remota conhecida. Não permita que um F5 ressuscite widgets removidos.
-    const reconciled = { ...remoteOverrides };
-    for (const workspaceId of pendingIds) {
-      if (localOverrides[workspaceId]) reconciled[workspaceId] = localOverrides[workspaceId];
-    }
-
-    if (Object.keys(reconciled).length > 0) writeLocalOverrides(hotelId, reconciled);
+    replaceMemoryOverrides(resolvedHotelId, overrides);
+    return { source: 'supabase' as const, overrides, error: null };
+  } catch (error: any) {
+    // Mantém apenas o último snapshot confirmado da sessão; não existe fallback persistido no navegador.
     return {
-      source: pendingIds.size > 0 ? 'local' as const : 'supabase' as const,
-      overrides: Object.keys(reconciled).length > 0 ? reconciled : localOverrides,
+      source: 'local' as const,
+      overrides: loadWorkspaceOverrides(resolvedHotelId),
+      error: error?.message || 'Não foi possível carregar a configuração do Supabase.',
     };
-  } catch {
-    return { source: 'local' as const, overrides: loadWorkspaceOverrides(hotelId) };
   }
 };
 
-export const saveWorkspaceOverride = async (definition: WorkspaceDefinition, options?: { hotelId?: string; userId?: string }) => {
-  const hotelId = options?.hotelId || DEFAULT_WORKSPACE_HOTEL_ID;
-  const normalized = { ...definition, widgets: normalizeWorkspaceWidgets(definition.widgets) };
-  const current = loadWorkspaceOverrides(hotelId);
-  current[definition.id] = normalized;
-  writeLocalOverrides(hotelId, current);
-  setPendingSync(hotelId, definition.id, true);
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { workspaceId: definition.id, hotelId } }));
+export const saveWorkspaceOverride = async (
+  definition: WorkspaceDefinition,
+  options?: { hotelId?: string; userId?: string },
+) => {
+  const hotelId = normalizedHotelId(options?.hotelId);
+  const normalized = {
+    ...definition,
+    widgets: normalizeWorkspaceWidgets(definition.widgets),
+  };
 
   const { error } = await supabase.from('workspace_engine_configs').upsert({
     hotel_id: hotelId,
@@ -114,42 +105,31 @@ export const saveWorkspaceOverride = async (definition: WorkspaceDefinition, opt
 
   if (error) return { persisted: false, error: error.message };
 
-  const { data: confirmed, error: confirmationError } = await supabase
-    .from('workspace_engine_configs')
-    .select('definition')
-    .eq('hotel_id', hotelId)
-    .eq('workspace_id', definition.id)
-    .single();
-  const confirmedDefinition = confirmed?.definition as WorkspaceDefinition | undefined;
-  if (confirmationError || !confirmedDefinition || !workspaceDefinitionsEqual(normalized, confirmedDefinition)) {
-    return { persisted: false, error: confirmationError?.message || 'WORKSPACE_PERSISTENCE_DIVERGENCE' };
-  }
+  const current = { ...loadWorkspaceOverrides(hotelId), [definition.id]: normalized };
+  replaceMemoryOverrides(hotelId, current);
+  dispatchWorkspaceConfigChanged(definition.id, hotelId);
 
-  current[definition.id] = confirmedDefinition;
-  writeLocalOverrides(hotelId, current);
-  setPendingSync(hotelId, definition.id, false);
   return { persisted: true, error: null };
 };
 
-export const resetWorkspaceOverride = async (workspaceId: string, hotelId = DEFAULT_WORKSPACE_HOTEL_ID) => {
-  const current = loadWorkspaceOverrides(hotelId);
-  const { error } = await supabase.from('workspace_engine_configs').delete().eq('hotel_id', hotelId).eq('workspace_id', workspaceId);
+export const resetWorkspaceOverride = async (
+  workspaceId: string,
+  hotelId = DEFAULT_WORKSPACE_HOTEL_ID,
+) => {
+  const resolvedHotelId = normalizedHotelId(hotelId);
+  const { error } = await supabase
+    .from('workspace_engine_configs')
+    .delete()
+    .eq('hotel_id', resolvedHotelId)
+    .eq('workspace_id', workspaceId);
+
   if (error) return { persisted: false, error: error.message };
 
-  const { data: remaining, error: confirmationError } = await supabase
-    .from('workspace_engine_configs')
-    .select('workspace_id')
-    .eq('hotel_id', hotelId)
-    .eq('workspace_id', workspaceId)
-    .maybeSingle();
-  if (confirmationError || remaining) {
-    return { persisted: false, error: confirmationError?.message || 'WORKSPACE_DELETE_NOT_CONFIRMED' };
-  }
-
+  const current = { ...loadWorkspaceOverrides(resolvedHotelId) };
   delete current[workspaceId];
-  writeLocalOverrides(hotelId, current);
-  setPendingSync(hotelId, workspaceId, false);
-  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { workspaceId, hotelId } }));
+  replaceMemoryOverrides(resolvedHotelId, current);
+  dispatchWorkspaceConfigChanged(workspaceId, resolvedHotelId);
+
   return { persisted: true, error: null };
 };
 
@@ -157,6 +137,5 @@ export const subscribeWorkspaceConfig = (listener: () => void) => {
   if (typeof window === 'undefined') return () => undefined;
   const handler = () => listener();
   window.addEventListener(EVENT_NAME, handler);
-  window.addEventListener('storage', handler);
-  return () => { window.removeEventListener(EVENT_NAME, handler); window.removeEventListener('storage', handler); };
+  return () => window.removeEventListener(EVENT_NAME, handler);
 };
