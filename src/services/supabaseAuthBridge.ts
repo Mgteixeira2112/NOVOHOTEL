@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import type { Usuario } from '../types';
 
 export interface SupabaseAuthBridgeSession {
   access_token: string;
@@ -27,6 +28,19 @@ export async function establishSupabaseStaffSession(email: string, password: str
 
   if (sessionError || !sessionData.session) throw new Error('AUTH_SESSION_FAILED');
   return { session: sessionData.session, migrated: Boolean(data.migrated) };
+}
+
+export async function authenticateSupabaseStaff(email: string, password: string): Promise<Usuario> {
+  await establishSupabaseStaffSession(email, password);
+
+  const { data, error } = await supabase.rpc('hotel_os_current_user_profile');
+  const profile = Array.isArray(data) ? data[0] : data;
+  if (error || !profile?.id || profile.ativo === false) {
+    await clearSupabaseStaffSession().catch(() => undefined);
+    throw new Error('AUTH_PROFILE_UNAVAILABLE');
+  }
+
+  return profile as Usuario;
 }
 
 export async function clearSupabaseStaffSession() {
