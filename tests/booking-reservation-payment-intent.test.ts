@@ -6,13 +6,14 @@ const contextSource = readFileSync('src/context/HotelContext.tsx', 'utf8');
 const bookingSource = readFileSync('src/components/booking/BookingModal.tsx', 'utf8');
 const createReservationSource = contextSource.split('const createReservation =', 2)[1].split('const updateReservationStatus =', 1)[0];
 
-test('criação de reserva registra somente intenção de pagamento pendente', () => {
-  assert.match(createReservationSource, /const paymentIntent: Pagamento/);
-  assert.match(createReservationSource, /status: 'pendente'/);
+test('criação de reserva mantém apenas a forma de pagamento como intenção', () => {
   assert.match(createReservationSource, /forma_pagamento: params\.pagamento\.metodo/);
+  assert.doesNotMatch(createReservationSource, /paymentIntent/);
+  assert.doesNotMatch(createReservationSource, /pagamento: Pagamento/);
   assert.doesNotMatch(createReservationSource, /status: 'aprovado'/);
   assert.doesNotMatch(createReservationSource, /codigo_transacao:/);
   assert.doesNotMatch(createReservationSource, /pagamento_id:/);
+  assert.match(createReservationSource, /return \{ reserva: reservation, hospede: guest \}/);
 });
 
 test('criação de reserva não persiste pagamento no caminho legado', () => {
