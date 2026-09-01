@@ -3,20 +3,37 @@ on:
   push:
     branches:
       - audit/pr117-test-failure
+permissions:
+  contents: write
 jobs:
   diagnose:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: audit/pr117-test-failure
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - name: Reproduce tests and print failure signals
+      - name: Capture compact diagnosis
         shell: bash
         run: |
           set +e
-          bun run test 2>&1 | tee /tmp/test.log
-          status=${PIPESTATUS[0]}
-          echo '=== FAILURE SIGNALS ==='
-          grep -nE 'not ok|fail|FAIL|AssertionError|ERR_ASSERTION|Expected|actual|operator|tests/.*\.test' /tmp/test.log | tail -n 240 || true
-          echo "TEST_EXIT=$status"
-          exit "$status"
+          bun run test > /tmp/test.log 2>&1
+          status=$?
+          {
+            echo "TEST_EXIT=$status"
+            echo '=== FAILURE SIGNALS ==='
+            grep -nE 'not ok|fail|FAIL|AssertionError|ERR_ASSERTION|Expected|actual|operator|tests/.*\.test' /tmp/test.log | tail -n 300 || true
+            echo '=== TAIL ==='
+            tail -n 180 /tmp/test.log
+          } > pr117-diagnosis.txt
+          exit 0
+      - name: Commit diagnosis
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pr117-diagnosis.txt
+          git commit -m "chore: registrar diagnóstico PR117"
+          git push origin HEAD:audit/pr117-test-failure
