@@ -25,7 +25,7 @@ const registeredTypes = Array.from(
 const registered = new Set(registeredTypes);
 
 test('todo widget oficial tem maturidade explícita e tipos únicos', () => {
-  assert.equal(catalogEntries.length, 25, 'a biblioteca oficial deve manter 25 tipos auditados nesta baseline');
+  assert.equal(catalogEntries.length, 27, 'a biblioteca oficial deve manter 27 tipos auditados nesta baseline');
   assert.equal(new Set(catalogEntries.map(item => item.type)).size, catalogEntries.length, 'não pode haver tipo oficial duplicado');
   for (const item of catalogEntries) {
     assert.ok(['ready', 'configurable', 'planned'].includes(item.readiness), `maturidade ausente: ${item.type}`);
@@ -52,14 +52,16 @@ test('somente Pedidos e Atalhos ficam fora do runtime e ambos são planned', () 
   ]);
 });
 
-test('runtime registra 19 renderers operacionais e quatro adapters administrativos', () => {
-  assert.equal(registered.size, 23);
+test('runtime registra 21 renderers operacionais e quatro adapters administrativos', () => {
+  assert.equal(registered.size, 25);
   for (const type of [
     'metrics',
     'dashboard',
     'stay-finance',
     'financial-summary',
     'financial-transactions',
+    'financial-receivables',
+    'financial-payables',
     'frigobar',
     'task-kanban',
     'room-map',

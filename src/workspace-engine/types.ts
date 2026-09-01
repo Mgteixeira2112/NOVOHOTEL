@@ -79,6 +79,8 @@ export type WorkspaceWidgetType =
   | 'stay-finance'
   | 'financial-summary'
   | 'financial-transactions'
+  | 'financial-receivables'
+  | 'financial-payables'
   | 'frigobar'
   | 'task-kanban'
   | 'room-map'
