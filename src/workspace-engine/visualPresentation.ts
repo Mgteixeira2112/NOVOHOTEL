@@ -1,4 +1,4 @@
-import type { WorkspaceViewport, WorkspaceWidgetType } from './types';
+import type { WorkspaceViewport, WorkspaceWidgetDefinition, WorkspaceWidgetType } from './types';
 
 /**
  * Foundation for the next Workspace presentation model.
@@ -101,6 +101,89 @@ export const createWorkspaceVisualSurface = (viewport: WorkspaceViewport): Works
     rect: { x: 0, y: 0, width: 16, height: 100 },
     widgetIds: [],
   },
+});
+
+export const getWorkspaceVisualSurface = (
+  presentation: WorkspaceVisualPresentation | undefined,
+  viewport: WorkspaceViewport,
+): WorkspaceVisualSurface => presentation?.surfaces[viewport] || createWorkspaceVisualSurface(viewport);
+
+export const setWorkspaceVisualSurface = (
+  presentation: WorkspaceVisualPresentation | undefined,
+  surface: WorkspaceVisualSurface,
+): WorkspaceVisualPresentation => ({
+  version: 2,
+  surfaces: {
+    ...(presentation?.surfaces || {}),
+    [surface.viewport]: surface,
+  },
+});
+
+const defaultShortcutRect = (surface: WorkspaceVisualSurface): WorkspaceNormalizedRect => {
+  const index = surface.shortcuts.length;
+  const column = index % 3;
+  const row = Math.floor(index / 3) % 4;
+  const startX = Math.max(18, surface.sidebar.enabled ? surface.sidebar.rect.x + surface.sidebar.rect.width + 2 : 4);
+  return normalizeWorkspaceRect({
+    x: startX + column * 25,
+    y: 5 + row * 22,
+    width: 22,
+    height: 18,
+  });
+};
+
+/** A widget belongs to at most one visual destination on a surface. */
+export const placeWidgetAsShortcut = (
+  surface: WorkspaceVisualSurface,
+  widget: WorkspaceWidgetDefinition,
+): WorkspaceVisualSurface => {
+  const existing = surface.shortcuts.find(item => item.widgetId === widget.id);
+  return {
+    ...surface,
+    sidebar: {
+      ...surface.sidebar,
+      widgetIds: surface.sidebar.widgetIds.filter(id => id !== widget.id),
+    },
+    shortcuts: existing
+      ? surface.shortcuts
+      : [
+          ...surface.shortcuts,
+          {
+            id: `shortcut-${surface.viewport}-${widget.id}`,
+            widgetId: widget.id,
+            widgetType: widget.type,
+            rect: defaultShortcutRect(surface),
+            size: 'm',
+          },
+        ],
+  };
+};
+
+export const placeWidgetInSidebar = (
+  surface: WorkspaceVisualSurface,
+  widgetId: string,
+): WorkspaceVisualSurface => ({
+  ...surface,
+  sidebar: {
+    ...surface.sidebar,
+    enabled: true,
+    widgetIds: surface.sidebar.widgetIds.includes(widgetId)
+      ? surface.sidebar.widgetIds
+      : [...surface.sidebar.widgetIds, widgetId],
+  },
+  shortcuts: surface.shortcuts.filter(item => item.widgetId !== widgetId),
+});
+
+export const removeWidgetFromVisualSurface = (
+  surface: WorkspaceVisualSurface,
+  widgetId: string,
+): WorkspaceVisualSurface => ({
+  ...surface,
+  sidebar: {
+    ...surface.sidebar,
+    widgetIds: surface.sidebar.widgetIds.filter(id => id !== widgetId),
+  },
+  shortcuts: surface.shortcuts.filter(item => item.widgetId !== widgetId),
 });
 
 /**
