@@ -22,7 +22,7 @@ test('botões Desktop não dependem de existir painel 100%', () => {
 });
 
 test('ordem visual permite cenário Indicadores 25 + Alertas 25 + Frigobar 25 + botões', () => {
-  assert.match(runtime, /entries\.forEach\(entry =>/);
+  assert.match(runtime, /desktopFlowEntries\.forEach\(entry =>/);
   assert.match(runtime, /previous\?\.kind === kind/);
   assert.match(runtime, /desktopSegments\.map\(\(segment, segmentIndex\)/);
   assert.match(runtime, /renderDesktopSurface\(\)/);
