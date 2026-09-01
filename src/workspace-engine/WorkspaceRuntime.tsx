@@ -1,7 +1,7 @@
 import React from 'react';
 import { WorkspaceDefinition } from './types';
-import { WidgetDrivenWorkspace } from './WidgetDrivenWorkspace';
 import { registerBuiltinWorkspaceWidgets } from './registerBuiltinWidgets';
+import { OperationalWorkspacePresentation } from './OperationalWorkspacePresentation';
 import { ReceptionWorkspaceShared } from '../modules/recepcao/ReceptionWorkspaceShared';
 
 interface WorkspaceRuntimeProps { definition: WorkspaceDefinition; }
@@ -25,5 +25,9 @@ export const WorkspaceRuntime: React.FC<WorkspaceRuntimeProps> = ({ definition }
     || widget.boardId === 'kanban-board-recepcao',
   );
   if (definition.sectors.includes('recepcao') || isReceptionComposition) return <ReceptionWorkspaceShared definition={definition} />;
-  return <WidgetDrivenWorkspace definition={definition} />;
+
+  // Todas as demais áreas usam o mesmo runtime dirigido por widgets, agora com
+  // um baseline visual premium. A camada apenas completa apresentação ausente;
+  // dados, RBAC, ações, engines e personalizações salvas continuam intactos.
+  return <OperationalWorkspacePresentation definition={definition} />;
 };
