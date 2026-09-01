@@ -9,6 +9,7 @@ export type OfficialWorkspaceId =
   | 'workspace-operacao'
   | 'workspace-manutencao'
   | 'workspace-cozinha'
+  | 'workspace-financeiro'
   | 'workspace-administrativo';
 
 interface OfficialWorkspaceTemplate {
@@ -34,8 +35,8 @@ const createSectorWidgets = (id: OfficialWorkspaceId, name: string, sector: Oper
  * same base Workspace after the cutover from the historical hardcoded registry.
  * New official operational sectors reuse createWorkspaceDefinition() so their
  * composition remains owned by the existing Workspace Factory instead of being
- * duplicated. Administrative management is represented as a Workspace layout,
- * not as a new operational sector.
+ * duplicated. Administrative and financial management are represented as
+ * Workspace layouts, not as new operational sectors.
  */
 export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] = [
   {
@@ -98,6 +99,21 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     layout: 'operational',
     defaultScope: 'sector',
     widgets: createSectorWidgets('workspace-cozinha', 'Cozinha & Room Service', 'cozinha'),
+  },
+  {
+    id: 'workspace-financeiro',
+    name: 'Financeiro',
+    description: 'Visão financeira certificada com receitas, contas e transações oficiais do hotel',
+    sectors: [],
+    layout: 'management',
+    defaultScope: 'mine',
+    widgets: [
+      { id: 'financeiro-overview', type: 'financial-overview', title: 'Visão Financeira Certificada', order: 10, span: 'full', enabled: true, dataSource: 'finance' },
+      { id: 'financeiro-summary', type: 'financial-summary', title: 'Resumo Financeiro', order: 20, span: 'full', enabled: true, dataSource: 'finance' },
+      { id: 'financeiro-receivables', type: 'financial-receivables', title: 'Contas a Receber', order: 30, span: 'full', enabled: true, dataSource: 'finance' },
+      { id: 'financeiro-payables', type: 'financial-payables', title: 'Contas a Pagar', order: 40, span: 'full', enabled: true, dataSource: 'finance' },
+      { id: 'financeiro-transactions', type: 'financial-transactions', title: 'Transações Financeiras', order: 50, span: 'full', enabled: true, dataSource: 'finance' },
+    ],
   },
   {
     id: 'workspace-administrativo',
