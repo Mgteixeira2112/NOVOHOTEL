@@ -19,7 +19,7 @@ import { SecurityVerificationModal } from './components/security/SecurityVerific
 import { ConnectionStatus } from './components/device/ConnectionStatus';
 import { fetchUserOperationalSectorsState } from './services/userSectorService';
 import { OperationalSectorId } from './domain/operationalSectors';
-import { resolveWorkspaceForSectors } from './workspace-engine/registry';
+import { resolveWorkspaceForUserAndSectors } from './workspace-engine/registry';
 import { WorkspaceRuntime } from './workspace-engine/WorkspaceRuntime';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, subscribeWorkspaceConfig } from './workspace-engine/workspaceConfigStore';
 
@@ -59,7 +59,7 @@ const AuthenticatedWorkspaceRouter: React.FC = () => {
   if (management) return <AdminLayout />;
   if (loading) return <div className="min-h-screen grid place-items-center bg-slate-100 text-slate-600 text-sm font-bold">Carregando ambiente operacional…</div>;
 
-  const workspace = resolveWorkspaceForSectors(sectorIds, hotelId);
+  const workspace = resolveWorkspaceForUserAndSectors(currentUser?.id, sectorIds, hotelId);
   if (workspace) return <WorkspaceRuntime definition={workspace} />;
   return <AdminLayout />;
 };
