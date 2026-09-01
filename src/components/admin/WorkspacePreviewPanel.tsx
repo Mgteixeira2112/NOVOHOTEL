@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Eye, Monitor, Smartphone, Tablet, Tv, X } from 'lucide-react';
 import { WidgetDrivenWorkspace } from '../../workspace-engine/WidgetDrivenWorkspace';
 import { WorkspaceDefinition, WorkspaceViewport } from '../../workspace-engine/types';
-import { WorkspaceVisualCanvasEditor } from './WorkspaceVisualCanvasEditor';
+import { WorkspaceVisualEditorPresetBridge } from './WorkspaceVisualEditorPresetBridge';
 
 interface WorkspacePreviewPanelProps {
   definition: WorkspaceDefinition;
@@ -48,7 +48,7 @@ export const WorkspacePreviewPanel: React.FC<WorkspacePreviewPanelProps> = ({ de
         <div className="flex flex-col gap-3 border-b border-stone-200 p-4 xl:flex-row xl:items-center xl:justify-between xl:px-5">
           <div>
             <h3 className="text-sm font-black text-stone-900">Editor visual do Workspace</h3>
-            <p className="mt-1 text-[10px] text-stone-500">Desktop, Tablet, Celular e KDS possuem superfícies independentes. O runtime atual permanece disponível somente como referência temporária.</p>
+            <p className="mt-1 text-[10px] text-stone-500">Desktop, Tablet, Celular e KDS possuem superfícies independentes. A Recepção recebe um template visual inicial sem alterar widgets ou engines.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex w-fit rounded-2xl border border-stone-200 bg-stone-50 p-1" role="group" aria-label="Modo de visualização">
@@ -64,7 +64,7 @@ export const WorkspacePreviewPanel: React.FC<WorkspacePreviewPanelProps> = ({ de
         <div className="min-h-0 flex-1 overflow-auto bg-stone-100 p-3 sm:p-4" data-workspace-preview-viewport={viewport}>
           <div className={`mx-auto min-w-0 overflow-hidden rounded-2xl border border-stone-300 bg-white shadow-sm ${frameClass}`}>
             {mode === 'visual'
-              ? <div className="p-3 sm:p-4" data-workspace-preview-visual-editor><WorkspaceVisualCanvasEditor definition={definition} viewport={viewport} onChange={onChange} /></div>
+              ? <div className="p-3 sm:p-4" data-workspace-preview-visual-editor><WorkspaceVisualEditorPresetBridge definition={definition} viewport={viewport} onChange={onChange} /></div>
               : <div className="pointer-events-none select-none" aria-hidden="true" data-workspace-preview-runtime-fallback><WidgetDrivenWorkspace definition={definition} forcedViewport={runtimeViewport} previewMode /></div>}
           </div>
         </div>
