@@ -1,0 +1,94 @@
+=== FINANCIAL MODULE IMPORTS ===
+19:import { FinancialOverviewTab } from './financial/FinancialOverviewTab';
+20:import { ReceivablesCrmTab } from './financial/ReceivablesCrmTab';
+21:import { PayablesTab } from './financial/PayablesTab';
+22:import { TransactionsAuditTab } from './financial/TransactionsAuditTab';
+23:import { ReceiptModal } from './financial/ReceiptModal';
+24:import { useAdministrativeFinanceUi } from './financial/useAdministrativeFinanceUi';
+25:import { useOperationalRevenueUi } from './financial/useOperationalRevenueUi';
+26:import { useOperationalTransactionsUi } from './financial/useOperationalTransactionsUi';
+=== LEGACY COMPONENT REFERENCES ===
+--- PixConfigTab ---
+src/components/admin/financial/PixConfigTab.tsx:27:interface PixConfigTabProps {
+src/components/admin/financial/PixConfigTab.tsx:35:export const PixConfigTab: React.FC<PixConfigTabProps> = ({
+--- CreditCardGatewaysTab ---
+src/components/admin/financial/CreditCardGatewaysTab.tsx:25:interface CreditCardGatewaysTabProps {
+src/components/admin/financial/CreditCardGatewaysTab.tsx:31:export const CreditCardGatewaysTab: React.FC<CreditCardGatewaysTabProps> = ({
+--- PaymentLinkModal ---
+src/components/admin/financial/PaymentLinkModal.tsx:21:interface PaymentLinkModalProps {
+src/components/admin/financial/PaymentLinkModal.tsx:34:export const PaymentLinkModal: React.FC<PaymentLinkModalProps> = ({
+--- NewExpenseModal ---
+src/components/admin/financial/NewExpenseModal.tsx:5:interface NewExpenseModalProps {
+src/components/admin/financial/NewExpenseModal.tsx:11:export const NewExpenseModal: React.FC<NewExpenseModalProps> = ({
+--- NewReceivableModal ---
+src/components/admin/financial/NewReceivableModal.tsx:5:interface NewReceivableModalProps {
+src/components/admin/financial/NewReceivableModal.tsx:11:export const NewReceivableModal: React.FC<NewReceivableModalProps> = ({
+--- FinancialOverviewTab ---
+src/components/admin/FinancialModule.tsx:19:import { FinancialOverviewTab } from './financial/FinancialOverviewTab';
+src/components/admin/FinancialModule.tsx:270:          <FinancialOverviewTab
+src/components/admin/financial/FinancialOverviewTab.tsx:27:interface FinancialOverviewTabProps {
+src/components/admin/financial/FinancialOverviewTab.tsx:37:export const FinancialOverviewTab: React.FC<FinancialOverviewTabProps> = ({
+--- ReceivablesCrmTab ---
+src/workspace-engine/widgets/AdministrativeFinanceAccountWidgets.tsx:4:import { ReceivablesCrmTab } from '../../components/admin/financial/ReceivablesCrmTab';
+src/workspace-engine/widgets/AdministrativeFinanceAccountWidgets.tsx:41:    <ReceivablesCrmTab
+src/components/admin/FinancialModule.tsx:20:import { ReceivablesCrmTab } from './financial/ReceivablesCrmTab';
+src/components/admin/FinancialModule.tsx:282:          <ReceivablesCrmTab
+src/components/admin/financial/ReceivablesCrmTab.tsx:23:interface ReceivablesCrmTabProps {
+src/components/admin/financial/ReceivablesCrmTab.tsx:32:export const ReceivablesCrmTab: React.FC<ReceivablesCrmTabProps> = ({
+--- PayablesTab ---
+src/workspace-engine/widgets/AdministrativeFinanceAccountWidgets.tsx:3:import { PayablesTab } from '../../components/admin/financial/PayablesTab';
+src/workspace-engine/widgets/AdministrativeFinanceAccountWidgets.tsx:71:    <PayablesTab
+src/components/admin/FinancialModule.tsx:21:import { PayablesTab } from './financial/PayablesTab';
+src/components/admin/FinancialModule.tsx:293:          <PayablesTab
+src/components/admin/financial/PayablesTab.tsx:20:interface PayablesTabProps {
+src/components/admin/financial/PayablesTab.tsx:28:export const PayablesTab: React.FC<PayablesTabProps> = ({
+--- TransactionsAuditTab ---
+src/components/admin/FinancialModule.tsx:22:import { TransactionsAuditTab } from './financial/TransactionsAuditTab';
+src/components/admin/FinancialModule.tsx:317:          <TransactionsAuditTab
+src/components/admin/financial/TransactionsAuditTab.tsx:32:interface TransactionsAuditTabProps {
+src/components/admin/financial/TransactionsAuditTab.tsx:48:export const TransactionsAuditTab: React.FC<TransactionsAuditTabProps> = ({
+--- ReceiptModal ---
+src/workspace-engine/widgets/AdministrativeFinanceAccountWidgets.tsx:5:import { ReceiptModal } from '../../components/admin/financial/ReceiptModal';
+src/workspace-engine/widgets/AdministrativeFinanceAccountWidgets.tsx:49:    <ReceiptModal isOpen={Boolean(receipt)} onClose={() => setReceipt(null)} hotelConfig={hotelConfig} receivable={receipt} />
+src/workspace-engine/widgets/AdministrativeFinanceAccountWidgets.tsx:78:    <ReceiptModal isOpen={Boolean(receipt)} onClose={() => setReceipt(null)} hotelConfig={hotelConfig} expense={receipt} />
+src/components/admin/FinancialModule.tsx:23:import { ReceiptModal } from './financial/ReceiptModal';
+src/components/admin/FinancialModule.tsx:84:  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+src/components/admin/FinancialModule.tsx:175:    setReceiptModalOpen(true);
+src/components/admin/FinancialModule.tsx:181:    setReceiptModalOpen(true);
+src/components/admin/FinancialModule.tsx:324:      <ReceiptModal
+src/components/admin/FinancialModule.tsx:327:          setReceiptModalOpen(false);
+src/components/admin/financial/ReceiptModal.tsx:7:interface ReceiptModalProps {
+src/components/admin/financial/ReceiptModal.tsx:16:export const ReceiptModal: React.FC<ReceiptModalProps> = ({
+=== FINANCIAL FILES ===
+CreditCardGatewaysTab.tsx
+FinancialOverviewTab.tsx
+NewExpenseModal.tsx
+NewReceivableModal.tsx
+PayablesTab.tsx
+PaymentLinkModal.tsx
+PixConfigTab.tsx
+ReceiptModal.tsx
+ReceivablesCrmTab.tsx
+TransactionsAuditTab.tsx
+administrativeFinanceUiAdapter.ts
+useAdministrativeFinanceUi.ts
+useOperationalRevenueUi.ts
+useOperationalTransactionsUi.ts
+=== UNAVAILABLE PAYMENT CONFIG ===
+32:  | 'pix_config'
+33:  | 'gateways'
+36:interface UnavailablePaymentConfigPanelProps {
+41:const UnavailablePaymentConfigPanel: React.FC<UnavailablePaymentConfigPanelProps> = ({
+147:    alert('PIX, gateways e links de pagamento estão indisponíveis até existir um contrato financeiro oficial de leitura e escrita.');
+207:    { id: 'pix_config', label: 'Configuração Chaves PIX & PSP', icon: QrCode },
+208:    { id: 'gateways', label: 'Gateways Cartão de Crédito', icon: CreditCard },
+274:            onOpenNewPaymentLink={handleUnsupportedPaymentConfiguration}
+275:            onOpenNewExpense={handleUnsupportedAccountMutation}
+276:            onOpenNewReceivable={handleUnsupportedAccountMutation}
+284:            onOpenNewReceivable={handleUnsupportedAccountMutation}
+285:            onOpenPaymentLink={handleUnsupportedPaymentConfiguration}
+295:            onOpenNewExpense={handleUnsupportedAccountMutation}
+302:        {activeTab === 'pix_config' && (
+303:          <UnavailablePaymentConfigPanel
+309:        {activeTab === 'gateways' && (
+310:          <UnavailablePaymentConfigPanel
