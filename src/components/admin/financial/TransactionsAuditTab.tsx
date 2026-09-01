@@ -13,6 +13,8 @@ import { formatCurrency, formatDateTimeBR } from '../../../utils/formatters';
 import type { PaymentMethod } from '../../../types/financial';
 import type { OperationalTransaction } from '../../../services/financialReportingService';
 
+type TransactionDisplayMethod = PaymentMethod | 'outros';
+
 interface TransactionAuditItem {
   id: string;
   tipo: 'entrada' | 'saida';
@@ -20,7 +22,7 @@ interface TransactionAuditItem {
   entidade: string;
   categoria: string;
   data: string;
-  metodo: PaymentMethod;
+  metodo: TransactionDisplayMethod;
   valor_bruto: number;
   valor_liquido: number;
   codigo_transacao: string;
@@ -32,12 +34,14 @@ interface TransactionsAuditTabProps {
   onExportReport: () => void;
 }
 
-const toPaymentMethod = (method: string): PaymentMethod => {
+const toPaymentMethod = (method: string): TransactionDisplayMethod => {
   if (method === 'pix') return 'pix';
   if (['cartao_credito', 'credit_card', 'credit'].includes(method)) return 'cartao_credito';
   if (['cartao_debito', 'debit_card', 'debit'].includes(method)) return 'cartao_debito';
   if (method === 'dinheiro' || method === 'cash') return 'dinheiro';
   if (method === 'boleto') return 'boleto';
+  if (method === 'faturado') return 'faturado';
+  if (['transferencia', 'transfer', 'bank_transfer'].includes(method)) return 'transferencia';
   return 'outros';
 };
 
@@ -88,7 +92,7 @@ export const TransactionsAuditTab: React.FC<TransactionsAuditTabProps> = ({
     return matchesSearch && matchesType && matchesMethod;
   });
 
-  const getMethodIcon = (method: PaymentMethod) => {
+  const getMethodIcon = (method: TransactionDisplayMethod) => {
     switch (method) {
       case 'pix':
         return <QrCode className="w-3.5 h-3.5 text-emerald-600" />;
@@ -175,6 +179,8 @@ export const TransactionsAuditTab: React.FC<TransactionsAuditTabProps> = ({
             <option value="cartao_debito">Cartão de Débito</option>
             <option value="boleto">Boleto</option>
             <option value="dinheiro">Dinheiro</option>
+            <option value="faturado">Faturado</option>
+            <option value="transferencia">Transferência</option>
             <option value="outros">Outros</option>
           </select>
 
