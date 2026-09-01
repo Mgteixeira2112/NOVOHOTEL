@@ -74,6 +74,7 @@ import { subscribeToHotelRealtime } from '../core/realtime/hotelRealtimeManager'
 import { useHotelRBAC } from '../hooks/useHotelRBAC';
 import { useHotelSecurity2FA } from '../hooks/useHotelSecurity2FA';
 import { kanbanV2 } from '../services/kanbanV2';
+import { authenticateSupabaseStaff, clearSupabaseStaffSession } from '../services/supabaseAuthBridge';
 
 // Tipagem para os filtros de busca de disponibilidade
 interface BookingSearchFilters {
@@ -184,10 +185,9 @@ interface HotelContextType {
   isAuthenticated: boolean;
   pendingLoginUser: Usuario | null;
   pendingLoginOtp: string | null;
-  loginValidatePassword: (email: string, senha: string) => { success: boolean; user?: Usuario; message?: string; otp?: string };
+  loginValidatePassword: (email: string, senha: string) => Promise<{ success: boolean; user?: Usuario; message?: string; otp?: string }>;
   complete2FALogin: (code: string, method?: TwoFactorMethod) => { success: boolean; message?: string };
   cancel2FALogin: () => void;
-  login: (email: string, senha?: string) => { success: boolean; message?: string };
   logout: () => void;
   setCurrentUser: (user: Usuario) => void;
   addUser: (userData: Omit<Usuario, 'id' | 'created_at'>) => Usuario;
@@ -284,13 +284,8 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   // Usuário Atual e Autenticação
-  const [currentUser, setCurrentUser] = useState<Usuario>(() => {
-    const saved = loadFromStorage<Usuario | null>('current_user', null);
-    return saved || INITIAL_USERS[0];
-  });
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() =>
-    loadFromStorage('is_authenticated', true)
-  );
+  const [currentUser, setCurrentUser] = useState<Usuario>(INITIAL_USERS[0]);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [pendingLoginUser, setPendingLoginUser] = useState<Usuario | null>(null);
   const [pendingLoginOtp, setPendingLoginOtp] = useState<string | null>(null);
 
@@ -356,8 +351,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => saveToStorage('blocks', blocks), [blocks]);
   useEffect(() => saveToStorage('automations', automations), [automations]);
   useEffect(() => saveToStorage('users', users), [users]);
-  useEffect(() => saveToStorage('current_user', currentUser), [currentUser]);
-  useEffect(() => saveToStorage('is_authenticated', isAuthenticated), [isAuthenticated]);
   useEffect(() => saveToStorage('security_logs', securityLogs), [securityLogs]);
 
   // Monitor de Saúde e Conexão com o Supabase
@@ -986,28 +979,18 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Controle de Autenticação e Sessão do Usuário
-  const loginValidatePassword = (email: string, senha: string): { success: boolean; user?: Usuario; message?: string; otp?: string } => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const user = users.find((u) => u.email.trim().toLowerCase() === trimmedEmail);
-
-    if (!user) {
-      return { success: false, message: 'E-mail corporativo não encontrado no sistema.' };
+  const loginValidatePassword = async (email: string, senha: string): Promise<{ success: boolean; user?: Usuario; message?: string; otp?: string }> => {
+    try {
+      const user = await authenticateSupabaseStaff(email, senha);
+      const otp = generateOtpToken();
+      setPendingLoginUser(user);
+      setPendingLoginOtp(otp);
+      return { success: true, user, otp };
+    } catch {
+      setPendingLoginUser(null);
+      setPendingLoginOtp(null);
+      return { success: false, message: 'E-mail ou senha inválidos para uma conta ativa.' };
     }
-
-    if (user.ativo === false) {
-      return { success: false, message: 'Este usuário está desativado pelo administrador. Entre em contato com a gerência.' };
-    }
-
-    const expectedPassword = user.senha || 'admin';
-    if (senha.trim() !== expectedPassword.trim()) {
-      return { success: false, message: 'Senha incorreta para o usuário informado.' };
-    }
-
-    const otp = generateOtpToken();
-    setPendingLoginUser(user);
-    setPendingLoginOtp(otp);
-
-    return { success: true, user, otp };
   };
 
   const complete2FALogin = (code: string, method: TwoFactorMethod = 'authenticator'): { success: boolean; message?: string } => {
@@ -1058,35 +1041,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const cancel2FALogin = () => {
     setPendingLoginUser(null);
     setPendingLoginOtp(null);
-  };
-
-  const login = (email: string, senha?: string): { success: boolean; message?: string } => {
-    const trimmedEmail = email.trim().toLowerCase();
-    const user = users.find((u) => u.email.trim().toLowerCase() === trimmedEmail);
-
-    if (!user) {
-      return { success: false, message: 'E-mail de usuário não encontrado no sistema.' };
-    }
-
-    if (user.ativo === false) {
-      return { success: false, message: 'Este usuário está desativado pelo administrador.' };
-    }
-
-    if (senha && user.senha && user.senha !== senha) {
-      return { success: false, message: 'Senha incorreta para o usuário informado.' };
-    }
-
-    const updatedUser = {
-      ...user,
-      ultimo_acesso: new Date().toISOString(),
-    };
-
-    setUsers((prev) => prev.map((u) => (u.id === user.id ? updatedUser : u)));
-    setCurrentUser(updatedUser);
-    setIsAuthenticated(true);
-    setAdminActiveTab('dashboard');
-    upsertUserToSupabase(updatedUser).catch(() => {});
-    return { success: true };
+    void clearSupabaseStaffSession().catch(() => undefined);
   };
 
   const logout = () => {
@@ -1094,6 +1049,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPendingLoginUser(null);
     setPendingLoginOtp(null);
     closeSecurityModal();
+    void clearSupabaseStaffSession().catch(() => undefined);
   };
 
   // Gerenciamento de Usuários
@@ -1218,7 +1174,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setUsers(INITIAL_USERS);
     setRbacMatrix(INITIAL_RBAC_MATRIX);
     setCurrentUser(INITIAL_USERS[0]);
-    setIsAuthenticated(true);
+    setIsAuthenticated(false);
   };
 
   return (
@@ -1260,7 +1216,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loginValidatePassword,
         complete2FALogin,
         cancel2FALogin,
-        login,
         logout,
         addUser,
         updateUser,
