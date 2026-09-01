@@ -1,0 +1,30 @@
+name: Temporary phase 8 final financial audit
+on:
+  push:
+    branches:
+      - audit/phase-8-final-financial-sources
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit financial sources
+        run: |
+          echo '=== payments token ==='
+          grep -RInE '\bpayments\b' src --include='*.ts' --include='*.tsx' || true
+          echo '=== Pagamento type ==='
+          grep -RInE '\bPagamento\b' src --include='*.ts' --include='*.tsx' || true
+          echo '=== pagamentos table/name ==='
+          grep -RInE "pagamentos|from\('pagamentos'\)|from\(\"pagamentos\"\)" src --include='*.ts' --include='*.tsx' || true
+          echo '=== pagamento_id ==='
+          grep -RIn 'pagamento_id' src --include='*.ts' --include='*.tsx' || true
+          echo '=== legacy local storage/payment seeds ==='
+          grep -RInE "INITIAL_PAYMENTS|saveToStorage\('payments'|loadFromStorage\('payments'|fetchPaymentsFromSupabase|upsertPaymentToSupabase|onPaymentChange" src --include='*.ts' --include='*.tsx' || true
+          echo '=== financial mocks/localStorage ==='
+          grep -RInE 'mockFinancialData|localStorage' src/components/admin/FinancialModule.tsx src/components/admin/financial src/financial-engine src/services/financialReportingService.ts 2>/dev/null || true
+          echo '=== legacy financial calculations ==='
+          grep -RInE "status === 'aprovado'|approvedPayments|CONCILIADO / PAGO|QUITADA / LIQUIDADA|Pagamento Aprovado" src/components src/context src/services --include='*.ts' --include='*.tsx' || true
+          echo '=== canonical ledger references ==='
+          grep -RInE 'hotel_os_transactions|useOperationalRevenueUi|useOperationalTransactionsUi|financialEngine|getFolioByStay' src --include='*.ts' --include='*.tsx' || true
