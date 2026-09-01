@@ -128,9 +128,9 @@ export function normalizeRoomMapWidgetPresentation(rawValue: unknown): RoomMapWi
   const raw = rawValue && typeof rawValue === 'object'
     ? rawValue as Partial<RoomMapWidgetPresentationSettings> & LegacyRoomMapWidgetPresentationSettings
     : {};
-  const desktop = raw.desktop && typeof raw.desktop === 'object' ? raw.desktop : {};
-  const mobile = raw.mobile && typeof raw.mobile === 'object' ? raw.mobile : {};
-  const kds = raw.kds && typeof raw.kds === 'object' ? raw.kds : {};
+  const desktop: Partial<RoomMapDesktopPresentation> = raw.desktop && typeof raw.desktop === 'object' ? raw.desktop : {};
+  const mobile: Partial<RoomMapMobilePresentation> = raw.mobile && typeof raw.mobile === 'object' ? raw.mobile : {};
+  const kds: Partial<RoomMapKdsPresentation> = raw.kds && typeof raw.kds === 'object' ? raw.kds : {};
 
   const grouping = oneOf(raw.grouping, GROUPINGS, DEFAULT_PRESENTATION.grouping);
   const ordering = oneOf(raw.ordering, ORDERINGS, DEFAULT_PRESENTATION.ordering);
