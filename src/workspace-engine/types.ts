@@ -10,6 +10,8 @@ export type WorkspaceWidgetHeaderStyle = 'full' | 'compact' | 'hidden';
 export type WorkspaceDevicePresentationMode = 'auto' | 'custom' | 'disabled';
 export type WorkspaceBackgroundPresetId = 'none' | 'lobby' | 'operations' | 'finance' | 'service';
 export type WorkspaceBackgroundFit = 'cover' | 'contain';
+export type WorkspaceSidebarItemSize = 'compact' | 'normal' | 'large';
+export type WorkspaceSidebarVisualStyle = 'solid' | 'glass' | 'transparent';
 
 export interface WorkspaceHeaderPresentation {
   showHotel?: boolean;
@@ -29,6 +31,24 @@ export interface WorkspaceSurfacePresentation {
   backgroundPosition?: 'center' | 'top' | 'bottom';
   overlayOpacity?: number;
   minHeight?: number;
+}
+
+/**
+ * Editor Visual 3.0: menu de atalhos do Workspace sobre a superfície Desktop.
+ * O contrato pertence somente à camada de apresentação e não cria novas ações,
+ * fontes de dados ou engines. Os itens continuam sendo widgets com display=button.
+ */
+export interface WorkspaceSidebarPresentation {
+  enabled?: boolean;
+  /** Posição horizontal normalizada de 0 a 100% da superfície. */
+  x?: number;
+  /** Posição vertical em pixels dentro da superfície. */
+  y?: number;
+  /** Largura do menu em pixels. */
+  width?: number;
+  /** Controla quanto conteúdo cada atalho pode exibir. */
+  itemSize?: WorkspaceSidebarItemSize;
+  visual?: WorkspaceSidebarVisualStyle;
 }
 
 export interface WorkspaceKdsPresentation {
@@ -52,6 +72,7 @@ export interface WorkspaceDevicePresentation {
 export interface WorkspacePresentation {
   header?: WorkspaceHeaderPresentation;
   surface?: WorkspaceSurfacePresentation;
+  sidebar?: WorkspaceSidebarPresentation;
   kds?: WorkspaceKdsPresentation;
   devices?: WorkspaceDevicePresentation;
 }
