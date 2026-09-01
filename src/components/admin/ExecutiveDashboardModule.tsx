@@ -35,7 +35,7 @@ const pct = (value: number) => `${(Number(value || 0) * 100).toFixed(1)}%`;
 const number = (value: number) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(value || 0);
 
 export const ExecutiveDashboardModule: React.FC = () => {
-  const { rooms, reservations, payments } = useHotel();
+  const { rooms, reservations } = useHotel();
   const [snapshot, setSnapshot] = useState<TenantSnapshot | null>(null);
   const [selectedHotel, setSelectedHotel] = useState<string>('ALL');
   const [preset, setPreset] = useState<'today' | 'yesterday' | '7d' | '30d' | 'month' | 'previous_month' | 'year'>('today');
@@ -111,14 +111,12 @@ export const ExecutiveDashboardModule: React.FC = () => {
   const localFallback = useMemo(() => {
     const total = rooms.length;
     const occupied = rooms.filter(r => r.status === 'ocupado').length;
-    const revenue = payments.filter(p => p.status === 'aprovado').reduce((s,p) => s + p.valor, 0);
     return { 
       occupancy: occupied / Math.max(total, 1), 
-      revenue, 
       checkins: reservations.filter(r => r.status === 'confirmada').length, 
       checkouts: reservations.filter(r => r.status === 'checkin_realizado').length 
     };
-  }, [rooms, payments, reservations]);
+  }, [rooms, reservations]);
 
   const m = aggregate;
   const hotelName = selectedHotel === 'ALL' 
@@ -201,7 +199,7 @@ export const ExecutiveDashboardModule: React.FC = () => {
         />
         <StatSummaryCard 
           label="Receita Total" 
-          value={m ? money(m.total_revenue, m.currency) : money(localFallback.revenue, 'BRL')} 
+          value={m ? money(m.total_revenue, m.currency) : '—'} 
           hint="hospedagem, PDV e serviços" 
           icon={<DollarSign className="w-4 h-4" />} 
         />

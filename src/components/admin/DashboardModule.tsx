@@ -41,6 +41,7 @@ import { getOperationalTodayStr } from '../../utils/dateHelper';
 import { AdminPageHeader } from '../common/AdminPageHeader';
 import { EmptyState } from '../common/UIStates';
 import { kanbanV2 } from '../../services/kanbanV2';
+import { useOperationalRevenueUi } from './financial/useOperationalRevenueUi';
 
 type FilterStatus = 'todos' | 'disponivel' | 'ocupado' | 'limpeza' | 'vistoria' | 'manutencao';
 type FilterFrigobar = 'todos' | 'ok' | 'precisa_repor';
@@ -60,7 +61,6 @@ export const DashboardModule: React.FC = () => {
     roomTypes,
     reservations, 
     guests, 
-    payments, 
     setAdminActiveTab, 
     setRoomStatus, 
     updateRoom,
@@ -68,6 +68,12 @@ export const DashboardModule: React.FC = () => {
     openBookingWithRoom,
     currentUser
   } = useHotel();
+
+  const {
+    grossPayments,
+    loading: operationalRevenueLoading,
+    error: operationalRevenueError,
+  } = useOperationalRevenueUi();
 
   const { 
     getRoomMinibarSummary, 
@@ -151,10 +157,8 @@ export const DashboardModule: React.FC = () => {
   const checkoutsToday = reservations.filter((r) => r.checkout === todayStr && r.status === 'checkin_realizado');
   const activeInHouse = reservations.filter((r) => r.status === 'checkin_realizado');
 
-  // Faturamento e receita
-  const totalRevenue = payments
-    .filter((p) => p.status === 'aprovado')
-    .reduce((acc, p) => acc + p.valor, 0);
+  // Faturamento e receita pela projeção oficial do ledger operacional.
+  const totalRevenue = grossPayments;
 
   // Lista de andares únicos
   const uniqueFloors = useMemo(() => {
@@ -450,8 +454,11 @@ export const DashboardModule: React.FC = () => {
           </div>
           <div className="mt-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xl font-bold font-mono text-stone-900">{formatCurrency(totalRevenue)}</span>
+              <span className="text-xl font-bold font-mono text-stone-900">{operationalRevenueLoading ? 'Carregando...' : operationalRevenueError ? '—' : formatCurrency(totalRevenue)}</span>
             </div>
+            {operationalRevenueError && (
+              <span className="text-[10px] text-amber-700 font-semibold mt-0.5 block">Receita operacional indisponível</span>
+            )}
             <button
               onClick={() => setAdminActiveTab('financial')}
               className="text-[10px] text-amber-700 hover:underline font-semibold mt-0.5 block"
