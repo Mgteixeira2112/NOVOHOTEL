@@ -38,9 +38,11 @@ const buildTemplateLibrary = (): WorkspaceDefinition[] => {
       sector: sector.id,
     }),
   );
+  const financialTemplate = createOfficialWorkspaceDefinition('workspace-financeiro');
   const administrativeTemplate = createOfficialWorkspaceDefinition('workspace-administrativo');
   return [
     ...operationalTemplates,
+    { ...financialTemplate, id: 'workspace-template-financeiro' },
     { ...administrativeTemplate, id: 'workspace-template-administrativo' },
   ];
 };

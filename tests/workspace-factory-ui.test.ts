@@ -34,9 +34,12 @@ test('Fábrica separa Templates de Meus Workspaces persistidos', () => {
   assert.match(workspaceEditorSource, /persistedIds\.has\(definition\.id\)/);
 });
 
-test('Fábrica inclui Administrativo como gestão transversal sem criar setor', () => {
+test('Fábrica expõe Financeiro e Administrativo como templates oficiais de gestão', () => {
+  assert.match(workspaceEditorSource, /createOfficialWorkspaceDefinition\('workspace-financeiro'\)/);
+  assert.match(workspaceEditorSource, /workspace-template-financeiro/);
   assert.match(workspaceEditorSource, /createOfficialWorkspaceDefinition\('workspace-administrativo'\)/);
   assert.match(workspaceEditorSource, /workspace-template-administrativo/);
+  assert.match(workspaceEditorSource, /managementTemplates = useMemo\(\(\) => templates\.filter\(item => item\.layout === 'management'\)/);
   assert.match(workspaceEditorSource, /Transversal • sem setor operacional/);
   assert.match(workspaceEditorSource, /selected\.layout === 'operational'/);
   assert.match(workspaceEditorSource, /Não possui setor nem board operacional/);
