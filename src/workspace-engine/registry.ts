@@ -37,5 +37,28 @@ export const getWorkspacesForUser = (userId: string | undefined, hotelId = DEFAU
     return assigned.length === 0 || (!!userId && assigned.includes(userId));
   });
 
+/**
+ * Resolve o Workspace operacional do usuário preservando a Fábrica como fonte
+ * de verdade. Entre áreas do mesmo setor, a associação explícita feita na
+ * Fábrica sempre vence. Apenas quando não existe associação explícita usamos
+ * uma área pública/compartilhada do setor como fallback de compatibilidade.
+ */
+export const resolveWorkspaceForUserAndSectors = (
+  userId: string | undefined,
+  sectorIds: OperationalSectorId[],
+  hotelId = DEFAULT_WORKSPACE_HOTEL_ID,
+) => {
+  const candidates = getAllWorkspaceDefinitions(hotelId)
+    .filter(workspace => workspace.sectors.some(sector => sectorIds.includes(sector)));
+
+  if (userId) {
+    const assigned = candidates.find(workspace => (workspace.assignedUserIds || []).includes(userId));
+    if (assigned) return assigned;
+  }
+
+  return candidates.find(workspace => (workspace.assignedUserIds || []).length === 0) || null;
+};
+
+/** API histórica mantida para consumidores que ainda não possuem contexto de usuário. */
 export const resolveWorkspaceForSectors = (sectorIds: OperationalSectorId[], hotelId = DEFAULT_WORKSPACE_HOTEL_ID) =>
   getAllWorkspaceDefinitions(hotelId).find(workspace => workspace.sectors.some(sector => sectorIds.includes(sector))) || null;
