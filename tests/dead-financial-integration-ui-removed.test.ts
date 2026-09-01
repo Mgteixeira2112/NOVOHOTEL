@@ -7,6 +7,8 @@ const financeBlock = factory.match(/id: 'workspace-financeiro'[\s\S]*?(?=\n  \{\
 
 const retiredFiles = [
   'src/components/admin/FinancialModule.tsx',
+  'src/components/admin/financial/FinancialOverviewTab.tsx',
+  'src/components/admin/financial/TransactionsAuditTab.tsx',
   'src/components/admin/financial/PixConfigTab.tsx',
   'src/components/admin/financial/CreditCardGatewaysTab.tsx',
   'src/components/admin/financial/PaymentLinkModal.tsx',
@@ -14,7 +16,7 @@ const retiredFiles = [
   'src/components/admin/financial/NewReceivableModal.tsx',
 ];
 
-test('interfaces financeiras simuladas e módulo legado permanecem removidos', () => {
+test('interfaces financeiras legadas sem consumidor permanecem removidas', () => {
   for (const file of retiredFiles) assert.equal(existsSync(file), false, `arquivo legado retornou: ${file}`);
 });
 
