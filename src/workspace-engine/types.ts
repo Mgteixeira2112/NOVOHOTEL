@@ -1,73 +1,34 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
+import type {
+  WorkspacePresentation,
+  WorkspaceWidgetPresentation,
+  WorkspaceWidgetSpan,
+} from './legacyPresentationTypes';
 import type { WorkspaceVisualPresentation } from './visualPresentation';
+
+/**
+ * Deprecated presentation contracts are re-exported only so historical callers
+ * and persisted-definition adapters keep compiling during the migration.
+ * New runtime/editor code must import the visual contract from visualPresentation.ts.
+ */
+export type {
+  WorkspaceDevicePresentation,
+  WorkspaceDevicePresentationMode,
+  WorkspaceHeaderPresentation,
+  WorkspaceKdsPresentation,
+  WorkspacePresentation,
+  WorkspaceWidgetDevicePresentation,
+  WorkspaceWidgetDisplay,
+  WorkspaceWidgetHeaderStyle,
+  WorkspaceWidgetHeight,
+  WorkspaceWidgetPresentation,
+  WorkspaceWidgetSpan,
+  WorkspaceWidgetVisualStyle,
+  WorkspaceWidgetWidth,
+} from './legacyPresentationTypes';
 
 export type WorkspaceLayout = 'operational' | 'management';
 export type WorkspaceViewport = 'desktop' | 'tablet' | 'mobile' | 'kds';
-export type WorkspaceWidgetDisplay = 'panel' | 'button';
-export type WorkspaceWidgetWidth = 'small' | 'medium' | 'large' | 'full';
-export type WorkspaceWidgetHeight = 'auto' | 'low' | 'medium' | 'high';
-export type WorkspaceWidgetVisualStyle = 'minimal' | 'standard' | 'highlight';
-export type WorkspaceWidgetHeaderStyle = 'full' | 'compact' | 'hidden';
-export type WorkspaceDevicePresentationMode = 'auto' | 'custom' | 'disabled';
-
-export interface WorkspaceHeaderPresentation {
-  showHotel?: boolean;
-  showWorkspace?: boolean;
-  showDate?: boolean;
-  showTime?: boolean;
-  showUser?: boolean;
-  showStatus?: boolean;
-  showOperationalDate?: boolean;
-  hourFormat?: '24h' | '12h';
-  timezone?: string;
-}
-
-export interface WorkspaceKdsPresentation {
-  enabled?: boolean;
-  orientation?: 'landscape' | 'portrait';
-  density?: 'compact' | 'normal' | 'large';
-  viewingDistance?: 'near' | 'medium' | 'far';
-  fullscreen?: boolean;
-  realtime?: boolean;
-  hideAdministrativeControls?: boolean;
-  hideEditingControls?: boolean;
-}
-
-export interface WorkspaceDevicePresentation {
-  desktop?: Exclude<WorkspaceDevicePresentationMode, 'disabled'>;
-  tablet?: Exclude<WorkspaceDevicePresentationMode, 'disabled'>;
-  mobile?: Exclude<WorkspaceDevicePresentationMode, 'disabled'>;
-  kds?: WorkspaceDevicePresentationMode;
-}
-
-export interface WorkspacePresentation {
-  header?: WorkspaceHeaderPresentation;
-  kds?: WorkspaceKdsPresentation;
-  devices?: WorkspaceDevicePresentation;
-}
-
-export interface WorkspaceWidgetDevicePresentation {
-  mode?: 'auto' | 'custom';
-  hidden?: boolean;
-  order?: number;
-  display?: WorkspaceWidgetDisplay | 'summary' | 'highlight';
-  width?: WorkspaceWidgetWidth;
-  height?: WorkspaceWidgetHeight;
-  visual?: WorkspaceWidgetVisualStyle;
-  header?: WorkspaceWidgetHeaderStyle;
-}
-
-export interface WorkspaceWidgetPresentation {
-  display?: WorkspaceWidgetDisplay;
-  width?: WorkspaceWidgetWidth;
-  height?: WorkspaceWidgetHeight;
-  visual?: WorkspaceWidgetVisualStyle;
-  header?: WorkspaceWidgetHeaderStyle;
-  desktop?: WorkspaceWidgetDevicePresentation;
-  tablet?: WorkspaceWidgetDevicePresentation;
-  mobile?: WorkspaceWidgetDevicePresentation;
-  kds?: WorkspaceWidgetDevicePresentation;
-}
 
 /**
  * Every visible or interactive element rendered inside a Workspace must be
@@ -104,8 +65,6 @@ export type WorkspaceWidgetType =
   | 'checkins';
 
 export type WorkspaceScope = 'mine' | 'sector';
-/** Legacy layout contract kept only for persisted definitions created before presentation.width/display. */
-export type WorkspaceWidgetSpan = 1 | 2 | 3 | 4 | 'full' | 'button';
 export type WorkspaceWidgetDataSource =
   | 'dashboard'
   | 'finance'
@@ -148,12 +107,14 @@ export interface WorkspaceWidgetDefinition {
   boardId?: string;
   title?: string;
   order?: number;
+  /** @deprecated Compatibility-only field for historical serialized definitions. */
   span?: WorkspaceWidgetSpan;
   enabled?: boolean;
   dataSource?: WorkspaceWidgetDataSource;
   filters?: Record<string, unknown>;
   actions?: WorkspaceWidgetActions;
   permissions?: WorkspaceWidgetPermissions;
+  /** @deprecated Compatibility-only field. Active layout lives in visualPresentation. */
   presentation?: WorkspaceWidgetPresentation;
   settings?: Record<string, unknown>;
 }
@@ -165,6 +126,7 @@ export interface WorkspaceDefinition {
   sectors: OperationalSectorId[];
   layout: WorkspaceLayout;
   defaultScope: WorkspaceScope;
+  /** @deprecated Compatibility-only field. Active presentation lives in visualPresentation. */
   presentation?: WorkspacePresentation;
   visualPresentation?: WorkspaceVisualPresentation;
   widgets: WorkspaceWidgetDefinition[];
