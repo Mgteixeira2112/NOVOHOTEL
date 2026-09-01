@@ -140,7 +140,7 @@ export const WorkspaceEditorModule: React.FC = () => {
     setSaving(true);
     const result = await saveWorkspaceOverride({ ...definition, widgets: normalizeWorkspaceWidgets(definition.widgets) }, { hotelId, userId: currentUser?.id });
     setSyncSource(result.persisted ? 'supabase' : 'local');
-    setMessage(result.persisted ? successMessage : 'Alteração salva localmente. O Supabase não respondeu; a configuração continuará disponível neste dispositivo.');
+    setMessage(result.persisted ? successMessage : 'Alteração mantida como rascunho local; o estado do hotel não foi confirmado pelo Supabase.');
     setSaving(false);
     return result;
   };
@@ -167,11 +167,17 @@ export const WorkspaceEditorModule: React.FC = () => {
     if (typeof window !== 'undefined' && !window.confirm(`Excluir o Workspace "${selected.name}"?`)) return;
     setSaving(true);
     const result = await resetWorkspaceOverride(selected.id, hotelId);
+    if (!result.persisted) {
+      setSyncSource('local');
+      setMessage('Workspace não removido: o Supabase não confirmou a exclusão.');
+      setSaving(false);
+      return;
+    }
     const next = buildPersistedDefinitions().filter(item => item.id !== selected.id);
     setDefinitions(next);
     setSelection(next[0] ? { kind: 'workspace', id: next[0].id } : { kind: 'template', id: templates[0]?.id || '' });
-    setSyncSource(result.persisted ? 'supabase' : 'local');
-    setMessage(result.persisted ? 'Workspace removido do hotel.' : 'Remoção local concluída; não foi possível atualizar a versão remota agora.');
+    setSyncSource('supabase');
+    setMessage('Workspace removido do hotel.');
     setSaving(false);
   };
   const changeSector = (sector: OperationalSectorId) => selected && !isTemplatePreview && selected.layout === 'operational' && setDefinitions(current => current.map(item => item.id === selected.id ? setWorkspaceSectorAndBoard(item, sector) : item));
