@@ -44,11 +44,10 @@ export interface HotelRealtimeHandlers {
   onRoomChange?: (event: RealtimeChangeEvent) => void;
   onBlockChange?: (event: RealtimeChangeEvent) => void;
   onGuestChange?: (event: RealtimeChangeEvent) => void;
-  onPaymentChange?: (event: RealtimeChangeEvent) => void;
 }
 
 /**
- * Centraliza a subscrição Realtime para as entidades operacionais do Hotel OS (Reservas, Quartos, Bloqueios, Hóspedes e Pagamentos).
+ * Centraliza a subscrição Realtime para as entidades operacionais do Hotel OS (Reservas, Quartos, Bloqueios e Hóspedes).
  * Garante cleanup estrito e previne duplicações de eventos.
  */
 export function subscribeToHotelRealtime(
@@ -109,14 +108,6 @@ export function subscribeToHotelRealtime(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'hospedes' },
       handleEvent('hospedes', handlers.onGuestChange)
-    );
-  }
-
-  if (handlers.onPaymentChange) {
-    channel.on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'pagamentos' },
-      handleEvent('pagamentos', handlers.onPaymentChange)
     );
   }
 
