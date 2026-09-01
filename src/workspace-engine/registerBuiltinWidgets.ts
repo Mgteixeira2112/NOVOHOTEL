@@ -17,6 +17,7 @@ import { DashboardWidget } from './widgets/DashboardWidget';
 import { StayFinanceWidget } from './widgets/StayFinanceWidget';
 import { FinancialSummaryWidget } from './widgets/FinancialSummaryWidget';
 import { FinancialTransactionsWidget } from './widgets/FinancialTransactionsWidget';
+import { FinancialReceivablesWidget, FinancialPayablesWidget } from './widgets/AdministrativeFinanceAccountWidgets';
 import { FrigobarWidget } from './widgets/FrigobarWidget';
 
 let registered = false;
@@ -28,6 +29,8 @@ export const registerBuiltinWorkspaceWidgets = () => {
   registerWorkspaceWidgetRenderer('stay-finance', StayFinanceWidget);
   registerWorkspaceWidgetRenderer('financial-summary', FinancialSummaryWidget);
   registerWorkspaceWidgetRenderer('financial-transactions', FinancialTransactionsWidget);
+  registerWorkspaceWidgetRenderer('financial-receivables', FinancialReceivablesWidget);
+  registerWorkspaceWidgetRenderer('financial-payables', FinancialPayablesWidget);
   registerWorkspaceWidgetRenderer('frigobar', FrigobarWidget);
   registerWorkspaceWidgetRenderer('task-kanban', TaskKanbanWidget);
   registerWorkspaceWidgetRenderer('room-map', ReceptionRoomMapWidget);
