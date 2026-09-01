@@ -49,7 +49,8 @@ test('Fábrica altera composição e persistência dispara atualização do runt
 test('F5 não substitui composição local mais nova por versão remota pendente', () => {
   assert.match(storeSource, /PENDING_SYNC_KEY/);
   assert.match(storeSource, /setPendingSync\(hotelId, definition\.id, true\)/);
-  assert.match(storeSource, /if \(!error\) setPendingSync\(hotelId, definition\.id, false\)/);
+  assert.match(storeSource, /workspaceDefinitionsEqual\(normalized, confirmedDefinition\)/);
+  assert.match(storeSource, /setPendingSync\(hotelId, definition\.id, false\)/);
   assert.match(storeSource, /for \(const workspaceId of pendingIds\)/);
   assert.match(storeSource, /reconciled\[workspaceId\] = localOverrides\[workspaceId\]/);
 });
