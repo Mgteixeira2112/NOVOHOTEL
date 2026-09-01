@@ -43,6 +43,7 @@ interface ReceptionRoomsKanbanProps {
   allowTransferRoom?: boolean;
   allowEditRoom?: boolean;
   allowDeleteRoom?: boolean;
+  compact?: boolean;
   onMove: (card: KanbanV2Card, columnId: string) => void;
   onCheckin: (reservation: Reserva) => void;
   onStartCheckin?: (room: Quarto) => void;
@@ -143,7 +144,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
   showGuest = true, showReservationDates = true, showRoomType = true, showFloor = true, showStatus = true,
   statusChangeAllowedRoomIds,
   allowCheckin = true, allowCheckout = true, allowTransferRoom = true, allowEditRoom = true, allowDeleteRoom = true,
-  onMove, onCheckin, onStartCheckin, onCheckout, onTransfer,
+  onMove, onCheckin, onStartCheckin, onCheckout, onTransfer, compact = false,
 }) => {
   const { roomTypes, updateRoom, deleteRoom } = useHotel();
   const [selectedRoom, setSelectedRoom] = useState<Quarto | null>(null);
@@ -207,12 +208,12 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
 
   return <>
     <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 p-4">
+      <div className={`border-b border-slate-200 ${compact ? 'p-3' : 'p-4'}`}>
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">{contextLabel}</p>
-            <h2 className="mt-0.5 text-xl font-black tracking-tight text-slate-950">{title}</h2>
-            <p className="mt-1 text-[11px] text-slate-500">Cards permanentes: o quarto continua no mapa e apenas seus vínculos e estados mudam.</p>
+            {!compact && <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-600">{contextLabel}</p>}
+            <h2 className={`${compact ? 'text-base' : 'mt-0.5 text-xl'} font-black tracking-tight text-slate-950`}>{title}</h2>
+            {!compact && <p className="mt-1 text-[11px] text-slate-500">Cards permanentes: o quarto continua no mapa e apenas seus vínculos e estados mudam.</p>}
           </div>
           <label className="relative block w-full xl:max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -221,7 +222,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
           </label>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className={`${compact ? 'mt-3' : 'mt-4'} flex flex-wrap gap-2`}>
           {filterButton('all', 'Todos os quartos', summary.all, 'border-slate-200 bg-white text-slate-700')}
           {columns.map(column => filterButton(column.id, column.nome, roomRows.filter(row => row.card.column_id === column.id).length, 'border-slate-200 bg-white text-slate-700'))}
           {(showGuest || showReservationDates) && <div className="flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 text-[10px] font-black text-amber-700"><CalendarDays className="h-3.5 w-3.5" />Reservados <b>{summary.reserved}</b></div>}
