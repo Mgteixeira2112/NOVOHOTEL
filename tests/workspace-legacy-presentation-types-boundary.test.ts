@@ -16,12 +16,22 @@ describe('Workspace legacy presentation type boundary', () => {
     expect(legacyTypes).toContain('export type WorkspaceWidgetSpan');
   });
 
-  it('keeps only compatibility re-exports in the active types entrypoint', () => {
+  it('keeps legacy types private to the compatibility boundary', () => {
     expect(types).toContain("from './legacyPresentationTypes'");
-    expect(types).not.toContain('export interface WorkspaceWidgetPresentation {');
-    expect(types).not.toContain('export interface WorkspacePresentation {');
-    expect(types).not.toContain("export type WorkspaceWidgetWidth = 'small'");
-    expect(types).not.toContain('export type WorkspaceWidgetSpan =');
+    expect(types).not.toContain("export type {\n  WorkspaceDevicePresentation");
+    expect(types).not.toContain('WorkspaceWidgetWidth,');
+    expect(types).not.toContain('WorkspaceDevicePresentationMode,');
+    expect(types).not.toContain('WorkspaceKdsPresentation,');
+    expect(types).not.toContain('WorkspaceWidgetDisplay,');
+    expect(types).not.toContain('WorkspaceWidgetHeight,');
+    expect(types).not.toContain('WorkspaceWidgetVisualStyle,');
+    expect(types).not.toContain('WorkspaceWidgetHeaderStyle,');
+  });
+
+  it('keeps compatibility-only serialized fields typed internally', () => {
+    expect(types).toContain('span?: WorkspaceWidgetSpan');
+    expect(types).toContain('presentation?: WorkspaceWidgetPresentation');
+    expect(types).toContain('presentation?: WorkspacePresentation');
   });
 
   it('makes the compatibility resolver consume legacy types directly', () => {
