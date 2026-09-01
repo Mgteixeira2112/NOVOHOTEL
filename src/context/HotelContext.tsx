@@ -28,7 +28,6 @@ import {
   INITIAL_ROOM_TYPES, 
   INITIAL_GUESTS, 
   INITIAL_RESERVATIONS, 
-  INITIAL_PAYMENTS, 
   INITIAL_BLOCKS, 
   INITIAL_AUTOMATIONS, 
   INITIAL_USERS,
@@ -93,7 +92,6 @@ interface HotelContextType {
   roomTypes: TipoQuarto[];
   guests: Hospede[];
   reservations: Reserva[];
-  payments: Pagamento[];
   blocks: BloqueioQuarto[];
   automations: AutomacaoMensagem[];
   users: Usuario[];
@@ -276,9 +274,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [reservations, setReservations] = useState<Reserva[]>(() =>
     loadFromStorage('reservations', INITIAL_RESERVATIONS)
   );
-  const [payments, setPayments] = useState<Pagamento[]>(() =>
-    loadFromStorage('payments', INITIAL_PAYMENTS)
-  );
   const [blocks, setBlocks] = useState<BloqueioQuarto[]>(() =>
     loadFromStorage('blocks', INITIAL_BLOCKS)
   );
@@ -359,7 +354,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => saveToStorage('room_types', roomTypes), [roomTypes]);
   useEffect(() => saveToStorage('guests', guests), [guests]);
   useEffect(() => saveToStorage('reservations', reservations), [reservations]);
-  useEffect(() => saveToStorage('payments', payments), [payments]);
   useEffect(() => saveToStorage('blocks', blocks), [blocks]);
   useEffect(() => saveToStorage('automations', automations), [automations]);
   useEffect(() => saveToStorage('users', users), [users]);
@@ -571,24 +565,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               return updated;
             }
             return [...prev, incoming];
-          });
-        }
-      },
-      onPaymentChange: (event) => {
-        if (event.eventType === 'DELETE') {
-          if (event.old?.id) {
-            setPayments((prev) => prev.filter((p) => p.id !== event.old.id));
-          }
-        } else if (event.new) {
-          const incoming = event.new as Pagamento;
-          setPayments((prev) => {
-            const index = prev.findIndex((p) => p.id === incoming.id);
-            if (index >= 0) {
-              const updated = [...prev];
-              updated[index] = { ...updated[index], ...incoming };
-              return updated;
-            }
-            return [incoming, ...prev];
           });
         }
       },
@@ -1248,7 +1224,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setRoomTypes(INITIAL_ROOM_TYPES);
     setGuests(INITIAL_GUESTS);
     setReservations(INITIAL_RESERVATIONS);
-    setPayments(INITIAL_PAYMENTS);
     setBlocks(INITIAL_BLOCKS);
     setAutomations(INITIAL_AUTOMATIONS);
     setUsers(INITIAL_USERS);
@@ -1265,7 +1240,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         roomTypes,
         guests,
         reservations,
-        payments,
         blocks,
         automations,
         users,

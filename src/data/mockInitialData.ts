@@ -4,7 +4,6 @@ import {
   Quarto, 
   Hospede, 
   Reserva, 
-  Pagamento, 
   BloqueioQuarto, 
   HotelConfig, 
   AutomacaoMensagem,
@@ -862,57 +861,6 @@ export const INITIAL_RESERVATIONS: Reserva[] = [
     checkout_horario: '2026-08-21T11:30:00Z',
     pin_fechadura: '948201',
     created_at: '2026-08-01T10:00:00Z',
-  }
-];
-
-export const INITIAL_PAYMENTS: Pagamento[] = [
-  {
-    id: 'pag-1',
-    reserva_id: 'res-1',
-    valor: 1031,
-    metodo: 'pix',
-    status: 'aprovado',
-    codigo_transacao: 'PIX-849201824901-BACEN',
-    data_pagamento: '2026-08-15T09:05:00Z',
-  },
-  {
-    id: 'pag-2',
-    reserva_id: 'res-2',
-    valor: 2184,
-    metodo: 'cartao_credito',
-    status: 'aprovado',
-    codigo_transacao: 'CC-AUTH-920194820',
-    parcelas: 3,
-    data_pagamento: '2026-08-10T16:42:00Z',
-  },
-  {
-    id: 'pag-3',
-    reserva_id: 'res-3',
-    valor: 1470,
-    metodo: 'cartao_credito',
-    status: 'aprovado',
-    codigo_transacao: 'CC-AUTH-77319024',
-    parcelas: 2,
-    data_pagamento: '2026-08-18T11:18:00Z',
-  },
-  {
-    id: 'pag-4',
-    reserva_id: 'res-4',
-    valor: 850.5,
-    metodo: 'pix',
-    status: 'aprovado',
-    codigo_transacao: 'PIX-638102948190-BACEN',
-    data_pagamento: '2026-08-19T18:25:00Z',
-  },
-  {
-    id: 'pag-5',
-    reserva_id: 'res-5',
-    valor: 1214,
-    metodo: 'cartao_credito',
-    status: 'aprovado',
-    codigo_transacao: 'CC-AUTH-55201948',
-    parcelas: 1,
-    data_pagamento: '2026-08-01T10:05:00Z',
   }
 ];
 
