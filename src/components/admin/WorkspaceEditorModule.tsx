@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, Cloud, CloudOff, Copy, Eye, EyeOff, LayoutTemplate, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Cloud, CloudOff, Copy, Eye, EyeOff, GripVertical, LayoutTemplate, Plus, Save, Trash2 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { OPERATIONAL_SECTORS, OperationalSectorId } from '../../domain/operationalSectors';
 import { getWorkspaceDeviceMode } from '../../workspace-engine/presentation';
@@ -39,16 +39,18 @@ const buildTemplateLibrary = (): WorkspaceDefinition[] => {
     }),
   );
   const financialTemplate = createOfficialWorkspaceDefinition('workspace-financeiro');
-  const administrativeTemplate = createOfficialWorkspaceDefinition('workspace-administrativo');
+  const administrativeHotelTemplate = createOfficialWorkspaceDefinition('workspace-administrativo-hotel');
+  const administrativeSystemTemplate = createOfficialWorkspaceDefinition('workspace-administrativo-sistema');
   return [
     ...operationalTemplates,
     { ...financialTemplate, id: 'workspace-template-financeiro' },
-    { ...administrativeTemplate, id: 'workspace-template-administrativo' },
+    { ...administrativeHotelTemplate, id: 'workspace-template-administrativo-hotel' },
+    { ...administrativeSystemTemplate, id: 'workspace-template-administrativo-sistema' },
   ];
 };
 
 export const WorkspaceEditorModule: React.FC = () => {
-  const { hotelConfig, currentUser } = useHotel();
+  const { hotelConfig, currentUser, users } = useHotel();
   const hotelId = hotelConfig?.id || DEFAULT_WORKSPACE_HOTEL_ID;
   const templates = useMemo(() => buildTemplateLibrary(), []);
   const operationalTemplates = useMemo(() => templates.filter(item => item.layout === 'operational'), [templates]);
@@ -67,6 +69,7 @@ export const WorkspaceEditorModule: React.FC = () => {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [syncSource, setSyncSource] = useState<'supabase' | 'local' | 'loading'>('loading');
+  const [draggedWidgetId, setDraggedWidgetId] = useState<string | null>(null);
   const isTemplatePreview = selection.kind === 'template';
   const selected = isTemplatePreview
     ? templates.find(item => item.id === selection.id)
@@ -118,8 +121,18 @@ export const WorkspaceEditorModule: React.FC = () => {
     [widgets[index], widgets[target]] = [widgets[target], widgets[index]];
     updateSelected({ widgets: widgets.map((widget, order) => ({ ...widget, order: (order + 1) * 10 })) });
   };
+  const moveWidgetTo = (widgetId: string, targetId: string) => {
+    if (!selected || isTemplatePreview || widgetId === targetId) return;
+    const widgets = [...selected.widgets].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const from = widgets.findIndex(widget => widget.id === widgetId);
+    const target = widgets.findIndex(widget => widget.id === targetId);
+    if (from < 0 || target < 0) return;
+    const [moved] = widgets.splice(from, 1);
+    widgets.splice(target, 0, moved);
+    updateSelected({ widgets: widgets.map((widget, order) => ({ ...widget, order: (order + 1) * 10 })) });
+  };
   const addWidget = (type: WorkspaceWidgetType) => {
-    if (!selected || isTemplatePreview || isManagementWorkspace) return;
+    if (!selected || isTemplatePreview) return;
     const availability = getWidgetAvailability(type, selectedSector);
     if (!availability.allowed) {
       setMessage(availability.reason || 'Este widget não pode ser usado no setor selecionado.');
@@ -162,6 +175,16 @@ export const WorkspaceEditorModule: React.FC = () => {
     setSelection({ kind: 'workspace', id: copy.id });
     await persistDefinition(copy, 'Cópia do Workspace criada e sincronizada.');
   };
+  const createCustomArea = async () => {
+    if (saving || typeof window === 'undefined') return;
+    const name = window.prompt('Nome da nova área personalizada:');
+    if (!name?.trim()) return;
+    const sector = selectedSector || 'operacao';
+    const created = createWorkspaceDefinition({ name: name.trim(), sector });
+    setDefinitions(current => [created, ...current]);
+    setSelection({ kind: 'workspace', id: created.id });
+    await persistDefinition(created, `Área personalizada ${created.name} criada e sincronizada com o hotel.`);
+  };
   const removeWorkspace = async () => {
     if (!selected || isTemplatePreview || saving) return;
     if (typeof window !== 'undefined' && !window.confirm(`Excluir o Workspace "${selected.name}"?`)) return;
@@ -198,6 +221,7 @@ export const WorkspaceEditorModule: React.FC = () => {
           <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-stone-500"><span>Hotel: {hotelId}</span><span>•</span>{syncSource === 'supabase' ? <span className="inline-flex items-center gap-1 text-emerald-700"><Cloud className="w-3.5 h-3.5" /> Sincronizado</span> : syncSource === 'local' ? <span className="inline-flex items-center gap-1 text-amber-700"><CloudOff className="w-3.5 h-3.5" /> Fallback local</span> : <span>Carregando configuração…</span>}</div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <button disabled={saving} onClick={() => void createCustomArea()} className="h-10 px-4 rounded-xl border border-stone-200 text-xs font-bold flex items-center gap-2 disabled:opacity-50"><Plus className="w-4 h-4" /> Nova área</button>
           {isTemplatePreview ? <button disabled={saving} onClick={() => void createFromTemplate()} className="h-10 px-4 rounded-xl border border-amber-300 bg-amber-50 text-xs font-black flex items-center gap-2 disabled:opacity-50"><Plus className="w-4 h-4" /> Criar Workspace deste template</button> : <>
             <button disabled={saving} onClick={() => void duplicate()} className="h-10 px-4 rounded-xl border border-stone-200 text-xs font-bold flex items-center gap-2 disabled:opacity-50"><Copy className="w-4 h-4" /> Duplicar</button>
             <button disabled={saving} onClick={() => void removeWorkspace()} className="h-10 px-4 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-2 disabled:opacity-50"><Trash2 className="w-4 h-4" /> Remover</button>
@@ -246,7 +270,13 @@ export const WorkspaceEditorModule: React.FC = () => {
           <WorkspaceGeneralPresentationControls definition={selected} onChange={updateSelected} />
           <WorkspacePreviewPanel definition={selected} onChange={updateSelected} />
 
-          {selected.layout === 'operational' && <div className="rounded-3xl border border-stone-200 bg-white p-5">
+          <div className="rounded-3xl border border-stone-200 bg-white p-5">
+            <h3 className="text-sm font-black text-stone-900">Usuários associados</h3>
+            <p className="mt-1 text-[10px] text-stone-500">A associação usa o diretório oficial e é salva no próprio Workspace.</p>
+            <div className="mt-3 grid sm:grid-cols-2 gap-2">{users.filter(user => user.ativo).map(user => <label key={user.id} className="flex items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-xs text-stone-700"><input type="checkbox" checked={(selected.assignedUserIds || []).includes(user.id)} onChange={event => { const ids = new Set(selected.assignedUserIds || []); event.target.checked ? ids.add(user.id) : ids.delete(user.id); updateSelected({ assignedUserIds: [...ids] }); }} /><span>{user.nome}</span></label>)}</div>
+          </div>
+
+          <div className="rounded-3xl border border-stone-200 bg-white p-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div><h3 className="text-sm font-black text-stone-900">Biblioteca de widgets</h3><p className="mt-1 text-[10px] text-stone-500">A disponibilidade abaixo é calculada para o setor selecionado. Combinações sem implementação funcional ficam bloqueadas.</p></div>
               <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-black"><span className={`rounded-full border px-2 py-1 ${readinessClasses.ready}`}>Pronto</span><span className={`rounded-full border px-2 py-1 ${readinessClasses.configurable}`}>Requer configuração</span><span className={`rounded-full border px-2 py-1 ${readinessClasses.planned}`}>Em desenvolvimento</span></div>
@@ -255,7 +285,7 @@ export const WorkspaceEditorModule: React.FC = () => {
               const availability = getWidgetAvailability(item.type, selectedSector);
               return <button key={item.type} disabled={!availability.allowed} onClick={() => addWidget(item.type)} title={!availability.allowed ? availability.reason : undefined} className={`group rounded-2xl border p-3 text-left transition ${availability.allowed ? 'border-stone-200 hover:border-amber-300 hover:bg-amber-50' : 'border-stone-200 bg-stone-50 opacity-60 cursor-not-allowed'}`}><div className="flex items-start justify-between gap-2"><div><strong className="text-xs text-stone-800">{item.label}</strong><span className={`mt-1.5 block w-fit rounded-full border px-2 py-0.5 text-[8px] font-black ${readinessClasses[availability.readiness]}`}>{readinessLabels[availability.readiness]}</span></div><Plus className={`w-3.5 h-3.5 mt-0.5 ${availability.allowed ? 'text-stone-400 group-hover:text-amber-700' : 'text-stone-300'}`} /></div><p className="mt-2 text-[10px] leading-relaxed text-stone-500">{item.description}</p>{availability.reason && <p className={`mt-2 text-[9px] font-bold leading-relaxed ${availability.allowed ? 'text-amber-700' : 'text-rose-700'}`}>{availability.allowed ? availability.reason : `Indisponível: ${availability.reason}`}</p>}</button>;
             })}</div></div>)}</div>
-          </div>}
+          </div>
 
           <div className="space-y-3">
             <div className="flex items-center justify-between px-1"><h3 className="text-sm font-black text-stone-900">Composição atual</h3><span className="text-[10px] font-bold text-stone-400">{selected.widgets.length} blocos</span></div>
@@ -263,10 +293,10 @@ export const WorkspaceEditorModule: React.FC = () => {
               const catalog = getWidgetCatalogItem(widget.type);
               const availability = getWidgetAvailability(widget.type, selectedSector);
               const incompatibleActive = !isManagementWorkspace && widget.enabled !== false && !availability.allowed;
-              return <div key={widget.id} className={`rounded-3xl border bg-white p-4 sm:p-5 ${incompatibleActive ? 'border-rose-300 bg-rose-50/30' : widget.enabled === false ? 'border-stone-200 opacity-65' : 'border-amber-200 shadow-sm'}`}>
+              return <div key={widget.id} draggable onDragStart={() => setDraggedWidgetId(widget.id)} onDragEnd={() => setDraggedWidgetId(null)} onDragOver={event => event.preventDefault()} onDrop={() => { if (draggedWidgetId) moveWidgetTo(draggedWidgetId, widget.id); setDraggedWidgetId(null); }} className={`rounded-3xl border bg-white p-4 sm:p-5 ${incompatibleActive ? 'border-rose-300 bg-rose-50/30' : widget.enabled === false ? 'border-stone-200 opacity-65' : 'border-amber-200 shadow-sm'} ${draggedWidgetId === widget.id ? 'opacity-50' : ''}`}>
                 <div className="flex flex-col gap-4">
                   <div className="flex flex-col xl:flex-row xl:items-center gap-4">
-                    <div className="flex-1">
+                    <div className="flex-1"><GripVertical className="mr-2 inline-block w-4 h-4 text-stone-400" aria-label="Arraste para ordenar" />
                       <div className="flex flex-wrap items-center gap-2"><span className="rounded-lg bg-stone-100 px-2 py-1 text-[10px] font-black uppercase text-stone-600">{catalog?.label || widget.type}</span><strong className="text-sm">{widget.title || widget.id}</strong><span className={`rounded-full border px-2 py-0.5 text-[8px] font-black ${readinessClasses[availability.readiness]}`}>{readinessLabels[availability.readiness]}</span></div>
                       <p className="mt-1 text-[10px] text-stone-400">{widget.id}{widget.boardId ? ` • ${widget.boardId}` : ''}</p>
                       {incompatibleActive && <p className="mt-2 text-[10px] font-bold text-rose-700">Incompatível com o setor atual: {availability.reason}</p>}

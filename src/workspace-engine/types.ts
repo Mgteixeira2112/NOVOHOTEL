@@ -3,6 +3,8 @@ import { OperationalSectorId } from '../domain/operationalSectors';
 export type WorkspaceLayout = 'operational' | 'management';
 export type WorkspaceViewport = 'desktop' | 'tablet' | 'mobile' | 'kds';
 export type WorkspaceWidgetDisplay = 'panel' | 'button';
+/** Contrato simplificado da Fábrica. O renderer decide dimensões e conteúdo. */
+export type WorkspaceWidgetDisplayMode = 'full' | 'summary' | 'shortcut' | 'button' | 'hidden';
 export type WorkspaceWidgetWidth = 'small' | 'medium' | 'large' | 'full';
 export type WorkspaceWidgetHeight = 'auto' | 'low' | 'medium' | 'high';
 export type WorkspaceWidgetVisualStyle = 'minimal' | 'standard' | 'highlight';
@@ -78,6 +80,7 @@ export interface WorkspacePresentation {
 }
 
 export interface WorkspaceWidgetDevicePresentation {
+  displayMode?: WorkspaceWidgetDisplayMode;
   mode?: 'auto' | 'custom';
   hidden?: boolean;
   order?: number;
@@ -206,5 +209,7 @@ export interface WorkspaceDefinition {
   layout: WorkspaceLayout;
   defaultScope: WorkspaceScope;
   presentation?: WorkspacePresentation;
+  /** IDs do diretório oficial de usuários, persistidos na definição existente. */
+  assignedUserIds?: string[];
   widgets: WorkspaceWidgetDefinition[];
 }

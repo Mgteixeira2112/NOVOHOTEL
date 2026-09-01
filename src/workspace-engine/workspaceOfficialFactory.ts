@@ -10,7 +10,9 @@ export type OfficialWorkspaceId =
   | 'workspace-manutencao'
   | 'workspace-cozinha'
   | 'workspace-financeiro'
-  | 'workspace-administrativo';
+  | 'workspace-administrativo'
+  | 'workspace-administrativo-hotel'
+  | 'workspace-administrativo-sistema';
 
 interface OfficialWorkspaceTemplate {
   id: OfficialWorkspaceId;
@@ -170,8 +172,8 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     ],
   },
   {
-    id: 'workspace-administrativo',
-    name: 'Administrativo',
+    id: 'workspace-administrativo-hotel',
+    name: 'Administrativo do Hotel',
     description: 'Gestão de acessos, automações, configurações e supervisão do Hotel OS',
     sectors: [],
     layout: 'management',
@@ -184,10 +186,22 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
       { id: 'administrativo-configuracoes', type: 'settings-admin', title: 'Configurações & Design', order: 40, span: 'full', enabled: true, dataSource: 'composite' },
     ],
   },
+  {
+    id: 'workspace-administrativo-sistema',
+    name: 'Administrativo do Sistema',
+    description: 'Gestão organizacional, acessos e configurações da plataforma',
+    sectors: [], layout: 'management', defaultScope: 'mine', presentation: createVisualPresentation('operations'),
+    widgets: [
+      { id: 'sistema-acessos', type: 'user-access', title: 'Usuários & Acessos', order: 10, span: 'full', enabled: true, dataSource: 'users' },
+      { id: 'sistema-configuracoes', type: 'settings-admin', title: 'Configurações do Sistema', order: 20, span: 'full', enabled: true, dataSource: 'composite' },
+      { id: 'sistema-central', type: 'hotel-os-admin', title: 'Central Hotel OS', order: 30, span: 'full', enabled: true, dataSource: 'composite' },
+    ],
+  },
 ] as const;
 
 export const createOfficialWorkspaceDefinition = (workspaceId: OfficialWorkspaceId): WorkspaceDefinition => {
-  const template = OFFICIAL_WORKSPACE_TEMPLATES.find(item => item.id === workspaceId);
+  const canonicalId = workspaceId === 'workspace-administrativo' ? 'workspace-administrativo-hotel' : workspaceId;
+  const template = OFFICIAL_WORKSPACE_TEMPLATES.find(item => item.id === canonicalId);
   if (!template) throw new Error(`Template oficial de Workspace não encontrado: ${workspaceId}`);
 
   return {

@@ -2,12 +2,9 @@ import React from 'react';
 import { getWorkspaceDeviceMode } from '../../workspace-engine/presentation';
 import { WORKSPACE_BACKGROUND_PRESETS } from '../../workspace-engine/workspaceVisualPresets';
 import {
-  WorkspaceBackgroundFit,
   WorkspaceBackgroundPresetId,
   WorkspaceDefinition,
   WorkspaceDevicePresentationMode,
-  WorkspaceSidebarItemSize,
-  WorkspaceSidebarVisualStyle,
   WorkspaceViewport,
 } from '../../workspace-engine/types';
 
@@ -40,30 +37,20 @@ export const WorkspaceGeneralPresentationControls: React.FC<WorkspaceGeneralPres
   };
 
   return <div className="rounded-3xl border border-stone-200 bg-white p-5" data-workspace-general-presentation>
-    <div><h3 className="text-sm font-black text-stone-900">Aparência do Workspace</h3><p className="mt-1 text-[10px] text-stone-500">Escolha a superfície visual e a estratégia de cada tela. A composição Desktop é editada diretamente em Visualizar Workspace.</p></div>
+    <div><h3 className="text-sm font-black text-stone-900">Aparência do Workspace</h3><p className="mt-1 text-[10px] text-stone-500">Escolha o fundo, o menu e a estratégia de cada tela. O renderer organiza a composição automaticamente.</p></div>
 
     <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/30 p-4" data-workspace-surface-controls>
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Superfície visual</p><p className="mt-1 text-[10px] text-stone-500">Fundos pré-carregados servem como base para posicionar widgets e menus no editor visual.</p></div><span className="text-[9px] font-bold text-stone-400">Visual 3.0</span></div>
-      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Fundo</p><p className="mt-1 text-[10px] text-stone-500">O fundo compõe a identidade visual; widgets seguem uma grade automática.</p></div></div>
+      <div className="mt-3 grid gap-3 md:grid-cols-2">
         <label className="text-xs font-bold text-stone-600">Fundo<select value={surface.backgroundPreset || 'none'} onChange={e => updateSurface({ backgroundPreset: e.target.value as WorkspaceBackgroundPresetId })} className={fieldClass}>{WORKSPACE_BACKGROUND_PRESETS.map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}</select></label>
-        <label className="text-xs font-bold text-stone-600">Encaixe<select value={surface.backgroundFit || 'cover'} onChange={e => updateSurface({ backgroundFit: e.target.value as WorkspaceBackgroundFit })} className={fieldClass}><option value="cover">Cobrir área</option><option value="contain">Exibir inteira</option></select></label>
-        <label className="text-xs font-bold text-stone-600">Posição<select value={surface.backgroundPosition || 'center'} onChange={e => updateSurface({ backgroundPosition: e.target.value as 'center' | 'top' | 'bottom' })} className={fieldClass}><option value="center">Centro</option><option value="top">Topo</option><option value="bottom">Base</option></select></label>
-        <label className="text-xs font-bold text-stone-600">Altura mínima<input type="number" min={480} max={2200} step={40} value={surface.minHeight || 760} onChange={e => updateSurface({ minHeight: Math.max(480, Number(e.target.value) || 760) })} className={fieldClass} /></label>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{WORKSPACE_BACKGROUND_PRESETS.map(preset => <button key={preset.id} type="button" onClick={() => updateSurface({ backgroundPreset: preset.id })} className={`rounded-xl border p-2 text-left transition ${(surface.backgroundPreset || 'none') === preset.id ? 'border-amber-400 bg-white shadow-sm' : 'border-stone-200 bg-white/60 hover:border-amber-300'}`} aria-pressed={(surface.backgroundPreset || 'none') === preset.id}><span className="block h-12 rounded-lg border border-black/5" style={{ backgroundColor: preset.backgroundColor, backgroundImage: preset.backgroundImage, backgroundSize: 'cover' }} /><strong className="mt-2 block text-[10px] text-stone-800">{preset.label}</strong><span className="mt-0.5 block text-[9px] leading-relaxed text-stone-500">{preset.description}</span></button>)}</div>
     </div>
 
     <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/30 p-4" data-workspace-sidebar-controls>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div><p className="text-[9px] font-black uppercase tracking-wider text-sky-700">Menu lateral Desktop</p><p className="mt-1 text-[10px] text-stone-500">Agrupa os widgets configurados como botão em um menu sobre a superfície. Desativado, o fluxo Desktop atual permanece igual.</p></div>
-        <label className="flex items-center gap-2 text-xs font-bold text-stone-700"><input type="checkbox" checked={sidebar.enabled === true} onChange={e => updateSidebar({ enabled: e.target.checked })} /> Ativar menu</label>
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <label className="text-xs font-bold text-stone-600">Posição X (%)<input type="number" min={0} max={100} step={1} disabled={sidebar.enabled !== true} value={sidebar.x ?? 2} onChange={e => updateSidebar({ x: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} className={fieldClass} /></label>
-        <label className="text-xs font-bold text-stone-600">Posição Y (px)<input type="number" min={0} max={2200} step={10} disabled={sidebar.enabled !== true} value={sidebar.y ?? 110} onChange={e => updateSidebar({ y: Math.max(0, Number(e.target.value) || 0) })} className={fieldClass} /></label>
-        <label className="text-xs font-bold text-stone-600">Largura (px)<input type="number" min={160} max={480} step={10} disabled={sidebar.enabled !== true} value={sidebar.width ?? 240} onChange={e => updateSidebar({ width: Math.min(480, Math.max(160, Number(e.target.value) || 240)) })} className={fieldClass} /></label>
-        <label className="text-xs font-bold text-stone-600">Tamanho dos atalhos<select disabled={sidebar.enabled !== true} value={sidebar.itemSize || 'normal'} onChange={e => updateSidebar({ itemSize: e.target.value as WorkspaceSidebarItemSize })} className={fieldClass}><option value="compact">Compacto</option><option value="normal">Normal</option><option value="large">Ampliado</option></select></label>
-        <label className="text-xs font-bold text-stone-600">Visual<select disabled={sidebar.enabled !== true} value={sidebar.visual || 'glass'} onChange={e => updateSidebar({ visual: e.target.value as WorkspaceSidebarVisualStyle })} className={fieldClass}><option value="solid">Sólido</option><option value="glass">Vidro</option><option value="transparent">Transparente</option></select></label>
+        <div><p className="text-[9px] font-black uppercase tracking-wider text-sky-700">Menu lateral Desktop</p><p className="mt-1 text-[10px] text-stone-500">Widgets configurados como Atalho ou Botão entram automaticamente no menu lateral.</p></div>
+        <label className="flex items-center gap-2 text-xs font-bold text-stone-700"><input type="checkbox" checked={sidebar.enabled !== false} onChange={e => updateSidebar({ enabled: e.target.checked })} /> Exibir menu</label>
       </div>
     </div>
 

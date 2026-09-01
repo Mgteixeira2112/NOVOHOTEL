@@ -4,6 +4,7 @@ import {
   WorkspaceViewport,
   WorkspaceWidgetDefinition,
   WorkspaceWidgetDisplay,
+  WorkspaceWidgetDisplayMode,
   WorkspaceWidgetHeaderStyle,
   WorkspaceWidgetHeight,
   WorkspaceWidgetPresentation,
@@ -105,18 +106,24 @@ export const resolveWidgetPresentation = (
         : base.kds;
   const useCustom = deviceMode === 'custom' && customOverrideEnabled(override);
 
-  let display: ResolvedWidgetPresentation['display'] = base.display || 'panel';
+  const displayFromMode = (mode?: WorkspaceWidgetDisplayMode): ResolvedWidgetPresentation['display'] | undefined =>
+    mode === 'button' || mode === 'shortcut' ? 'button' : mode === 'summary' ? 'summary' : mode === 'full' ? 'panel' : undefined;
+  const modeFromOverride = override?.displayMode;
+  let display: ResolvedWidgetPresentation['display'] = displayFromMode(viewport === 'desktop' ? base.desktop?.displayMode : modeFromOverride) || base.display || 'panel';
   let width = base.width || 'full';
   let height = base.height || 'auto';
   let visual = base.visual || 'standard';
   let header = base.header || 'full';
-  let hidden = false;
+  let hidden = modeFromOverride === 'hidden';
   let order = widget.order;
 
   if (viewport === 'mobile' && deviceMode === 'auto') width = 'full';
   if (viewport === 'kds' && deviceMode === 'auto' && display === 'button') display = 'panel';
 
   if (useCustom && override) {
+    if (override.displayMode === 'hidden') hidden = true;
+    const modeDisplay = displayFromMode(override.displayMode);
+    if (modeDisplay) display = modeDisplay;
     if (override.display === 'summary' && viewport === 'mobile') display = 'summary';
     else if (override.display === 'button' || override.display === 'panel') display = override.display;
     else if (override.display === 'highlight' && viewport === 'kds') {
