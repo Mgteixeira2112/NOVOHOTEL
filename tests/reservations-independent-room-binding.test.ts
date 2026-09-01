@@ -59,10 +59,14 @@ test('fluxo transitório de reserva sem quarto é removido do banco', () => {
   assert.match(migration, /drop function if exists public\.reception_unbind_reservation_room/);
 });
 
-test('reservas finalizadas tratam o quarto como histórico', () => {
+test('Mapa de Quartos resolve hospedagem pelo vínculo canônico da projeção', () => {
   const widget = read('src/workspace-engine/widgets/ReservationsWidget.tsx');
   const roomMap = read('src/modules/recepcao/ReceptionRoomsKanban.tsx');
+  const binding = read('src/modules/recepcao/receptionRoomStayBinding.ts');
+
   assert.match(widget, /Quarto da hospedagem/);
   assert.match(widget, /checkout_concluido/);
-  assert.match(roomMap, /\['checkin_realizado', 'confirmada', 'pendente'\]\.includes\(reservation\.status\)/);
+  assert.doesNotMatch(roomMap, /\['checkin_realizado', 'confirmada', 'pendente'\]\.includes\(reservation\.status\)/);
+  assert.match(binding, /canonicalReceptionReservationId/);
+  assert.match(binding, /reservations\.find\(reservation => reservation\.id === reservationId\)/);
 });
