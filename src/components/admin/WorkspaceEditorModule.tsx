@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Cloud, CloudOff, Copy, Eye, EyeOff, LayoutTemplate, Plus, Save, Trash2 } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
 import { OPERATIONAL_SECTORS, OperationalSectorId } from '../../domain/operationalSectors';
-import { getWorkspaceDeviceMode } from '../../workspace-engine/presentation';
 import { getAllWorkspaceDefinitions } from '../../workspace-engine/registry';
 import { WorkspaceDefinition, WorkspaceWidgetDefinition, WorkspaceWidgetType } from '../../workspace-engine/types';
 import { createWorkspaceWidget, getWidgetAvailability, getWidgetCatalogItem, normalizeWorkspaceWidgets, WorkspaceWidgetReadiness, workspaceWidgetCatalog } from '../../workspace-engine/widgetCatalog';
@@ -12,9 +11,7 @@ import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, load
 import { defaultRoomMapActionsForSector } from '../../workspace-engine/widgets/roomMapWidgetPresentation';
 import { KanbanWidgetAutomationEditor } from './KanbanWidgetAutomationEditor';
 import { RoomMapWidgetEditor } from './RoomMapWidgetEditor';
-import { WorkspaceGeneralPresentationControls } from './WorkspaceGeneralPresentationControls';
 import { WorkspacePreviewPanel } from './WorkspacePreviewPanel';
-import { WorkspaceWidgetPresentationControls } from './WorkspaceWidgetPresentationControls';
 
 const categoryLabels = { operacao: 'Operação', dados: 'Dados do hotel', equipe: 'Equipe', atalhos: 'Atalhos' } as const;
 const readinessLabels: Record<WorkspaceWidgetReadiness, string> = {
@@ -177,10 +174,6 @@ export const WorkspaceEditorModule: React.FC = () => {
 
   if (!selected) return <div className="rounded-3xl border border-stone-200 bg-white p-8">Nenhum template disponível.</div>;
 
-  const desktopMode = getWorkspaceDeviceMode(selected, 'desktop');
-  const mobileMode = getWorkspaceDeviceMode(selected, 'mobile');
-  const kdsMode = getWorkspaceDeviceMode(selected, 'kds');
-
   return <div className="space-y-5">
     <div className="rounded-3xl border border-stone-200 bg-white p-5 sm:p-6 shadow-sm">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -235,7 +228,6 @@ export const WorkspaceEditorModule: React.FC = () => {
             <label className="sm:col-span-2 text-xs font-bold text-stone-600">Descrição<input value={selected.description} onChange={e => updateSelected({ description: e.target.value })} className="mt-2 w-full h-10 rounded-xl border border-stone-200 px-3 font-medium text-stone-900" /></label>
           </div>
 
-          <WorkspaceGeneralPresentationControls definition={selected} onChange={updateSelected} />
           <WorkspacePreviewPanel definition={selected} onChange={updateSelected} />
 
           {selected.layout === 'operational' && <div className="rounded-3xl border border-stone-200 bg-white p-5">
@@ -270,7 +262,6 @@ export const WorkspaceEditorModule: React.FC = () => {
                       <button onClick={() => removeWidget(widget.id)} className="h-9 w-9 grid place-items-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700" title="Remover widget"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
-                  <WorkspaceWidgetPresentationControls widget={widget} defaultSpan={catalog?.defaultSpan} desktopMode={desktopMode} mobileMode={mobileMode} kdsMode={kdsMode} onChange={patch => updateWidget(widget.id, patch)} />
                 </div>
                 {widget.type === 'task-kanban' && <KanbanWidgetAutomationEditor widget={widget} onChange={patch => updateWidget(widget.id, patch)} />}
                 {widget.type === 'room-map' && <RoomMapWidgetEditor widget={widget} onChange={patch => updateWidget(widget.id, patch)} />}
