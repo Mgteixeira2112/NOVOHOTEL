@@ -11,6 +11,21 @@ const canUseStorage = () => typeof window !== 'undefined' && !!window.localStora
 const storageKey = (hotelId: string) => `${STORAGE_KEY}:${hotelId || DEFAULT_WORKSPACE_HOTEL_ID}`;
 const pendingSyncKey = (hotelId: string) => `${PENDING_SYNC_KEY}:${hotelId || DEFAULT_WORKSPACE_HOTEL_ID}`;
 
+const stableJsonValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(stableJsonValue);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, stableJsonValue(item)]),
+    );
+  }
+  return value;
+};
+
+export const workspaceDefinitionsEqual = (left: WorkspaceDefinition, right: WorkspaceDefinition) =>
+  JSON.stringify(stableJsonValue(left)) === JSON.stringify(stableJsonValue(right));
+
 export const loadWorkspaceOverrides = (hotelId = DEFAULT_WORKSPACE_HOTEL_ID): Record<string, WorkspaceDefinition> => {
   if (!canUseStorage()) return {};
   try {
@@ -97,18 +112,45 @@ export const saveWorkspaceOverride = async (definition: WorkspaceDefinition, opt
     updated_at: new Date().toISOString(),
   }, { onConflict: 'hotel_id,workspace_id' });
 
-  if (!error) setPendingSync(hotelId, definition.id, false);
-  return { persisted: !error, error: error?.message || null };
+  if (error) return { persisted: false, error: error.message };
+
+  const { data: confirmed, error: confirmationError } = await supabase
+    .from('workspace_engine_configs')
+    .select('definition')
+    .eq('hotel_id', hotelId)
+    .eq('workspace_id', definition.id)
+    .single();
+  const confirmedDefinition = confirmed?.definition as WorkspaceDefinition | undefined;
+  if (confirmationError || !confirmedDefinition || !workspaceDefinitionsEqual(normalized, confirmedDefinition)) {
+    return { persisted: false, error: confirmationError?.message || 'WORKSPACE_PERSISTENCE_DIVERGENCE' };
+  }
+
+  current[definition.id] = confirmedDefinition;
+  writeLocalOverrides(hotelId, current);
+  setPendingSync(hotelId, definition.id, false);
+  return { persisted: true, error: null };
 };
 
 export const resetWorkspaceOverride = async (workspaceId: string, hotelId = DEFAULT_WORKSPACE_HOTEL_ID) => {
   const current = loadWorkspaceOverrides(hotelId);
+  const { error } = await supabase.from('workspace_engine_configs').delete().eq('hotel_id', hotelId).eq('workspace_id', workspaceId);
+  if (error) return { persisted: false, error: error.message };
+
+  const { data: remaining, error: confirmationError } = await supabase
+    .from('workspace_engine_configs')
+    .select('workspace_id')
+    .eq('hotel_id', hotelId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  if (confirmationError || remaining) {
+    return { persisted: false, error: confirmationError?.message || 'WORKSPACE_DELETE_NOT_CONFIRMED' };
+  }
+
   delete current[workspaceId];
   writeLocalOverrides(hotelId, current);
   setPendingSync(hotelId, workspaceId, false);
   if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: { workspaceId, hotelId } }));
-  const { error } = await supabase.from('workspace_engine_configs').delete().eq('hotel_id', hotelId).eq('workspace_id', workspaceId);
-  return { persisted: !error, error: error?.message || null };
+  return { persisted: true, error: null };
 };
 
 export const subscribeWorkspaceConfig = (listener: () => void) => {
