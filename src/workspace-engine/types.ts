@@ -6,27 +6,6 @@ import type {
 } from './legacyPresentationTypes';
 import type { WorkspaceVisualPresentation } from './visualPresentation';
 
-/**
- * Deprecated presentation contracts are re-exported only so historical callers
- * and persisted-definition adapters keep compiling during the migration.
- * New runtime/editor code must import the visual contract from visualPresentation.ts.
- */
-export type {
-  WorkspaceDevicePresentation,
-  WorkspaceDevicePresentationMode,
-  WorkspaceHeaderPresentation,
-  WorkspaceKdsPresentation,
-  WorkspacePresentation,
-  WorkspaceWidgetDevicePresentation,
-  WorkspaceWidgetDisplay,
-  WorkspaceWidgetHeaderStyle,
-  WorkspaceWidgetHeight,
-  WorkspaceWidgetPresentation,
-  WorkspaceWidgetSpan,
-  WorkspaceWidgetVisualStyle,
-  WorkspaceWidgetWidth,
-} from './legacyPresentationTypes';
-
 export type WorkspaceLayout = 'operational' | 'management';
 export type WorkspaceViewport = 'desktop' | 'tablet' | 'mobile' | 'kds';
 
