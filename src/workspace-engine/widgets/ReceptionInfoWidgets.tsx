@@ -1,24 +1,20 @@
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, CalendarDays, LogIn, LogOut } from 'lucide-react';
 import { useHotel } from '../../context/HotelContext';
-import { ROOM_OPERATIONAL_STATUS, normalizeRoomOperationalStatus } from '../../domain/roomOperationalStatus';
+import { ROOM_OPERATIONAL_STATUS } from '../../domain/roomOperationalStatus';
 import { receptionStayService } from '../../modules/recepcao/receptionStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
-import { localDateKey } from './localDate';
-
-const dateKey = (value?: string | null) => String(value || '').slice(0, 10);
-const ALERT_STATUSES = new Set(['manutencao', 'sujo', 'limpeza', 'vistoria', 'bloqueado']);
+import {
+  selectReceptionReservationItems,
+  selectReceptionRoomAlerts,
+  selectReceptionSummary,
+} from './receptionPresentationSelectors';
 
 const ReservationList: React.FC<WorkspaceWidgetRuntimeContext & { mode: 'arrivals' | 'departures' }> = ({ widget, mode }) => {
   const { reservations, guests, rooms, currentUser, syncFromSupabase } = useHotel();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const today = localDateKey();
-  const items = useMemo(() => reservations.filter(reservation => {
-    const value = mode === 'arrivals' ? reservation.data_checkin || reservation.checkin : reservation.data_checkout || reservation.checkout;
-    if (dateKey(value) !== today || ['cancelada', 'checkout_concluido'].includes(reservation.status)) return false;
-    return mode === 'arrivals' ? ['confirmada', 'pendente'].includes(reservation.status) : reservation.status === 'checkin_realizado';
-  }), [reservations, mode, today]);
+  const items = useMemo(() => selectReceptionReservationItems(reservations, mode), [reservations, mode]);
   const Icon = mode === 'arrivals' ? LogIn : LogOut;
   const execute = async (id: string) => {
     if (mode === 'departures' && !window.confirm('Confirmar check-out desta hospedagem?')) return;
@@ -65,15 +61,7 @@ export const DeparturesWidget: React.FC<WorkspaceWidgetRuntimeContext> = props =
 
 export const ReceptionAlertsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget }) => {
   const { rooms } = useHotel();
-  const alerts = rooms
-    .filter(room => room.ativo !== false)
-    .map(room => {
-      const roomStatus = normalizeRoomOperationalStatus(room.status);
-      const governanceStatus = normalizeRoomOperationalStatus(room.status_governanca || room.status_housekeeping);
-      const alertStatus = ALERT_STATUSES.has(roomStatus) ? roomStatus : ALERT_STATUSES.has(governanceStatus) ? governanceStatus : null;
-      return alertStatus ? { room, alertStatus } : null;
-    })
-    .filter(Boolean) as Array<{ room: (typeof rooms)[number]; alertStatus: keyof typeof ROOM_OPERATIONAL_STATUS }>;
+  const alerts = selectReceptionRoomAlerts(rooms);
 
   return <div className="h-full rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
     <div className="flex items-center justify-between">
@@ -92,17 +80,14 @@ export const ReceptionAlertsWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({
 
 export const ReceptionSummaryWidget: React.FC<WorkspaceWidgetRuntimeContext> = ({ widget }) => {
   const { rooms, reservations } = useHotel();
-  const activeRooms = rooms.filter(room => room.ativo !== false);
-  const activeRoomIds = new Set(activeRooms.map(room => room.id));
-  const occupied = reservations.filter(item => item.status === 'checkin_realizado' && activeRoomIds.has(item.quarto_id)).length;
-  const available = activeRooms.filter(item => normalizeRoomOperationalStatus(item.status) === 'disponivel').length;
+  const summary = selectReceptionSummary(rooms, reservations);
 
   return <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
     <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-amber-600" /><h2 className="text-xs font-black">{widget.title || 'Resumo operacional'}</h2></div>
     <div className="mt-3 grid grid-cols-3 gap-2">
-      <div className="rounded-xl bg-slate-50 p-3"><strong className="text-lg font-black">{activeRooms.length}</strong><p className="text-[9px] text-slate-400">Quartos</p></div>
-      <div className="rounded-xl bg-emerald-50 p-3"><strong className="text-lg font-black text-emerald-700">{available}</strong><p className="text-[9px] text-slate-400">Disponíveis</p></div>
-      <div className="rounded-xl bg-blue-50 p-3"><strong className="text-lg font-black text-blue-700">{occupied}</strong><p className="text-[9px] text-slate-400">Hospedados</p></div>
+      <div className="rounded-xl bg-slate-50 p-3"><strong className="text-lg font-black">{summary.totalRooms}</strong><p className="text-[9px] text-slate-400">Quartos</p></div>
+      <div className="rounded-xl bg-emerald-50 p-3"><strong className="text-lg font-black text-emerald-700">{summary.available}</strong><p className="text-[9px] text-slate-400">Disponíveis</p></div>
+      <div className="rounded-xl bg-blue-50 p-3"><strong className="text-lg font-black text-blue-700">{summary.occupied}</strong><p className="text-[9px] text-slate-400">Hospedados</p></div>
     </div>
   </div>;
 };
