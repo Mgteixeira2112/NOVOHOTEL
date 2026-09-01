@@ -14,7 +14,7 @@ test('largura e modo de exibição são contratos independentes e span fica apen
   assert.match(types, /Legacy layout contract kept only for persisted definitions/);
   assert.match(types, /WorkspaceWidgetSpan = 1 \| 2 \| 3 \| 4 \| 'full' \| 'button'/);
   assert.match(controls, /EXIBIÇÃO/);
-  assert.doesNotMatch(controls, />LARGURA</);
+  assert.match(controls, />LARGURA<select/);
   assert.match(controls, /Botão \/ popup/);
   assert.match(desktopEditor, /WorkspaceWidgetWidth/);
   assert.match(desktopEditor, /const widths: WorkspaceWidgetWidth\[\] = \['small', 'medium', 'large', 'full'\]/);
