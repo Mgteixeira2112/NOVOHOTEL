@@ -65,6 +65,10 @@ export interface WorkspaceWidgetDevicePresentation {
   height?: WorkspaceWidgetHeight;
   visual?: WorkspaceWidgetVisualStyle;
   header?: WorkspaceWidgetHeaderStyle;
+  /** Desktop Visual 3.0: posição horizontal normalizada de 0 a 100% da superfície. */
+  x?: number;
+  /** Desktop Visual 3.0: posição vertical em pixels dentro da superfície. */
+  y?: number;
 }
 
 export interface WorkspaceWidgetPresentation {
