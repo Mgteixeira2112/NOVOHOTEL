@@ -8,6 +8,8 @@ export type WorkspaceWidgetHeight = 'auto' | 'low' | 'medium' | 'high';
 export type WorkspaceWidgetVisualStyle = 'minimal' | 'standard' | 'highlight';
 export type WorkspaceWidgetHeaderStyle = 'full' | 'compact' | 'hidden';
 export type WorkspaceDevicePresentationMode = 'auto' | 'custom' | 'disabled';
+export type WorkspaceBackgroundPresetId = 'none' | 'lobby' | 'operations' | 'finance' | 'service';
+export type WorkspaceBackgroundFit = 'cover' | 'contain';
 
 export interface WorkspaceHeaderPresentation {
   showHotel?: boolean;
@@ -19,6 +21,14 @@ export interface WorkspaceHeaderPresentation {
   showOperationalDate?: boolean;
   hourFormat?: '24h' | '12h';
   timezone?: string;
+}
+
+export interface WorkspaceSurfacePresentation {
+  backgroundPreset?: WorkspaceBackgroundPresetId;
+  backgroundFit?: WorkspaceBackgroundFit;
+  backgroundPosition?: 'center' | 'top' | 'bottom';
+  overlayOpacity?: number;
+  minHeight?: number;
 }
 
 export interface WorkspaceKdsPresentation {
@@ -41,6 +51,7 @@ export interface WorkspaceDevicePresentation {
 
 export interface WorkspacePresentation {
   header?: WorkspaceHeaderPresentation;
+  surface?: WorkspaceSurfacePresentation;
   kds?: WorkspaceKdsPresentation;
   devices?: WorkspaceDevicePresentation;
 }
