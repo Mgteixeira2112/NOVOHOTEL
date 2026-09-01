@@ -1,8 +1,8 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { GripVertical, Image, PanelLeft, Plus, Trash2 } from 'lucide-react';
+import { Image, PanelLeft, Plus, Trash2 } from 'lucide-react';
+import { WorkspaceShortcutSummary } from '../../workspace-engine/WorkspaceShortcutSummary';
 import { WorkspaceDefinition, WorkspaceViewport } from '../../workspace-engine/types';
 import {
-  getShortcutInformationLevel,
   getWorkspaceVisualSurface,
   normalizeWorkspaceRect,
   placeWidgetAsShortcut,
@@ -190,14 +190,15 @@ export const WorkspaceVisualCanvasEditor: React.FC<WorkspaceVisualCanvasEditorPr
               key={shortcut.id}
               onPointerDown={event => beginMove(event, shortcut.id)}
               onClick={() => setSelectedId(shortcut.id)}
-              className={`absolute z-20 cursor-move overflow-hidden rounded-2xl border bg-white/95 p-3 shadow-lg backdrop-blur transition ${selected ? 'border-amber-500 ring-2 ring-amber-300/50' : 'border-white/70 hover:border-amber-300'}`}
+              className={`group absolute z-20 cursor-move overflow-hidden rounded-2xl border bg-white/95 p-3 shadow-lg backdrop-blur transition ${selected ? 'border-amber-500 ring-2 ring-amber-300/50' : 'border-white/70 hover:border-amber-300'}`}
               style={{ left: `${shortcut.rect.x}%`, top: `${shortcut.rect.y}%`, width: `${shortcut.rect.width}%`, height: `${shortcut.rect.height}%` }}
               data-workspace-visual-shortcut={shortcut.widgetId}
+              data-workspace-shortcut-size={shortcut.size}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0"><div className="flex items-center gap-1"><GripVertical className="h-3.5 w-3.5 text-stone-400" /><strong className="block truncate text-[10px] text-stone-900">{widget.title || widget.type}</strong></div><span className="mt-1 block text-[8px] font-bold uppercase tracking-wide text-stone-400">Nível {getShortcutInformationLevel(shortcut.size)} de informação</span></div>
-                <button type="button" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); persistSurface(removeWidgetFromVisualSurface(surface, shortcut.widgetId)); }} className="grid h-6 w-6 flex-none place-items-center rounded-lg text-stone-400 hover:bg-rose-50 hover:text-rose-600" aria-label="Remover atalho"><Trash2 className="h-3.5 w-3.5" /></button>
+              <div className="pr-6">
+                <WorkspaceShortcutSummary widget={widget} size={shortcut.size} />
               </div>
+              <button type="button" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); persistSurface(removeWidgetFromVisualSurface(surface, shortcut.widgetId)); }} className={`absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-lg text-stone-400 hover:bg-rose-50 hover:text-rose-600 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} aria-label="Remover atalho"><Trash2 className="h-3.5 w-3.5" /></button>
               {selected && <div className="absolute bottom-2 left-2 flex gap-1" onPointerDown={event => event.stopPropagation()}>
                 {(['s', 'm', 'l', 'xl'] as WorkspaceShortcutSize[]).map(size => <button key={size} type="button" onClick={() => updateShortcut(shortcut.id, { size })} className={`h-6 min-w-6 rounded-md px-1 text-[8px] font-black ${shortcut.size === size ? 'bg-stone-950 text-white' : 'border border-stone-200 bg-white text-stone-600'}`}>{sizeLabels[size]}</button>)}
                 <button type="button" onClick={() => persistSurface(placeWidgetInSidebar(surface, shortcut.widgetId))} className="h-6 rounded-md border border-stone-200 bg-white px-2 text-[8px] font-black text-stone-600">Mover ao menu</button>
@@ -206,7 +207,7 @@ export const WorkspaceVisualCanvasEditor: React.FC<WorkspaceVisualCanvasEditorPr
             </div>;
           })}
         </div>
-        <p className="mt-2 text-[9px] leading-relaxed text-stone-400">Arraste atalhos livremente e redimensione pelo canto inferior direito. Posições e dimensões são salvas em porcentagem para permanecerem relativas ao template.</p>
+        <p className="mt-2 text-[9px] leading-relaxed text-stone-400">Os atalhos de Resumo, Chegadas, Saídas e Alertas já exibem dados vivos usando os mesmos seletores dos widgets completos. Os demais continuam como destinos do widget completo até receberem um adaptador de apresentação próprio.</p>
       </div>
     </div>
   </div>;
