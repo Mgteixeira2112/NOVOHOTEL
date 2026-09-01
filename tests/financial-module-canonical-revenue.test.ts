@@ -20,7 +20,10 @@ test('KPIs financeiros não voltam a calcular receita a partir de HotelContext.p
   assert.doesNotMatch(source, /approvedPayments\.length/);
 });
 
-test('uso legado de payments fica isolado no extrato até corte posterior', () => {
-  assert.match(source, /<TransactionsAuditTab[\s\S]*payments=\{payments\}/);
+test('extrato financeiro usa transações operacionais canônicas', () => {
+  assert.match(source, /useOperationalTransactionsUi/);
+  assert.match(source, /<TransactionsAuditTab[\s\S]*transactions=\{operationalTransactions\}/);
+  assert.doesNotMatch(source, /<TransactionsAuditTab[\s\S]*payments=\{payments\}/);
   assert.match(source, /Receita operacional indisponível/);
+  assert.match(source, /Extrato operacional indisponível/);
 });
