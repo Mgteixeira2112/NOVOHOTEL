@@ -19,9 +19,11 @@ test('recepção continua delegando check-in, checkout e transferência aos RPCs
 
 test('lifecycle oficial cobre ocupação, governança, manutenção e liberação sem estado paralelo no frontend', () => {
   assert.match(lifecycle, /status_operacional/);
-  assert.match(lifecycle, /status_governanca/);
-  assert.match(lifecycle, /status_housekeeping/);
-  assert.match(lifecycle, /status_manutencao_motivo/);
+  assert.match(lifecycle, /send_to_governance_cleaning/);
+  assert.match(lifecycle, /send_to_inspection/);
+  assert.match(lifecycle, /approve_inspection/);
+  assert.match(lifecycle, /send_to_maintenance/);
+  assert.match(lifecycle, /complete_maintenance/);
   assert.match(lifecycle, /control_owner/);
   assert.match(lifecycle, /active_activity/);
   assert.match(lifecycle, /lifecycle_version/);
@@ -31,6 +33,8 @@ test('checkout, transferência, check-in direto e governança permanecem no cont
   assert.match(guestBinding, /reception_room_checkout/);
   assert.match(guestBinding, /reception_room_transfer/);
   assert.match(directCheckin, /reception_room_direct_checkin/);
+  assert.match(governanceSync, /status_housekeeping/);
+  assert.match(governanceSync, /status_governanca/);
   assert.match(governanceSync, /gov-col-a-limpar/);
   assert.match(governanceSync, /gov-col-em-limpeza/);
   assert.match(governanceSync, /gov-col-inspecao/);
