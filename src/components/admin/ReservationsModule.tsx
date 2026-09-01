@@ -35,7 +35,6 @@ export const ReservationsModule: React.FC = () => {
     reservations, 
     rooms, 
     guests, 
-    payments, 
     updateReservationStatus, 
     cancelReservation, 
     addConsumoToReservation,
