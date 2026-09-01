@@ -1,15 +1,18 @@
 # Freeze dos widgets auxiliares — roteiro de encerramento
 
-Esta baseline certifica somente os widgets auxiliares de apresentação já existentes, sem adicionar funcionalidade nova.
+Esta baseline certifica somente os widgets auxiliares já existentes, sem adicionar funcionalidade nova.
 
 ## Comportamento certificado
 
+- `DashboardWidget` continua usando `dashboardEngine`, `tenantService` e o catálogo oficial de métricas.
+- `FrigobarWidget` continua usando `frigobarCore`, identidade oficial do hotel e apenas hospedagens com check-in realizado.
+- `TeamWidget` continua derivando a equipe dos usuários ativos e dos vínculos setoriais existentes.
+- `UserAccessWidget` permanece apenas como adaptador de apresentação de `UsersOperationalAccessModule`; RBAC e persistência continuam pertencendo ao módulo existente.
 - `AutomationAdminWidget` permanece apenas como adaptador visual de `AutomationModule`.
 - `HotelOSCommandCenterWidget` permanece apenas como adaptador visual de `HotelOSCommandCenter`.
 - `QuickActionsWidget` continua apenas navegando para widgets já presentes e habilitados no mesmo Workspace.
 - Ações rápidas continuam respeitando `enabled`, `permissions.view`, `widget.actions` e a prontidão do catálogo existente.
-- A abertura de ações rápidas continua reutilizando o widget alvo existente por popup ou foco/scroll; nenhum runtime paralelo é criado.
-- Nenhum destes widgets auxiliares passa a possuir persistência, service, repository, migration ou fonte de dados próprios.
+- Nenhum destes widgets auxiliares passa a possuir engine, service, repository, migration ou fonte de dados paralela.
 
 ## Fora de escopo até o encerramento do plano
 
@@ -22,4 +25,4 @@ Esta baseline certifica somente os widgets auxiliares de apresentação já exis
 - refatoração ampla;
 - melhoria visual não necessária para corrigir bloqueador.
 
-Após esta certificação, a próxima etapa deve se limitar à limpeza/certificação final da Fábrica de Workspaces e seus guardrails, sem reabrir engines congeladas.
+Após CI verde e merge, a próxima parte do roteiro fechado é somente certificar o Financeiro existente.
