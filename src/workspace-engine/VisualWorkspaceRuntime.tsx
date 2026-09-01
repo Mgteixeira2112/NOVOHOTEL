@@ -3,6 +3,7 @@ import { PanelLeft } from 'lucide-react';
 import { WorkspaceShortcutSummary } from './WorkspaceShortcutSummary';
 import { WorkspaceWidgetHost } from './WorkspaceWidgetHost';
 import { createReceptionVisualPresentation } from './receptionVisualTemplate';
+import { createGovernanceVisualPresentation } from './governanceVisualTemplate';
 import { WorkspaceDefinition, WorkspaceViewport, WorkspaceWidgetDefinition } from './types';
 import { getWorkspaceVisualSurface } from './visualPresentation';
 
@@ -21,6 +22,7 @@ const detectViewport = (): WorkspaceViewport => {
 const resolveVisualPresentation = (definition: WorkspaceDefinition) => {
   if (definition.visualPresentation) return definition.visualPresentation;
   if (definition.sectors.includes('recepcao')) return createReceptionVisualPresentation(definition.widgets);
+  if (definition.sectors.includes('governanca')) return createGovernanceVisualPresentation(definition.widgets);
   return undefined;
 };
 
@@ -112,4 +114,8 @@ export const VisualWorkspaceRuntime: React.FC<VisualWorkspaceRuntimeProps> = ({ 
 };
 
 export const hasVisualWorkspaceRuntime = (definition: WorkspaceDefinition) =>
-  Boolean(definition.visualPresentation || definition.sectors.includes('recepcao'));
+  Boolean(
+    definition.visualPresentation
+    || definition.sectors.includes('recepcao')
+    || definition.sectors.includes('governanca')
+  );
