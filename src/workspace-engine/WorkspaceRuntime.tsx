@@ -10,10 +10,8 @@ registerBuiltinWorkspaceWidgets();
 /**
  * Runtime único dos Workspaces.
  *
- * A camada operacional passa a usar exclusivamente o renderer visual. O antigo
- * WidgetDrivenWorkspace permanece temporariamente no código apenas como apoio
- * de comparação/Preview durante a retirada dos controles legados, mas não é
- * mais uma rota de execução do Workspace real.
+ * Toda apresentação operacional passa exclusivamente pelo renderer visual.
+ * Widgets continuam sendo resolvidos pelo registry e abertos pelo host genérico.
  */
 export const WorkspaceRuntime: React.FC<WorkspaceRuntimeProps> = ({ definition }) =>
   <VisualWorkspaceRuntime definition={definition} />;
