@@ -132,7 +132,7 @@ export const BookingModal: React.FC = () => {
     if (!selectedResult) return;
 
     setLoadingPayment(true);
-    // Simula autorização rápida do gateway de pagamento
+    // Confirma a reserva; o recebimento real é registrado posteriormente pelo Financial Engine.
     setTimeout(() => {
       try {
         const { reserva } = createReservation({
@@ -196,7 +196,7 @@ export const BookingModal: React.FC = () => {
               {currentStep === 1 && 'Escolha as Datas e Hóspedes'}
               {currentStep === 2 && 'Selecione sua Acomodação'}
               {currentStep === 3 && 'Identificação do Hóspede Titular'}
-              {currentStep === 4 && 'Pagamento Seguro & Confirmação'}
+              {currentStep === 4 && 'Forma de Pagamento & Confirmação'}
               {currentStep === 5 && 'Reserva Confirmada com Sucesso!'}
             </h2>
           </div>
@@ -781,7 +781,7 @@ export const BookingModal: React.FC = () => {
                   {loadingPayment ? (
                     <>
                       <div className="w-4 h-4 border-2 border-stone-950 border-t-transparent rounded-full animate-spin" />
-                      <span>Processando no Banco Central...</span>
+                      <span>Confirmando reserva...</span>
                     </>
                   ) : (
                     <>

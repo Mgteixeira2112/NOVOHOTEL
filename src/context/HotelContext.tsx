@@ -60,7 +60,6 @@ import {
   upsertReservationToSupabase,
   deleteReservationFromSupabase,
   fetchPaymentsFromSupabase,
-  upsertPaymentToSupabase,
   fetchBlocksFromSupabase,
   upsertBlockToSupabase,
   deleteBlockFromSupabase,
@@ -836,20 +835,18 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const valorTotal = valorDiarias + valorTaxas;
 
     const reservationId = `res-${Date.now()}`;
-    const paymentId = `pag-${Date.now()}`;
     const bookingCode = generateBookingCode();
     const smartPin = room.fechadura_pin || generateSmartLockPin();
 
-    // 3. Registrar o Pagamento
-    const payment: Pagamento = {
-      id: paymentId,
+    // 3. Registrar apenas a intenção de pagamento da reserva.
+    // O recebimento real só pode ser gravado pelo Financial Engine após existir Folio.
+    const paymentIntent: Pagamento = {
+      id: `intent-${reservationId}`,
       reserva_id: reservationId,
       valor: valorTotal,
       metodo: params.pagamento.metodo,
-      status: 'aprovado',
-      codigo_transacao: `${params.pagamento.metodo.toUpperCase()}-AUTH-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      status: 'pendente',
       parcelas: params.pagamento.parcelas || 1,
-      data_pagamento: new Date().toISOString(),
     };
 
     // 4. Registrar a Reserva
@@ -869,17 +866,14 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       valor_total: valorTotal,
       status: 'confirmada',
       forma_pagamento: params.pagamento.metodo,
-      pagamento_id: paymentId,
       observacoes: params.observacoes || '',
       pin_fechadura: smartPin,
       consumo_itens: [],
       created_at: new Date().toISOString(),
     };
 
-    setPayments((prev) => [payment, ...prev]);
     setReservations((prev) => [reservation, ...prev]);
 
-    upsertPaymentToSupabase(payment).catch(() => {});
     upsertReservationToSupabase(reservation).catch(() => {});
 
     kanbanV2.syncReservation({
@@ -893,7 +887,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       checkout: reservation.checkout,
     }).catch(() => {});
 
-    return { reserva: reservation, hospede: guest, pagamento: payment };
+    return { reserva: reservation, hospede: guest, pagamento: paymentIntent };
   };
 
   const updateReservationStatus = (
