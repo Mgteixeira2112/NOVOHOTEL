@@ -29,5 +29,13 @@ export const getAllWorkspaceDefinitions = (hotelId = DEFAULT_WORKSPACE_HOTEL_ID)
 export const getWorkspaceDefinition = (workspaceId: string, hotelId = DEFAULT_WORKSPACE_HOTEL_ID) =>
   getAllWorkspaceDefinitions(hotelId).find(workspace => workspace.id === workspaceId) || null;
 
+/** Áreas sem associação continuam públicas por compatibilidade; quando há IDs,
+ * somente usuários associados (ou uma camada RBAC administrativa acima) as vêem. */
+export const getWorkspacesForUser = (userId: string | undefined, hotelId = DEFAULT_WORKSPACE_HOTEL_ID) =>
+  getAllWorkspaceDefinitions(hotelId).filter(workspace => {
+    const assigned = workspace.assignedUserIds || [];
+    return assigned.length === 0 || (!!userId && assigned.includes(userId));
+  });
+
 export const resolveWorkspaceForSectors = (sectorIds: OperationalSectorId[], hotelId = DEFAULT_WORKSPACE_HOTEL_ID) =>
   getAllWorkspaceDefinitions(hotelId).find(workspace => workspace.sectors.some(sector => sectorIds.includes(sector))) || null;

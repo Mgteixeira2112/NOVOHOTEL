@@ -6,6 +6,7 @@ import {
   WorkspaceWidgetDefinition,
   WorkspaceWidgetDevicePresentation,
   WorkspaceWidgetDisplay,
+  WorkspaceWidgetDisplayMode,
   WorkspaceWidgetHeaderStyle,
   WorkspaceWidgetHeight,
   WorkspaceWidgetSpan,
@@ -58,8 +59,7 @@ export const WorkspaceWidgetPresentationControls: React.FC<WorkspaceWidgetPresen
   const kdsSuitability = getWidgetKdsSuitability(widget.type);
   const hasDeviceCustomizations = mobileMode === 'custom' || kdsMode === 'custom';
 
-  const updateBase = (patch: Partial<typeof presentation>) => onChange({ presentation: { ...presentation, ...patch } });
-  const updateDevice = (device: 'mobile' | 'kds', patch: Partial<WorkspaceWidgetDevicePresentation>) => {
+  const updateDevice = (device: 'tablet' | 'mobile' | 'kds', patch: Partial<WorkspaceWidgetDevicePresentation>) => {
     const current = presentation[device] || {};
     const base: WorkspaceWidgetDevicePresentation = current.mode === 'auto' ? {} : current;
     onChange({ presentation: { ...presentation, [device]: { ...base, mode: 'custom', ...patch } } });
@@ -69,16 +69,15 @@ export const WorkspaceWidgetPresentationControls: React.FC<WorkspaceWidgetPresen
     <div>
       <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Configuração comum</p>
       <p className="mt-1 text-[9px] text-stone-400">Base visual compartilhada pelas estratégias. Overrides específicos continuam separados por dispositivo.</p>
-      <div className="mt-2 grid sm:grid-cols-2 xl:grid-cols-5 gap-3">
-        <label className={labelClass}>EXIBIÇÃO<select value={presentation.display || 'panel'} onChange={e => updateBase({ display: e.target.value as WorkspaceWidgetDisplay })} className={selectClass}><option value="panel">Painel</option><option value="button">Botão / popup</option></select></label>
-        <label className={labelClass}>LARGURA<select value={presentation.width || 'full'} onChange={e => updateBase({ width: e.target.value as WorkspaceWidgetWidth })} className={selectClass}>{widthOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className={labelClass}>ALTURA<select value={presentation.height || 'auto'} onChange={e => updateBase({ height: e.target.value as WorkspaceWidgetHeight })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className={labelClass}>VISUAL<select value={presentation.visual || 'standard'} onChange={e => updateBase({ visual: e.target.value as WorkspaceWidgetVisualStyle })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className={labelClass}>CABEÇALHO<select value={presentation.header || 'full'} onChange={e => updateBase({ header: e.target.value as WorkspaceWidgetHeaderStyle })} className={selectClass}>{headerOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+      <div className="mt-2 grid sm:grid-cols-2 gap-3">
+        <label className={labelClass}>EXIBIÇÃO<select value={presentation.desktop?.displayMode || (presentation.display === 'button' ? 'button' : 'full')} onChange={e => onChange({ presentation: { ...presentation, desktop: { ...(presentation.desktop || {}), displayMode: e.target.value as WorkspaceWidgetDisplayMode } } })} className={selectClass}><option value="full">Completo</option><option value="summary">Resumo</option><option value="shortcut">Atalho</option><option value="button">Botão</option><option value="hidden">Oculto</option></select></label>
+      </div>
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {(['tablet', 'mobile', 'kds'] as const).map(device => <label key={device} className={labelClass}>{device === 'kds' ? 'KDS / TV' : device.toUpperCase()}<select value={presentation[device]?.displayMode || 'full'} onChange={e => updateDevice(device, { displayMode: e.target.value as WorkspaceWidgetDisplayMode, hidden: e.target.value === 'hidden' })} className={selectClass}><option value="full">Completo</option><option value="summary">Resumo</option><option value="shortcut">Atalho</option><option value="button">Botão</option><option value="hidden">Oculto</option></select></label>)}
       </div>
     </div>
 
-    {hasDeviceCustomizations && <div>
+    {false && hasDeviceCustomizations && <div>
       <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Personalizações por dispositivo</p>
       <div className="mt-2 grid xl:grid-cols-2 gap-3">
         {mobileMode === 'custom' && <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3" data-widget-mobile-customization>

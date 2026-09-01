@@ -1,0 +1,22 @@
+-- Funções internas/trigger não são chamadas pelo frontend e não devem ser RPCs anônimos.
+revoke execute on function public.archive_completed_kanban_cards() from anon;
+revoke execute on function public.assert_room_occupied_release(text) from anon;
+revoke execute on function public.cleanup_reception_room_card_on_room_delete() from anon;
+revoke execute on function public.hotel_os_assert_auth_migration_ready() from anon;
+revoke execute on function public.hotel_os_auth_migration_status() from anon;
+revoke execute on function public.hotel_os_current_user_id() from anon;
+revoke execute on function public.hotel_os_ensure_minibar_location(text,text) from anon;
+revoke execute on function public.hotel_os_sync_financial_projection_from_reservation() from anon;
+revoke execute on function public.normalize_kanban_task_context() from anon;
+revoke execute on function public.project_room_status_to_governanca() from anon;
+revoke execute on function public.refresh_room_operational_status(text) from anon;
+revoke execute on function public.sync_fixed_room_projection_cards(text) from anon;
+revoke execute on function public.sync_governanca_card_to_room() from anon;
+revoke execute on function public.sync_reception_room_card_to_room() from anon;
+revoke execute on function public.sync_related_maintenance_room_status(text) from anon;
+revoke execute on function public.sync_room_to_reception_room_card() from anon;
+revoke execute on function public.trg_refresh_room_operational_status_from_kanban() from anon;
+revoke execute on function public.trg_refresh_room_operational_status_from_reservation() from anon;
+revoke execute on function public.trg_refresh_room_operational_status_from_room() from anon;
+revoke execute on function public.trg_related_maintenance_controls_room_status() from anon;
+revoke execute on function public.trg_sync_fixed_room_projection_cards() from anon;

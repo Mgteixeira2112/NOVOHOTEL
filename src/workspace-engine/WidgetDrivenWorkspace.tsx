@@ -107,9 +107,11 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
   }, [forcedViewport]);
 
   const deviceMode = getWorkspaceDeviceMode(definition, viewport);
+  const assignedUserIds = definition.assignedUserIds || [];
+  const hasWorkspaceAccess = previewMode || assignedUserIds.length === 0 || (!!currentUser?.id && assignedUserIds.includes(currentUser.id));
   const entries = normalizeWorkspaceWidgets(definition.widgets)
     .map(widget => ({ widget, presentation: resolveWidgetPresentation(definition, widget, viewport) }))
-    .filter(({ widget, presentation }) => widget.enabled !== false && widget.permissions?.view !== false && !presentation.hidden)
+    .filter(({ widget, presentation }) => hasWorkspaceAccess && widget.enabled !== false && widget.permissions?.view !== false && !presentation.hidden)
     .filter(({ widget }) => {
       const requiredResource = getWidgetCatalogItem(widget.type)?.requiredRbacResource;
       if (!requiredResource) return true;
@@ -160,16 +162,17 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   const openWidgetPanel = (widgetId: string) => { if (!previewMode) setOpenWidgetId(widgetId); };
 
-  const desktopSidebarActive = viewport === 'desktop' && sidebar?.enabled === true;
+  // Atalhos entram automaticamente no menu lateral; não há configuração paralela
+  // de navegação por widget. O estado do menu continua opcional na apresentação.
+  const desktopSidebarActive = viewport === 'desktop' && entries.some(({ presentation }) => presentation.display === 'button') && sidebar?.enabled !== false;
   const desktopSidebarEntries = desktopSidebarActive
     ? entries.filter(({ presentation }) => presentation.display === 'button')
     : [];
   const isDesktopSidebarEntry = (presentation: ResolvedWidgetPresentation) => desktopSidebarActive && presentation.display === 'button';
-  const desktopSpatialEntries = viewport === 'desktop'
-    ? entries.filter(({ widget, presentation }) => !isDesktopSidebarEntry(presentation) && hasDesktopSpatialPosition(widget))
-    : [];
+  // Posicionamento absoluto foi aposentado; a grade automática é a única estratégia.
+  const desktopSpatialEntries: typeof entries = [];
   const desktopFlowEntries = viewport === 'desktop'
-    ? entries.filter(({ widget, presentation }) => !isDesktopSidebarEntry(presentation) && !hasDesktopSpatialPosition(widget))
+    ? entries.filter(({ presentation }) => !isDesktopSidebarEntry(presentation))
     : entries;
   const desktopSpatialActive = viewport === 'desktop' && desktopSpatialEntries.length > 0;
   const desktopVisualSurfaceActive = desktopSpatialActive || desktopSidebarActive;
@@ -215,9 +218,14 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
     return <section className={`${heightClass(presentation.height)} ${shellVisual} ${connectedPanelClass} ${buttonSectionClass}`} data-workspace-widget={widget.type} data-widget-id={widget.id} data-widget-display={isButton ? 'button' : isSummary ? 'summary' : 'panel'} data-widget-width={presentation.width} data-widget-height={presentation.height} data-widget-visual={presentation.visual} data-widget-header={headerStyle}>
       {!desktopStyle?.suppressHeader && headerStyle !== 'hidden' && !isButton && !isSummary && <div className={`mb-2 flex items-end justify-between gap-3 px-1 ${isKds ? 'text-white' : 'text-slate-900'}`} data-widget-presentation-header>
-        <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white" data-workspace-logo>
+            {hotelConfig.logo_url ? <img src={hotelConfig.logo_url} alt={hotelConfig.nome} className="h-full w-full object-contain" /> : <span className="text-xs font-black text-slate-700">{hotelConfig.logo_iniciais || hotelConfig.nome.slice(0, 2).toUpperCase()}</span>}
+          </div>
+          <div className="min-w-0">
           {headerStyle === 'full' && <p className={`text-[9px] font-black uppercase tracking-wider ${isKds ? 'text-amber-300' : 'text-amber-700'}`}>{widget.type}</p>}
           <h2 className={`${headerStyle === 'compact' ? 'text-xs' : 'text-sm'} truncate font-black`}>{widget.title || widget.type}</h2>
+          </div>
         </div>
       </div>}
       {isButton ? <button type="button" onClick={() => openWidgetPanel(widget.id)} className={buttonClass} aria-haspopup="dialog"><div className="min-w-0"><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Abrir widget</p><h2 className="mt-1 truncate text-sm font-black text-slate-900">{widget.title || widget.type}</h2><p className="mt-1 text-[10px] text-slate-500">Exibição em janela</p></div><span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-slate-950 text-white transition group-hover:bg-amber-500 group-hover:text-slate-950"><ExternalLink className="h-4 w-4" /></span></button>
@@ -337,7 +345,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
         </div>
       </div>
     </header>
-    {isKdsDisabled ? <main className="mx-auto grid min-h-[50vh] max-w-[1800px] place-items-center p-8"><div className="max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center"><p className="text-xs font-black uppercase tracking-wider text-amber-300">KDS / TV</p><h2 className="mt-2 text-2xl font-black text-white">Apresentação desativada</h2><p className="mt-2 text-sm text-slate-300">Ative ou personalize o KDS na Fábrica de Workspaces.</p></div></main> : <main className={`mx-auto max-w-[1800px] ${viewport === 'mobile' ? 'flex flex-col gap-4 p-4' : isKds ? `${kdsGridClass} ${kdsDensityClass}` : 'grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-4 md:auto-rows-[8px] md:[grid-auto-flow:dense] xl:grid-cols-12'}`}>
+    {!hasWorkspaceAccess ? <main className="mx-auto grid min-h-[50vh] max-w-[1800px] place-items-center p-8"><div className="max-w-lg rounded-3xl border border-amber-200 bg-amber-50 p-8 text-center"><p className="text-xs font-black uppercase tracking-wider text-amber-700">Acesso ao Workspace</p><h2 className="mt-2 text-2xl font-black text-slate-900">Área não associada ao seu usuário</h2><p className="mt-2 text-sm text-slate-600">Peça a um gerente para ajustar a associação na Fábrica de Workspaces.</p></div></main> : isKdsDisabled ? <main className="mx-auto grid min-h-[50vh] max-w-[1800px] place-items-center p-8"><div className="max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center"><p className="text-xs font-black uppercase tracking-wider text-amber-300">KDS / TV</p><h2 className="mt-2 text-2xl font-black text-white">Apresentação desativada</h2><p className="mt-2 text-sm text-slate-300">Ative ou personalize o KDS na Fábrica de Workspaces.</p></div></main> : <main className={`mx-auto max-w-[1800px] ${viewport === 'mobile' ? 'flex flex-col gap-4 p-4' : isKds ? `${kdsGridClass} ${kdsDensityClass}` : 'grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-4 md:auto-rows-[8px] md:[grid-auto-flow:dense] xl:grid-cols-12'}`}>
       {viewport === 'desktop'
         ? <>{renderDesktopSurface()}{renderDesktopSpatialWidgets()}</>
         : entries.map(({ widget, presentation }) => <div key={widget.id} className={isKds ? kdsSpanClass(presentation.width, kdsOrientation) : ''}>{renderWidget(widget, presentation)}</div>)}

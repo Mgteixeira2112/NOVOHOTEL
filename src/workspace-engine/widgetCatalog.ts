@@ -69,8 +69,9 @@ export const getWidgetCatalogItem = (type: WorkspaceWidgetType) =>
 export const getWidgetAvailability = (type: WorkspaceWidgetType, sector: OperationalSectorId) => {
   const item = getWidgetCatalogItem(type);
   if (!item) return { allowed: false, readiness: 'planned' as const, reason: 'Widget não registrado na biblioteca.' };
-  const allowed = !item.sectors?.length || item.sectors.includes(sector);
-  if (!allowed) return { allowed: false, readiness: item.readiness, reason: `Não disponível para o setor ${sector}.` };
+  // A composição não é limitada por setor: qualquer widget funcional pode ser
+  // colocado em qualquer área. RBAC e escopo do hotel continuam no runtime.
+  void sector;
   if (item.readiness === 'planned') return { allowed: false, readiness: item.readiness, reason: item.readinessNote || 'Widget ainda não possui renderer operacional consolidado.' };
   return { allowed: true, readiness: item.readiness, reason: item.readinessNote || '' };
 };
