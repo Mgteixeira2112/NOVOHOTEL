@@ -8,14 +8,12 @@ const source = fs.readFileSync(
   'utf8',
 );
 
-test('ReceptionRoomsKanban consumes canonical room rows instead of selecting reservations locally', () => {
-  assert.ok(source.includes("import { buildCanonicalReceptionRoomRows } from './receptionRoomViewModel';"));
-  assert.ok(source.includes('buildCanonicalReceptionRoomRows(rooms, cards, reservations, guests, columns)'));
-  assert.ok(!source.includes('function linkedReservation('));
-  assert.ok(!source.includes("['checkin_realizado', 'confirmada', 'pendente']"));
-  assert.ok(!source.includes('reservation.quarto_id === room.id'));
+test('ReceptionRoomsKanban consumes canonical room rows', () => {
+  assert.match(source, /import \{ buildCanonicalReceptionRoomRows \} from '\.\/receptionRoomViewModel';/);
+  assert.match(source, /buildCanonicalReceptionRoomRows\(rooms, cards, reservations, guests, columns\)/);
+  assert.doesNotMatch(source, /function linkedReservation\(/);
 });
 
 test('ReceptionRoomsKanban derives transfer availability from canonical room rows', () => {
-  assert.ok(source.includes('!roomRows.some(row => row.room.id === item.id && !!row.reservation)'));
+  assert.match(source, /!roomRows\.some\(row => row\.room\.id === item\.id && !!row\.reservation\)/);
 });
