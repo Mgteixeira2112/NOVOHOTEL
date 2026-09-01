@@ -1,8 +1,5 @@
-import {
-  WorkspaceDefinition,
+import type {
   WorkspaceDevicePresentationMode,
-  WorkspaceViewport,
-  WorkspaceWidgetDefinition,
   WorkspaceWidgetDisplay,
   WorkspaceWidgetHeaderStyle,
   WorkspaceWidgetHeight,
@@ -10,6 +7,11 @@ import {
   WorkspaceWidgetSpan,
   WorkspaceWidgetVisualStyle,
   WorkspaceWidgetWidth,
+} from './legacyPresentationTypes';
+import type {
+  WorkspaceDefinition,
+  WorkspaceViewport,
+  WorkspaceWidgetDefinition,
 } from './types';
 
 /**
