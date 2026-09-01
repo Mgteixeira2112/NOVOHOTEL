@@ -77,13 +77,13 @@ test('KDS aplica orientação, densidade, distância, tela cheia e controles ope
   assert.match(generalControls, /Ocultar controles de edição/);
 });
 
-test('Fábrica separa edição visual Desktop dos controles restantes e mantém Preview real', () => {
+test('Fábrica mantém configuração comum e personalizações por dispositivo com Preview real', () => {
   assert.match(editor, /WorkspaceGeneralPresentationControls/);
   assert.match(editor, /WorkspaceWidgetPresentationControls/);
   assert.match(editor, /WorkspacePreviewPanel/);
   assert.match(generalControls, /Apresentação por dispositivo/);
   assert.match(generalControls, /Cabeçalho do Workspace/);
-  assert.match(widgetControls, /Aparência do widget/);
+  assert.match(widgetControls, /Configuração comum/);
   assert.match(widgetControls, /Personalizações por dispositivo/);
   assert.doesNotMatch(widgetControls, /desktopMode === 'custom'/);
   assert.match(widgetControls, /mobileMode === 'custom'/);
@@ -96,21 +96,22 @@ test('Fábrica separa edição visual Desktop dos controles restantes e mantém 
   assert.match(preview, /KDS \/ TV/);
 });
 
-test('controles de aparência não repetem estratégia ou largura Desktop dentro de cada widget', () => {
+test('configuração comum expõe largura sem duplicar um override Desktop separado', () => {
   assert.doesNotMatch(widgetControls, />Estratégia<select/);
+  assert.match(widgetControls, />LARGURA<select/);
   assert.match(widgetControls, /mode: 'custom'/);
   assert.doesNotMatch(widgetControls, /presentation\.desktop\?\.mode === 'auto' \? \{\}/);
   assert.match(widgetControls, /presentation\.mobile\?\.mode === 'auto' \? \{\}/);
   assert.match(widgetControls, /presentation\.kds\?\.mode === 'auto' \? \{\}/);
-  assert.match(widgetControls, /Ordem e largura Desktop são editadas no preview/);
+  assert.match(widgetControls, /Base visual compartilhada pelas estratégias/);
 });
 
-test('nomes dos controles descrevem o efeito real sem adicionar novas opções', () => {
-  assert.match(widgetControls, /LIMITE DE ALTURA/);
-  assert.match(widgetControls, /Sem limite/);
-  assert.match(widgetControls, /ESTILO/);
-  assert.match(widgetControls, /Sem sombra/);
-  assert.match(widgetControls, /TÍTULO DO WIDGET/);
+test('nomes dos controles seguem o vocabulário comum aprovado sem adicionar novas opções', () => {
+  assert.match(widgetControls, />ALTURA<select/);
+  assert.match(widgetControls, /Automática/);
+  assert.match(widgetControls, />VISUAL<select/);
+  assert.match(widgetControls, /Minimalista/);
+  assert.match(widgetControls, />CABEÇALHO<select/);
   assert.match(generalControls, /Tela KDS \/ TV/);
   assert.match(generalControls, /Distância de visualização/);
 });
