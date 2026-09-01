@@ -122,6 +122,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
   const openWidget = useMemo(() => widgets.find(widget => widget.id === openWidgetId) || null, [widgets, openWidgetId]);
   const OpenRenderer = openWidget ? getWorkspaceWidgetRenderer(openWidget.type) : null;
   const header = definition.presentation?.header;
+  const sidebar = definition.presentation?.sidebar;
   const kds = definition.presentation?.kds;
   const timezone = header?.timezone || 'America/Sao_Paulo';
   const dateText = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full', timeZone: timezone }).format(now);
@@ -159,20 +160,30 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   const openWidgetPanel = (widgetId: string) => { if (!previewMode) setOpenWidgetId(widgetId); };
 
+  const desktopSidebarActive = viewport === 'desktop' && sidebar?.enabled === true;
+  const desktopSidebarEntries = desktopSidebarActive
+    ? entries.filter(({ presentation }) => presentation.display === 'button')
+    : [];
+  const isDesktopSidebarEntry = (presentation: ResolvedWidgetPresentation) => desktopSidebarActive && presentation.display === 'button';
   const desktopSpatialEntries = viewport === 'desktop'
-    ? entries.filter(({ widget }) => hasDesktopSpatialPosition(widget))
+    ? entries.filter(({ widget, presentation }) => !isDesktopSidebarEntry(presentation) && hasDesktopSpatialPosition(widget))
     : [];
   const desktopFlowEntries = viewport === 'desktop'
-    ? entries.filter(({ widget }) => !hasDesktopSpatialPosition(widget))
+    ? entries.filter(({ widget, presentation }) => !isDesktopSidebarEntry(presentation) && !hasDesktopSpatialPosition(widget))
     : entries;
   const desktopSpatialActive = viewport === 'desktop' && desktopSpatialEntries.length > 0;
-  const desktopSpatialSurfaceStyle = desktopSpatialActive
+  const desktopVisualSurfaceActive = desktopSpatialActive || desktopSidebarActive;
+  const spatialMinHeight = desktopSpatialActive
+    ? desktopSpatialMinHeight(desktopSpatialEntries.map(({ widget }) => widget), definition.presentation?.surface?.minHeight || 720)
+    : definition.presentation?.surface?.minHeight || 720;
+  const sidebarItemHeight = sidebar?.itemSize === 'compact' ? 58 : sidebar?.itemSize === 'large' ? 108 : 78;
+  const sidebarMinHeight = desktopSidebarActive
+    ? (sidebar?.y ?? 110) + Math.max(180, desktopSidebarEntries.length * sidebarItemHeight + 32)
+    : 0;
+  const desktopVisualSurfaceStyle = desktopVisualSurfaceActive
     ? {
         ...workspaceSurfaceStyle(definition.presentation?.surface),
-        minHeight: `${desktopSpatialMinHeight(
-          desktopSpatialEntries.map(({ widget }) => widget),
-          definition.presentation?.surface?.minHeight || 720,
-        )}px`,
+        minHeight: `${Math.max(spatialMinHeight, sidebarMinHeight)}px`,
       }
     : undefined;
 
@@ -245,16 +256,60 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     {renderWidget(widget, presentation)}
   </div>);
 
+  const renderDesktopSidebar = () => {
+    if (!desktopSidebarActive || desktopSidebarEntries.length === 0) return null;
+    const itemSize = sidebar?.itemSize || 'normal';
+    const visual = sidebar?.visual || 'glass';
+    const width = Math.min(480, Math.max(160, sidebar?.width || 240));
+    const x = Math.min(100, Math.max(0, sidebar?.x ?? 2));
+    const y = Math.max(0, sidebar?.y ?? 110);
+    const shellClass = visual === 'solid'
+      ? 'border-slate-200 bg-white shadow-xl'
+      : visual === 'transparent'
+        ? 'border-transparent bg-transparent'
+        : 'border-white/60 bg-white/75 shadow-xl backdrop-blur-xl';
+    const buttonClass = itemSize === 'compact'
+      ? 'min-h-12 px-3 py-2'
+      : itemSize === 'large'
+        ? 'min-h-24 px-4 py-4'
+        : 'min-h-16 px-3.5 py-3';
+
+    return <aside
+      className={`absolute z-20 flex flex-col gap-2 rounded-3xl border p-2 ${shellClass}`}
+      style={{ left: `clamp(0px, ${x}%, calc(100% - ${width}px))`, top: `${y}px`, width: `${width}px` }}
+      data-workspace-sidebar="desktop"
+      data-workspace-sidebar-size={itemSize}
+      data-workspace-sidebar-visual={visual}
+    >
+      {desktopSidebarEntries.map(({ widget }) => <button
+        key={widget.id}
+        type="button"
+        onClick={() => openWidgetPanel(widget.id)}
+        className={`group flex w-full items-center justify-between gap-3 rounded-2xl border border-slate-200/80 bg-white/90 text-left shadow-sm transition hover:border-amber-300 hover:bg-amber-50/90 ${buttonClass}`}
+        aria-haspopup="dialog"
+        data-workspace-sidebar-item={widget.id}
+      >
+        <div className="min-w-0">
+          {itemSize !== 'compact' && <p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Atalho</p>}
+          <h2 className={`${itemSize === 'large' ? 'text-base' : itemSize === 'compact' ? 'text-xs' : 'text-sm'} truncate font-black text-slate-900`}>{widget.title || widget.type}</h2>
+          {itemSize === 'large' && <><p className="mt-1 truncate text-[10px] font-bold text-slate-500">{widget.type}</p><p className="mt-1 text-[10px] text-slate-500">Abrir em janela</p></>}
+        </div>
+        <span className={`${itemSize === 'compact' ? 'h-8 w-8 rounded-xl' : 'h-10 w-10 rounded-2xl'} grid shrink-0 place-items-center bg-slate-950 text-white transition group-hover:bg-amber-500 group-hover:text-slate-950`}><ExternalLink className="h-4 w-4" /></span>
+      </button>)}
+    </aside>;
+  };
+
   return <div
-    className={`${kdsShellClass} ${desktopSpatialActive ? 'relative' : ''} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`}
-    style={desktopSpatialSurfaceStyle}
+    className={`${kdsShellClass} ${desktopVisualSurfaceActive ? 'relative' : ''} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`}
+    style={desktopVisualSurfaceStyle}
     data-workspace-runtime="widget-driven"
     data-workspace-id={definition.id}
     data-workspace-viewport={viewport}
     data-workspace-device-mode={deviceMode}
     data-workspace-preview={previewMode ? 'true' : undefined}
     data-workspace-spatial-runtime={desktopSpatialActive ? 'true' : undefined}
-    data-workspace-background-preset={desktopSpatialActive ? definition.presentation?.surface?.backgroundPreset || 'none' : undefined}
+    data-workspace-sidebar-runtime={desktopSidebarActive ? 'true' : undefined}
+    data-workspace-background-preset={desktopVisualSurfaceActive ? definition.presentation?.surface?.backgroundPreset || 'none' : undefined}
     data-kds-orientation={isKds ? kdsOrientation : undefined}
     data-kds-density={isKds ? kdsDensity : undefined}
     data-kds-viewing-distance={isKds ? kdsDistance : undefined}
@@ -287,6 +342,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
         ? <>{renderDesktopSurface()}{renderDesktopSpatialWidgets()}</>
         : entries.map(({ widget, presentation }) => <div key={widget.id} className={isKds ? kdsSpanClass(presentation.width, kdsOrientation) : ''}>{renderWidget(widget, presentation)}</div>)}
     </main>}
+    {renderDesktopSidebar()}
     {openWidget && !previewMode && typeof document !== 'undefined' && createPortal(<div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={openWidget.title || openWidget.type} onMouseDown={event => { if (event.target === event.currentTarget) setOpenWidgetId(null); }}><div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[1600px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"><div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 sm:px-5"><div><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Widget</p><h2 className="text-sm font-black text-slate-900">{openWidget.title || openWidget.type}</h2></div><button type="button" onClick={() => setOpenWidgetId(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" aria-label="Fechar widget"><X className="h-4 w-4" /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">{OpenRenderer ? <OpenRenderer workspace={definition} widget={openWidget} /> : null}</div></div></div>, document.body)}
   </div>;
 };

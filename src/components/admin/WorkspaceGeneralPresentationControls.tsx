@@ -6,6 +6,8 @@ import {
   WorkspaceBackgroundPresetId,
   WorkspaceDefinition,
   WorkspaceDevicePresentationMode,
+  WorkspaceSidebarItemSize,
+  WorkspaceSidebarVisualStyle,
   WorkspaceViewport,
 } from '../../workspace-engine/types';
 
@@ -20,6 +22,7 @@ export const WorkspaceGeneralPresentationControls: React.FC<WorkspaceGeneralPres
   const presentation = definition.presentation || {};
   const header = presentation.header || {};
   const surface = presentation.surface || {};
+  const sidebar = presentation.sidebar || {};
   const kds = presentation.kds || {};
   const devices = presentation.devices || {};
   const desktopMode = getWorkspaceDeviceMode(definition, 'desktop');
@@ -29,6 +32,7 @@ export const WorkspaceGeneralPresentationControls: React.FC<WorkspaceGeneralPres
 
   const updateHeader = (patch: typeof header) => onChange({ presentation: { ...presentation, header: { ...header, ...patch } } });
   const updateSurface = (patch: typeof surface) => onChange({ presentation: { ...presentation, surface: { ...surface, ...patch } } });
+  const updateSidebar = (patch: typeof sidebar) => onChange({ presentation: { ...presentation, sidebar: { ...sidebar, ...patch } } });
   const updateKds = (patch: typeof kds) => onChange({ presentation: { ...presentation, kds: { ...kds, ...patch } } });
   const updateDeviceMode = (viewport: WorkspaceViewport, mode: WorkspaceDevicePresentationMode) => {
     const nextDevices = { ...devices, [viewport]: mode };
@@ -47,6 +51,20 @@ export const WorkspaceGeneralPresentationControls: React.FC<WorkspaceGeneralPres
         <label className="text-xs font-bold text-stone-600">Altura mínima<input type="number" min={480} max={2200} step={40} value={surface.minHeight || 760} onChange={e => updateSurface({ minHeight: Math.max(480, Number(e.target.value) || 760) })} className={fieldClass} /></label>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-5">{WORKSPACE_BACKGROUND_PRESETS.map(preset => <button key={preset.id} type="button" onClick={() => updateSurface({ backgroundPreset: preset.id })} className={`rounded-xl border p-2 text-left transition ${(surface.backgroundPreset || 'none') === preset.id ? 'border-amber-400 bg-white shadow-sm' : 'border-stone-200 bg-white/60 hover:border-amber-300'}`} aria-pressed={(surface.backgroundPreset || 'none') === preset.id}><span className="block h-12 rounded-lg border border-black/5" style={{ backgroundColor: preset.backgroundColor, backgroundImage: preset.backgroundImage, backgroundSize: 'cover' }} /><strong className="mt-2 block text-[10px] text-stone-800">{preset.label}</strong><span className="mt-0.5 block text-[9px] leading-relaxed text-stone-500">{preset.description}</span></button>)}</div>
+    </div>
+
+    <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50/30 p-4" data-workspace-sidebar-controls>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div><p className="text-[9px] font-black uppercase tracking-wider text-sky-700">Menu lateral Desktop</p><p className="mt-1 text-[10px] text-stone-500">Agrupa os widgets configurados como botão em um menu sobre a superfície. Desativado, o fluxo Desktop atual permanece igual.</p></div>
+        <label className="flex items-center gap-2 text-xs font-bold text-stone-700"><input type="checkbox" checked={sidebar.enabled === true} onChange={e => updateSidebar({ enabled: e.target.checked })} /> Ativar menu</label>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <label className="text-xs font-bold text-stone-600">Posição X (%)<input type="number" min={0} max={100} step={1} disabled={sidebar.enabled !== true} value={sidebar.x ?? 2} onChange={e => updateSidebar({ x: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })} className={fieldClass} /></label>
+        <label className="text-xs font-bold text-stone-600">Posição Y (px)<input type="number" min={0} max={2200} step={10} disabled={sidebar.enabled !== true} value={sidebar.y ?? 110} onChange={e => updateSidebar({ y: Math.max(0, Number(e.target.value) || 0) })} className={fieldClass} /></label>
+        <label className="text-xs font-bold text-stone-600">Largura (px)<input type="number" min={160} max={480} step={10} disabled={sidebar.enabled !== true} value={sidebar.width ?? 240} onChange={e => updateSidebar({ width: Math.min(480, Math.max(160, Number(e.target.value) || 240)) })} className={fieldClass} /></label>
+        <label className="text-xs font-bold text-stone-600">Tamanho dos atalhos<select disabled={sidebar.enabled !== true} value={sidebar.itemSize || 'normal'} onChange={e => updateSidebar({ itemSize: e.target.value as WorkspaceSidebarItemSize })} className={fieldClass}><option value="compact">Compacto</option><option value="normal">Normal</option><option value="large">Ampliado</option></select></label>
+        <label className="text-xs font-bold text-stone-600">Visual<select disabled={sidebar.enabled !== true} value={sidebar.visual || 'glass'} onChange={e => updateSidebar({ visual: e.target.value as WorkspaceSidebarVisualStyle })} className={fieldClass}><option value="solid">Sólido</option><option value="glass">Vidro</option><option value="transparent">Transparente</option></select></label>
+      </div>
     </div>
 
     <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
