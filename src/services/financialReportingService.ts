@@ -13,12 +13,27 @@ export interface OperationalRevenueSummary {
   };
 }
 
+export interface OperationalTransaction {
+  id: string;
+  folioId: string | null;
+  transactionType: 'payment' | 'refund';
+  amount: number;
+  method: string;
+  status: string;
+  externalReference: string | null;
+  createdAt: string;
+}
+
 type TransactionRow = {
+  id?: string | null;
+  folio_id?: string | null;
   transaction_type?: string | null;
   amount?: number | string | null;
   method?: string | null;
   payment_method?: string | null;
   status?: string | null;
+  external_reference?: string | null;
+  created_at?: string | null;
 };
 
 const toNumber = (value: number | string | null | undefined) => Number(value ?? 0);
@@ -78,4 +93,33 @@ export async function loadOperationalRevenueSummary(hotelId: string): Promise<Op
 
   summary.netReceived = Math.max(0, summary.grossPayments - summary.refunds);
   return summary;
+}
+
+export async function loadOperationalTransactions(hotelId: string): Promise<OperationalTransaction[]> {
+  if (!hotelId) throw new Error('HOTEL_REQUIRED');
+
+  const { data, error } = await supabase
+    .from('hotel_os_transactions')
+    .select('id,folio_id,transaction_type,amount,method,payment_method,status,external_reference,created_at')
+    .eq('hotel_id', hotelId)
+    .in('transaction_type', ['payment', 'refund'])
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+
+  return ((data ?? []) as TransactionRow[]).flatMap((row) => {
+    const transactionType = String(row.transaction_type ?? '').toLowerCase();
+    if (transactionType !== 'payment' && transactionType !== 'refund') return [];
+
+    return [{
+      id: String(row.id ?? ''),
+      folioId: row.folio_id ?? null,
+      transactionType,
+      amount: toNumber(row.amount),
+      method: normalizeMethod(row),
+      status: String(row.status ?? '').toLowerCase(),
+      externalReference: row.external_reference ?? null,
+      createdAt: String(row.created_at ?? ''),
+    }];
+  });
 }
