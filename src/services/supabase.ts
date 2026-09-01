@@ -885,7 +885,6 @@ export async function seedAllDataToSupabase(data: {
   rooms: Quarto[];
   guests: Hospede[];
   reservations: Reserva[];
-  payments: Pagamento[];
   blocks: BloqueioQuarto[];
   automations: AutomacaoMensagem[];
   users: Usuario[];
@@ -1031,19 +1030,7 @@ export async function seedAllDataToSupabase(data: {
       created_at: r.created_at || new Date().toISOString(),
     }));
 
-    // 6. pagamentos (Depende de reservas)
-    await exportTable('pagamentos', data.payments, (p) => ({
-      id: String(p.id),
-      reserva_id: String(p.reserva_id),
-      valor: Number(p.valor) || 0,
-      metodo: String(p.metodo),
-      status: p.status || 'aprovado',
-      codigo_transacao: p.codigo_transacao || '',
-      parcelas: Number(p.parcelas) || 1,
-      data_pagamento: p.data_pagamento || new Date().toISOString(),
-    }));
-
-    // 7. bloqueios (Depende de quartos)
+    // 6. bloqueios (Depende de quartos)
     await exportTable('bloqueios', data.blocks, (b) => ({
       id: String(b.id),
       quarto_id: String(b.quarto_id),

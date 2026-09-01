@@ -59,7 +59,6 @@ import {
   fetchReservationsFromSupabase,
   upsertReservationToSupabase,
   deleteReservationFromSupabase,
-  fetchPaymentsFromSupabase,
   fetchBlocksFromSupabase,
   upsertBlockToSupabase,
   deleteBlockFromSupabase,
@@ -420,7 +419,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         remoteRooms,
         remoteGuests,
         remoteRes,
-        remotePay,
         remoteBlocks,
         remoteAuto,
         remoteUsers,
@@ -431,7 +429,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         fetchRoomsFromSupabase(),
         fetchGuestsFromSupabase(),
         fetchReservationsFromSupabase(),
-        fetchPaymentsFromSupabase(),
         fetchBlocksFromSupabase(),
         fetchAutomationsFromSupabase(),
         fetchUsersFromSupabase(),
@@ -445,7 +442,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (remoteRooms && remoteRooms.length > 0) { setRooms(remoteRooms); syncCount += remoteRooms.length; }
       if (remoteGuests && remoteGuests.length > 0) { setGuests(remoteGuests); syncCount += remoteGuests.length; }
       if (remoteRes && remoteRes.length > 0) { setReservations(remoteRes); syncCount += remoteRes.length; }
-      if (remotePay && remotePay.length > 0) { setPayments(remotePay); syncCount += remotePay.length; }
       if (remoteBlocks && remoteBlocks.length > 0) { setBlocks(remoteBlocks); syncCount += remoteBlocks.length; }
       if (remoteAuto && remoteAuto.length > 0) { setAutomations(remoteAuto); syncCount += remoteAuto.length; }
       if (remoteUsers && remoteUsers.length > 0) { setUsers(remoteUsers); syncCount += remoteUsers.length; }
@@ -476,7 +472,6 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       rooms,
       guests,
       reservations,
-      payments,
       blocks,
       automations,
       users,
@@ -494,7 +489,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     return result;
-  }, [hotelConfig, roomTypes, rooms, guests, reservations, payments, blocks, automations, users, securityLogs]);
+  }, [hotelConfig, roomTypes, rooms, guests, reservations, blocks, automations, users, securityLogs]);
 
   // Inicialização no Mount: testa Supabase e tenta sincronizar
   useEffect(() => {

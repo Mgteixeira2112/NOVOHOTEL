@@ -63,7 +63,6 @@ export const SettingsModule: React.FC = () => {
     rooms,
     reservations,
     guests,
-    payments,
     blocks,
     automations,
     roomTypes
@@ -156,7 +155,6 @@ export const SettingsModule: React.FC = () => {
     { key: 'quartos', label: 'Acomodações / Quartos', localCount: rooms.length },
     { key: 'hospedes', label: 'Cadastro de Hóspedes (CRM)', localCount: guests.length },
     { key: 'reservas', label: 'Reservas do Sistema', localCount: reservations.length },
-    { key: 'pagamentos', label: 'Transações de Pagamento', localCount: payments.length },
     { key: 'bloqueios', label: 'Bloqueios & Manutenções', localCount: blocks.length },
     { key: 'automacoes', label: 'Automações de Mensagens', localCount: automations.length },
     { key: 'usuarios', label: 'Usuários do Painel', localCount: users.length },
