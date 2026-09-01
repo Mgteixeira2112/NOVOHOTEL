@@ -1,0 +1,22 @@
+name: Temporary PR117 test diagnosis
+on:
+  push:
+    branches:
+      - audit/pr117-test-failure
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: Reproduce tests and print failure signals
+        shell: bash
+        run: |
+          set +e
+          bun run test 2>&1 | tee /tmp/test.log
+          status=${PIPESTATUS[0]}
+          echo '=== FAILURE SIGNALS ==='
+          grep -nE 'not ok|fail|FAIL|AssertionError|ERR_ASSERTION|Expected|actual|operator|tests/.*\.test' /tmp/test.log | tail -n 240 || true
+          echo "TEST_EXIT=$status"
+          exit "$status"
