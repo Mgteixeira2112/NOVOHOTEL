@@ -36,6 +36,7 @@ import { PaymentLinkModal } from './financial/PaymentLinkModal';
 import { ReceiptModal } from './financial/ReceiptModal';
 import { useAdministrativeFinanceUi } from './financial/useAdministrativeFinanceUi';
 import { useOperationalRevenueUi } from './financial/useOperationalRevenueUi';
+import { useOperationalTransactionsUi } from './financial/useOperationalTransactionsUi';
 
 export type FinancialSubTab =
   | 'overview'
@@ -46,7 +47,7 @@ export type FinancialSubTab =
   | 'transactions';
 
 export const FinancialModule: React.FC = () => {
-  const { payments, reservations, guests, hotelConfig, rooms } = useHotel();
+  const { reservations, hotelConfig, rooms } = useHotel();
   const {
     receivables,
     payables: expenses,
@@ -65,11 +66,16 @@ export const FinancialModule: React.FC = () => {
     loading: operationalRevenueLoading,
     error: operationalRevenueError,
   } = useOperationalRevenueUi();
+  const {
+    transactions: operationalTransactions,
+    loading: operationalTransactionsLoading,
+    error: operationalTransactionsError,
+  } = useOperationalTransactionsUi();
 
   const [activeTab, setActiveTab] = useState<FinancialSubTab>('overview');
 
   // PIX, gateways e links ainda permanecem no legado até seus contratos oficiais
-  // serem auditados em uma etapa própria. Contas e KPIs de receita já usam fontes oficiais.
+  // serem auditados em uma etapa própria. Contas, KPIs e extrato já usam fontes oficiais.
   const [pixKeys, setPixKeys] = useState<PixKeyConfig[]>(() => {
     try {
       const saved = localStorage.getItem('ITAJUBA_PMS_PIX_KEYS_V1');
@@ -295,6 +301,12 @@ export const FinancialModule: React.FC = () => {
         </div>
       )}
 
+      {!operationalTransactionsLoading && operationalTransactionsError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>Extrato operacional indisponível.</strong> {operationalTransactionsError}
+        </div>
+      )}
+
       <div className="bg-white p-2 rounded-2xl border border-stone-200 shadow-sm overflow-x-auto">
         <div className="flex items-center gap-1.5 min-w-max">
           {subTabsConfig.map((tab) => {
@@ -382,10 +394,7 @@ export const FinancialModule: React.FC = () => {
 
         {activeTab === 'transactions' && (
           <TransactionsAuditTab
-            payments={payments}
-            reservations={reservations}
-            guests={guests}
-            expenses={expenses}
+            transactions={operationalTransactions}
             onExportReport={handleExportReport}
           />
         )}
