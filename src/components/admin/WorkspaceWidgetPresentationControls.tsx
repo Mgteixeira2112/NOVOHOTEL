@@ -64,6 +64,9 @@ export const WorkspaceWidgetPresentationControls: React.FC<WorkspaceWidgetPresen
     const base: WorkspaceWidgetDevicePresentation = current.mode === 'auto' ? {} : current;
     onChange({ presentation: { ...presentation, [device]: { ...base, mode: 'custom', ...patch } } });
   };
+  const resetDevice = (device: 'mobile' | 'kds') => {
+    onChange({ presentation: { ...presentation, [device]: { mode: 'auto' } } });
+  };
 
   return <div className="space-y-3 border-t border-stone-100 pt-4" data-widget-presentation-controls>
     <div>
@@ -82,13 +85,20 @@ export const WorkspaceWidgetPresentationControls: React.FC<WorkspaceWidgetPresen
       <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">Personalizações por dispositivo</p>
       <div className="mt-2 grid xl:grid-cols-2 gap-3">
         {mobileMode === 'custom' && <div className="rounded-2xl border border-stone-200 bg-stone-50 p-3" data-widget-mobile-customization>
-          <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">CELULAR</p>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-wider text-stone-500">CELULAR</p>
+              <p className="mt-1 text-[9px] text-stone-400">Painel, resumo ou botão/popup com ordem e aparência próprias.</p>
+            </div>
+            <button type="button" onClick={() => resetDevice('mobile')} className="rounded-lg border border-stone-200 bg-white px-2 py-1 text-[9px] font-black text-stone-600 hover:border-stone-300" data-reset-mobile-presentation>Herdar configuração comum</button>
+          </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <label className={labelClass}>Exibição<select value={mobile.display || presentation.display || 'panel'} onChange={e => updateDevice('mobile', { display: e.target.value as WorkspaceWidgetDevicePresentation['display'] })} className={selectClass}><option value="panel">Painel</option><option value="summary">Resumo</option><option value="button">Botão / popup</option></select></label>
-            <label className={labelClass}>Ordem<input type="number" value={mobile.order ?? widget.order ?? 0} onChange={e => updateDevice('mobile', { order: Number(e.target.value) })} className={selectClass} /></label>
+            <label className={labelClass}>Ordem mobile<input type="number" value={mobile.order ?? widget.order ?? 0} onChange={e => updateDevice('mobile', { order: Number(e.target.value) })} className={selectClass} /></label>
             <label className={labelClass}>Altura<select value={mobile.height || presentation.height || 'auto'} onChange={e => updateDevice('mobile', { height: e.target.value as WorkspaceWidgetHeight })} className={selectClass}>{heightOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             <label className={labelClass}>Visual<select value={mobile.visual || presentation.visual || 'standard'} onChange={e => updateDevice('mobile', { visual: e.target.value as WorkspaceWidgetVisualStyle })} className={selectClass}>{visualOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-            <label className="col-span-2 flex items-center gap-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={mobile.hidden === true} onChange={e => updateDevice('mobile', { hidden: e.target.checked })} /> Ocultar no celular</label>
+            <label className={labelClass}>Cabeçalho<select value={mobile.header || presentation.header || 'full'} onChange={e => updateDevice('mobile', { header: e.target.value as WorkspaceWidgetHeaderStyle })} className={selectClass}>{headerOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label className="flex items-end gap-2 pb-2 text-[10px] font-bold text-stone-600"><input type="checkbox" checked={mobile.hidden === true} onChange={e => updateDevice('mobile', { hidden: e.target.checked })} /> Ocultar no celular</label>
           </div>
         </div>}
 
