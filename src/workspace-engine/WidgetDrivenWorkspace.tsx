@@ -4,7 +4,8 @@ import { ExternalLink, LogOut, X } from 'lucide-react';
 import { useHotel } from '../context/HotelContext';
 import { WorkspaceUserMenu } from '../components/navigation/WorkspaceUserMenu';
 import { getOperationalTodayStr } from '../utils/dateHelper';
-import { getWidgetKdsSuitability, normalizeWorkspaceWidgets } from './widgetCatalog';
+import { getWidgetCatalogItem, getWidgetKdsSuitability, normalizeWorkspaceWidgets } from './widgetCatalog';
+import { canAccessResource } from '../core/permissions/permissionService';
 import { getWorkspaceDeviceMode, ResolvedWidgetPresentation, resolveWidgetPresentation } from './presentation';
 import { WorkspaceDefinition, WorkspaceViewport, WorkspaceWidgetDefinition, WorkspaceWidgetHeight, WorkspaceWidgetVisualStyle, WorkspaceWidgetWidth } from './types';
 import { getWorkspaceWidgetRenderer } from './widgetRuntimeRegistry';
@@ -88,7 +89,7 @@ export interface WidgetDrivenWorkspaceProps {
 }
 
 export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ definition, forcedViewport, previewMode = false }) => {
-  const { currentUser, hotelConfig, logout, supabaseStatus } = useHotel();
+  const { currentUser, hotelConfig, logout, supabaseStatus, rbacMatrix } = useHotel();
   const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
   const [detectedViewport, setDetectedViewport] = useState<WorkspaceViewport>(detectViewport);
   const [now, setNow] = useState(() => new Date());
@@ -107,6 +108,12 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
   const entries = normalizeWorkspaceWidgets(definition.widgets)
     .map(widget => ({ widget, presentation: resolveWidgetPresentation(definition, widget, viewport) }))
     .filter(({ widget, presentation }) => widget.enabled !== false && widget.permissions?.view !== false && !presentation.hidden)
+    .filter(({ widget }) => {
+      const requiredResource = getWidgetCatalogItem(widget.type)?.requiredRbacResource;
+      if (!requiredResource) return true;
+      const role = currentUser?.tipo_usuario;
+      return Boolean(role && canAccessResource(rbacMatrix, role, requiredResource));
+    })
     .filter(({ widget }) => viewport !== 'kds' || deviceMode !== 'auto' || getWidgetKdsSuitability(widget.type).suitability !== 'unsupported')
     .sort((a, b) => (a.presentation.order ?? a.widget.order ?? 0) - (b.presentation.order ?? b.widget.order ?? 0));
   const widgets = entries.map(entry => entry.widget);
