@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const bridge = readFileSync('src/components/auth/SupabaseAuthSessionBridge.tsx', 'utf8');
 const app = readFileSync('src/App.tsx', 'utf8');
+const context = readFileSync('src/context/HotelContext.tsx', 'utf8');
 const edge = readFileSync('supabase/functions/auth-migrate-user/index.ts', 'utf8');
 const rollout = readFileSync('supabase/migrations/20260829024000_auth_rollout_gate.sql', 'utf8');
 const verification = readFileSync('supabase/migrations/20260829025000_auth_frontend_verification_gate.sql', 'utf8');
@@ -25,8 +26,9 @@ test('logout local encerra também a sessão Supabase', () => {
 });
 
 test('navegador novo começa deslogado', () => {
-  assert.match(app, /LEGACY_AUTH_STORAGE_KEY/);
-  assert.match(app, /setItem\(LEGACY_AUTH_STORAGE_KEY, 'false'\)/);
+  assert.match(context, /useState<boolean>\(false\)/);
+  assert.doesNotMatch(context, /loadFromStorage\('is_authenticated'/);
+  assert.doesNotMatch(app, /LEGACY_AUTH_STORAGE_KEY/);
 });
 
 test('RLS exige cobertura, verificação de frontend e cutover explícito', () => {
