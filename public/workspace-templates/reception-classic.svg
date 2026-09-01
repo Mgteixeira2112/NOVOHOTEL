@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Template visual da Recepção</title>
+  <desc id="desc">Fundo decorativo para composição de atalhos do Workspace de Recepção.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="0.55" stop-color="#fffaf2"/>
+      <stop offset="1" stop-color="#f1f5f9"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.82" cy="0.08" r="0.9">
+      <stop offset="0" stop-color="#f59e0b" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#glow)"/>
+  <path d="M240 0h2v900h-2z" fill="#0f172a" opacity="0.04"/>
+  <path d="M0 150h1600v2H0zM0 450h1600v2H0zM0 750h1600v2H0z" fill="#0f172a" opacity="0.025"/>
+  <circle cx="1450" cy="120" r="190" fill="#fff" opacity="0.35"/>
+  <circle cx="1360" cy="760" r="260" fill="#fff" opacity="0.3"/>
+  <g opacity="0.12" fill="#0f172a">
+    <rect x="310" y="120" width="180" height="18" rx="9"/>
+    <rect x="310" y="154" width="95" height="10" rx="5"/>
+  </g>
+  <g transform="translate(1310 120)" opacity="0.16" fill="none" stroke="#0f172a" stroke-width="8">
+    <path d="M0 100c0-55 45-100 100-100s100 45 100 100"/>
+    <path d="M20 100h160v80H20z"/>
+    <path d="M50 180v28m100-28v28"/>
+  </g>
+</svg>
