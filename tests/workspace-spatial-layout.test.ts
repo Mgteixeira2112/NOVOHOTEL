@@ -15,7 +15,7 @@ test('editor Desktop persiste e remove coordenadas sem alterar Mobile ou KDS', (
   assert.match(editor, /const \{ x: _x, y: _y, \.\.\.desktopWithoutPosition \} = current/);
   assert.match(editor, /data-workspace-spatial-editor/);
   assert.match(editor, /data-workspace-layout-move/);
-  assert.match(editor, /presentation\.desktop/);
+  assert.match(editor, /presentation\?\.desktop/);
   assert.doesNotMatch(editor, /presentation\.mobile[^\n]*x|presentation\.kds[^\n]*x/);
 });
 
