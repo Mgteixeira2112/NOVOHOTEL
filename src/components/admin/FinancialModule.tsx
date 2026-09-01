@@ -35,6 +35,7 @@ import { TransactionsAuditTab } from './financial/TransactionsAuditTab';
 import { PaymentLinkModal } from './financial/PaymentLinkModal';
 import { ReceiptModal } from './financial/ReceiptModal';
 import { useAdministrativeFinanceUi } from './financial/useAdministrativeFinanceUi';
+import { useOperationalRevenueUi } from './financial/useOperationalRevenueUi';
 
 export type FinancialSubTab =
   | 'overview'
@@ -56,12 +57,19 @@ export const FinancialModule: React.FC = () => {
     settleReceivable,
     settlePayable,
   } = useAdministrativeFinanceUi();
+  const {
+    grossPayments,
+    netReceived,
+    paymentCount,
+    byMethod,
+    loading: operationalRevenueLoading,
+    error: operationalRevenueError,
+  } = useOperationalRevenueUi();
 
   const [activeTab, setActiveTab] = useState<FinancialSubTab>('overview');
 
   // PIX, gateways e links ainda permanecem no legado até seus contratos oficiais
-  // serem auditados em uma etapa própria. Contas a pagar/receber não usam mais
-  // mock ou localStorage neste módulo.
+  // serem auditados em uma etapa própria. Contas e KPIs de receita já usam fontes oficiais.
   const [pixKeys, setPixKeys] = useState<PixKeyConfig[]>(() => {
     try {
       const saved = localStorage.getItem('ITAJUBA_PMS_PIX_KEYS_V1');
@@ -136,15 +144,11 @@ export const FinancialModule: React.FC = () => {
   const [receiptReceivable, setReceiptReceivable] = useState<ContaReceber | null>(null);
   const [receiptExpense, setReceiptExpense] = useState<DespesaOperacional | null>(null);
 
-  const approvedPayments = payments.filter((p) => p.status === 'aprovado');
-  const totalRevenue = approvedPayments.reduce((acc, p) => acc + p.valor, 0);
-
-  const pixRevenue = approvedPayments.filter((p) => p.metodo === 'pix').reduce((acc, p) => acc + p.valor, 0);
-  const cardCreditRevenue = approvedPayments.filter((p) => p.metodo === 'cartao_credito').reduce((acc, p) => acc + p.valor, 0);
-  const cardDebitRevenue = approvedPayments.filter((p) => p.metodo === 'cartao_debito').reduce((acc, p) => acc + p.valor, 0);
-  const otherRevenue = approvedPayments
-    .filter((p) => p.metodo !== 'pix' && p.metodo !== 'cartao_credito' && p.metodo !== 'cartao_debito')
-    .reduce((acc, p) => acc + p.valor, 0);
+  const totalRevenue = grossPayments;
+  const pixRevenue = byMethod.pix;
+  const cardCreditRevenue = byMethod.creditCard;
+  const cardDebitRevenue = byMethod.debitCard;
+  const otherRevenue = byMethod.other;
 
   const totalExpenses = expenses.reduce((acc, e) => acc + e.valor, 0);
   const paidExpenses = expenses.filter((e) => e.status === 'pago').reduce((acc, e) => acc + e.valor, 0);
@@ -160,7 +164,7 @@ export const FinancialModule: React.FC = () => {
     .reduce((acc, r) => acc + r.saldo_pendente, 0);
 
   const estimatedGatewayFees = cardCreditRevenue * 0.029 + cardDebitRevenue * 0.015;
-  const netRevenue = totalRevenue - estimatedGatewayFees;
+  const netRevenue = netReceived - estimatedGatewayFees;
   const operationalProfit = netRevenue - paidExpenses;
   const operationalMargin = totalRevenue > 0 ? (operationalProfit / totalRevenue) * 100 : 0;
 
@@ -171,7 +175,7 @@ export const FinancialModule: React.FC = () => {
   const occupancyRate = totalRoomsCount > 0 ? (occupiedRoomsCount / totalRoomsCount) * 100 : 75;
   const averageDailyRate = occupiedRoomsCount > 0 ? totalRevenue / occupiedRoomsCount : totalRevenue > 0 ? totalRevenue / 3 : 260;
   const revPar = (averageDailyRate * occupancyRate) / 100;
-  const averageTicket = approvedPayments.length > 0 ? totalRevenue / approvedPayments.length : 0;
+  const averageTicket = paymentCount > 0 ? totalRevenue / paymentCount : 0;
 
   const kpis: HotelFinancialKpis = {
     faturamento_bruto: totalRevenue,
@@ -187,7 +191,7 @@ export const FinancialModule: React.FC = () => {
     adr: averageDailyRate,
     taxa_ocupacao: occupancyRate,
     ticket_medio: averageTicket,
-    total_transacoes: approvedPayments.length,
+    total_transacoes: paymentCount,
     receita_pix: pixRevenue,
     receita_cartao_credito: cardCreditRevenue,
     receita_cartao_debito: cardDebitRevenue,
@@ -282,6 +286,12 @@ export const FinancialModule: React.FC = () => {
           {administrativeFinanceError
             ? administrativeFinanceError
             : `Fontes oficiais ausentes: ${missingSources.join(', ') || 'não identificadas'}.`}
+        </div>
+      )}
+
+      {!operationalRevenueLoading && operationalRevenueError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong>Receita operacional indisponível.</strong> {operationalRevenueError}
         </div>
       )}
 
