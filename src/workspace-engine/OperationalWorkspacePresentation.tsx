@@ -73,11 +73,18 @@ const defaultHeight = (widget: WorkspaceWidgetDefinition): WorkspaceWidgetHeight
 const defaultVisual = (widget: WorkspaceWidgetDefinition): WorkspaceWidgetVisualStyle =>
   widget.type === 'alerts' ? 'highlight' : 'standard';
 
+/**
+ * Remove a herança visual antiga dos Workspaces operacionais sem tocar na
+ * composição, filtros, ações, permissões ou fontes de dados. O objetivo desta
+ * camada é garantir que definições antigas salvas no banco também recebam o
+ * novo shell visual; anteriormente os valores legados sobrescreviam o premium.
+ */
 const withPremiumPresentation = (definition: WorkspaceDefinition): WorkspaceDefinition => ({
   ...definition,
   presentation: {
     ...definition.presentation,
     header: {
+      ...definition.presentation?.header,
       showHotel: true,
       showWorkspace: true,
       showDate: true,
@@ -87,48 +94,52 @@ const withPremiumPresentation = (definition: WorkspaceDefinition): WorkspaceDefi
       showOperationalDate: true,
       hourFormat: '24h',
       timezone: 'America/Sao_Paulo',
-      ...definition.presentation?.header,
     },
     surface: {
+      ...definition.presentation?.surface,
       backgroundPreset: resolveBackgroundPreset(definition),
       backgroundFit: 'cover',
       backgroundPosition: 'center',
-      overlayOpacity: 0.16,
-      minHeight: 820,
-      ...definition.presentation?.surface,
+      overlayOpacity: 0.18,
+      minHeight: Math.max(900, definition.presentation?.surface?.minHeight || 0),
     },
     sidebar: {
+      ...definition.presentation?.sidebar,
       enabled: true,
       x: 2,
-      y: 110,
-      width: 250,
+      y: 104,
+      width: 260,
       itemSize: 'normal',
       visual: 'glass',
-      ...definition.presentation?.sidebar,
     },
     kds: {
+      ...definition.presentation?.kds,
       enabled: true,
-      orientation: 'landscape',
-      density: 'normal',
-      viewingDistance: 'medium',
+      orientation: definition.presentation?.kds?.orientation || 'landscape',
+      density: definition.presentation?.kds?.density || 'normal',
+      viewingDistance: definition.presentation?.kds?.viewingDistance || 'medium',
       realtime: true,
       hideAdministrativeControls: true,
       hideEditingControls: true,
-      ...definition.presentation?.kds,
     },
   },
   widgets: definition.widgets.map(widget => ({
     ...widget,
     presentation: {
+      ...widget.presentation,
       display: SHORTCUT_WIDGETS.has(widget.type) ? 'button' : 'panel',
       width: defaultWidth(widget),
       height: defaultHeight(widget),
       visual: defaultVisual(widget),
       header: 'compact',
-      ...widget.presentation,
       desktop: {
-        mode: 'auto',
         ...widget.presentation?.desktop,
+        mode: 'auto',
+        display: SHORTCUT_WIDGETS.has(widget.type) ? 'button' : 'panel',
+        width: defaultWidth(widget),
+        height: defaultHeight(widget),
+        visual: defaultVisual(widget),
+        header: 'compact',
       },
       mobile: {
         mode: 'auto',
@@ -143,11 +154,10 @@ const withPremiumPresentation = (definition: WorkspaceDefinition): WorkspaceDefi
 });
 
 /**
- * Camada visual padrão dos Workspaces operacionais.
+ * Camada visual premium dos Workspaces operacionais.
  *
- * Não cria engines, fontes de dados ou permissões. Ela apenas completa valores
- * de apresentação ausentes e preserva qualquer configuração já salva pela
- * Fábrica de Workspaces.
+ * Não cria engines, fontes de dados ou permissões. A composição continua vindo
+ * da Fábrica; esta camada apenas elimina o shell visual legado no runtime.
  */
 export const OperationalWorkspacePresentation: React.FC<{ definition: WorkspaceDefinition }> = ({ definition }) => {
   const resolvedDefinition = useMemo(() => withPremiumPresentation(definition), [definition]);
