@@ -6,18 +6,19 @@ const runtime = readFileSync('src/workspace-engine/WidgetDrivenWorkspace.tsx', '
 
 test('runtime Desktop separa widgets livres do fluxo automático', () => {
   assert.match(runtime, /desktopSpatialEntries = viewport === 'desktop'/);
-  assert.match(runtime, /entries\.filter\(\(\{ widget \}\) => hasDesktopSpatialPosition\(widget\)\)/);
+  assert.match(runtime, /!isDesktopSidebarEntry\(presentation\) && hasDesktopSpatialPosition\(widget\)/);
   assert.match(runtime, /desktopFlowEntries = viewport === 'desktop'/);
-  assert.match(runtime, /entries\.filter\(\(\{ widget \}\) => !hasDesktopSpatialPosition\(widget\)\)/);
+  assert.match(runtime, /!isDesktopSidebarEntry\(presentation\) && !hasDesktopSpatialPosition\(widget\)/);
   assert.match(runtime, /desktopFlowEntries\.forEach\(entry =>/);
   assert.match(runtime, /renderDesktopSurface\(\)/);
 });
 
-test('superfície visual só é ativada quando há posição espacial Desktop', () => {
+test('superfície visual continua ativada por posição espacial Desktop e pode ser compartilhada pela sidebar', () => {
   assert.match(runtime, /desktopSpatialActive = viewport === 'desktop' && desktopSpatialEntries\.length > 0/);
+  assert.match(runtime, /desktopVisualSurfaceActive = desktopSpatialActive \|\| desktopSidebarActive/);
   assert.match(runtime, /workspaceSurfaceStyle\(definition\.presentation\?\.surface\)/);
   assert.match(runtime, /desktopSpatialMinHeight/);
-  assert.match(runtime, /style=\{desktopSpatialSurfaceStyle\}/);
+  assert.match(runtime, /style=\{desktopVisualSurfaceStyle\}/);
   assert.match(runtime, /data-workspace-spatial-runtime=\{desktopSpatialActive \? 'true' : undefined\}/);
 });
 
