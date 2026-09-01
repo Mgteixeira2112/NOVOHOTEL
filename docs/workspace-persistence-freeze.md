@@ -1,23 +1,25 @@
 # Freeze de persistência da Fábrica de Workspaces
 
-Esta baseline certifica somente o caminho persistente já aprovado para a Fábrica de Workspaces, sem criar nova fonte de verdade, schema ou engine.
+Esta baseline certifica o caminho de persistência já existente e aprovado para a Fábrica de Workspaces, sem alterar schema, engines operacionais ou fontes de dados.
 
 ## Comportamento certificado
 
-- `workspace_engine_configs` no Supabase permanece a única fonte persistente das definições de Workspace.
-- O navegador mantém apenas cache efêmero em memória durante a sessão; `localStorage` e `sessionStorage` não persistem definições da Fábrica.
-- A hidratação do runtime parte do Supabase e substitui integralmente o snapshot em memória confirmado para o hotel atual.
-- Uma alteração salva só entra no cache do runtime e dispara o evento de atualização depois de `upsert` bem-sucedido.
-- Reset só remove o snapshot em memória e atualiza o runtime depois de exclusão bem-sucedida no Supabase.
-- Nenhuma engine operacional, matriz RBAC, regra financeira ou fonte financeira é alterada por esta etapa.
+- `workspace_engine_configs` no Supabase permanece a persistência remota das definições de Workspace.
+- O `localStorage` mantém o snapshot local necessário para leitura síncrona do runtime e continuidade da composição visual entre recargas.
+- `PENDING_SYNC_KEY` identifica Workspaces com alteração local ainda não confirmada pelo Supabase.
+- Durante a hidratação, uma composição local marcada como pendente prevalece temporariamente sobre a cópia remota conhecida, evitando que um F5 ressuscite widgets removidos antes da confirmação.
+- O salvamento normaliza a definição, grava o snapshot local, marca a sincronização como pendente e executa `upsert` em `workspace_engine_configs`.
+- A sincronização só é considerada concluída depois de reler a definição no Supabase e confirmar equivalência com `workspaceDefinitionsEqual`; divergência permanece como falha de persistência.
+- O reset só remove a configuração local depois de a exclusão no Supabase ser confirmada.
+- Nenhuma engine operacional, matriz RBAC, regra financeira ou fonte financeira é alterada por esta certificação.
 
-## Fora de escopo até o encerramento
+## Guardrails preservados
 
-- novo schema ou migration;
-- persistência paralela no navegador;
-- nova fonte financeira;
-- alterações em reservas, recepção, governança, manutenção, Kanban ou financeiro;
-- novos widgets ou funcionalidades visuais;
-- refatoração ampla.
+- não criar novo schema ou migration;
+- não criar uma segunda fonte remota de configuração;
+- não alterar reservas, recepção, governança, manutenção, Kanban ou financeiro;
+- não introduzir novas fontes financeiras;
+- não adicionar widgets ou funcionalidades visuais nesta etapa;
+- não ampliar o escopo para refatorações arquiteturais.
 
-Após CI verde e merge, a persistência da Fábrica fica congelada nesta baseline e o roteiro segue somente para testes finais, homologação e encerramento.
+Após CI verde e merge, este contrato de persistência fica congelado como baseline para testes finais, homologação e encerramento.
