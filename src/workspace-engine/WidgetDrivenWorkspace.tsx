@@ -9,6 +9,8 @@ import { canAccessResource } from '../core/permissions/permissionService';
 import { getWorkspaceDeviceMode, ResolvedWidgetPresentation, resolveWidgetPresentation } from './presentation';
 import { WorkspaceDefinition, WorkspaceViewport, WorkspaceWidgetDefinition, WorkspaceWidgetHeight, WorkspaceWidgetVisualStyle, WorkspaceWidgetWidth } from './types';
 import { getWorkspaceWidgetRenderer } from './widgetRuntimeRegistry';
+import { desktopSpatialMinHeight, desktopSpatialStyle, hasDesktopSpatialPosition } from './workspaceSpatialRuntime';
+import { workspaceSurfaceStyle } from './workspaceVisualPresets';
 
 const kdsSpanClass = (width: WorkspaceWidgetWidth, orientation: 'landscape' | 'portrait') => {
   if (orientation === 'portrait') {
@@ -157,9 +159,26 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
 
   const openWidgetPanel = (widgetId: string) => { if (!previewMode) setOpenWidgetId(widgetId); };
 
+  const desktopSpatialEntries = viewport === 'desktop'
+    ? entries.filter(({ widget }) => hasDesktopSpatialPosition(widget))
+    : [];
+  const desktopFlowEntries = viewport === 'desktop'
+    ? entries.filter(({ widget }) => !hasDesktopSpatialPosition(widget))
+    : entries;
+  const desktopSpatialActive = viewport === 'desktop' && desktopSpatialEntries.length > 0;
+  const desktopSpatialSurfaceStyle = desktopSpatialActive
+    ? {
+        ...workspaceSurfaceStyle(definition.presentation?.surface),
+        minHeight: `${desktopSpatialMinHeight(
+          desktopSpatialEntries.map(({ widget }) => widget),
+          definition.presentation?.surface?.minHeight || 720,
+        )}px`,
+      }
+    : undefined;
+
   const desktopSegments: Array<{ kind: 'panels' | 'buttons'; items: typeof entries }> = [];
   if (viewport === 'desktop') {
-    entries.forEach(entry => {
+    desktopFlowEntries.forEach(entry => {
       const kind = entry.presentation.display === 'button' ? 'buttons' : 'panels';
       const previous = desktopSegments[desktopSegments.length - 1];
       if (previous?.kind === kind) previous.items.push(entry);
@@ -215,7 +234,35 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     </MasonryCell>;
   };
 
-  return <div className={`${kdsShellClass} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`} data-workspace-runtime="widget-driven" data-workspace-id={definition.id} data-workspace-viewport={viewport} data-workspace-device-mode={deviceMode} data-workspace-preview={previewMode ? 'true' : undefined} data-kds-orientation={isKds ? kdsOrientation : undefined} data-kds-density={isKds ? kdsDensity : undefined} data-kds-viewing-distance={isKds ? kdsDistance : undefined} data-kds-fullscreen={isKds ? String(kds?.fullscreen === true) : undefined} data-kds-realtime={isKds ? String(realtimeEnabled) : undefined} data-kds-admin-controls-hidden={isKds ? String(!showAdministrativeControls) : undefined} data-kds-editing-controls-hidden={isKds ? String(!showEditingControls) : undefined}>
+  const renderDesktopSpatialWidgets = () => desktopSpatialEntries.map(({ widget, presentation }) => <div
+    key={widget.id}
+    className="z-20 min-w-0 p-2"
+    style={desktopSpatialStyle(widget, presentation.width)}
+    data-desktop-spatial-widget={widget.id}
+    data-desktop-spatial-x={widget.presentation?.desktop?.x}
+    data-desktop-spatial-y={widget.presentation?.desktop?.y}
+  >
+    {renderWidget(widget, presentation)}
+  </div>);
+
+  return <div
+    className={`${kdsShellClass} ${desktopSpatialActive ? 'relative' : ''} text-slate-950 ${isKds ? `bg-slate-950 text-white ${kdsDistanceClass}` : 'bg-slate-100'}`}
+    style={desktopSpatialSurfaceStyle}
+    data-workspace-runtime="widget-driven"
+    data-workspace-id={definition.id}
+    data-workspace-viewport={viewport}
+    data-workspace-device-mode={deviceMode}
+    data-workspace-preview={previewMode ? 'true' : undefined}
+    data-workspace-spatial-runtime={desktopSpatialActive ? 'true' : undefined}
+    data-workspace-background-preset={desktopSpatialActive ? definition.presentation?.surface?.backgroundPreset || 'none' : undefined}
+    data-kds-orientation={isKds ? kdsOrientation : undefined}
+    data-kds-density={isKds ? kdsDensity : undefined}
+    data-kds-viewing-distance={isKds ? kdsDistance : undefined}
+    data-kds-fullscreen={isKds ? String(kds?.fullscreen === true) : undefined}
+    data-kds-realtime={isKds ? String(realtimeEnabled) : undefined}
+    data-kds-admin-controls-hidden={isKds ? String(!showAdministrativeControls) : undefined}
+    data-kds-editing-controls-hidden={isKds ? String(!showEditingControls) : undefined}
+  >
     <header className={`sticky top-0 z-30 border-b ${isKds ? 'border-slate-800 bg-slate-950/95' : 'border-slate-200 bg-white/95'} backdrop-blur`}>
       <div className={`mx-auto flex max-w-[1800px] items-center justify-between gap-4 ${isKds && kdsDensity === 'large' ? 'px-8 py-5' : 'px-4 py-3 sm:px-6'}`}>
         <div className="min-w-0">
@@ -237,7 +284,7 @@ export const WidgetDrivenWorkspace: React.FC<WidgetDrivenWorkspaceProps> = ({ de
     </header>
     {isKdsDisabled ? <main className="mx-auto grid min-h-[50vh] max-w-[1800px] place-items-center p-8"><div className="max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center"><p className="text-xs font-black uppercase tracking-wider text-amber-300">KDS / TV</p><h2 className="mt-2 text-2xl font-black text-white">Apresentação desativada</h2><p className="mt-2 text-sm text-slate-300">Ative ou personalize o KDS na Fábrica de Workspaces.</p></div></main> : <main className={`mx-auto max-w-[1800px] ${viewport === 'mobile' ? 'flex flex-col gap-4 p-4' : isKds ? `${kdsGridClass} ${kdsDensityClass}` : 'grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-4 md:auto-rows-[8px] md:[grid-auto-flow:dense] xl:grid-cols-12'}`}>
       {viewport === 'desktop'
-        ? renderDesktopSurface()
+        ? <>{renderDesktopSurface()}{renderDesktopSpatialWidgets()}</>
         : entries.map(({ widget, presentation }) => <div key={widget.id} className={isKds ? kdsSpanClass(presentation.width, kdsOrientation) : ''}>{renderWidget(widget, presentation)}</div>)}
     </main>}
     {openWidget && !previewMode && typeof document !== 'undefined' && createPortal(<div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/55 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-label={openWidget.title || openWidget.type} onMouseDown={event => { if (event.target === event.currentTarget) setOpenWidgetId(null); }}><div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[1600px] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 shadow-2xl sm:max-h-[calc(100dvh-3rem)]"><div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 sm:px-5"><div><p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Widget</p><h2 className="text-sm font-black text-slate-900">{openWidget.title || openWidget.type}</h2></div><button type="button" onClick={() => setOpenWidgetId(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600" aria-label="Fechar widget"><X className="h-4 w-4" /></button></div><div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-5">{OpenRenderer ? <OpenRenderer workspace={definition} widget={openWidget} /> : null}</div></div></div>, document.body)}
