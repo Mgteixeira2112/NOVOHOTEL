@@ -20,6 +20,7 @@ import {
 import { useHotel } from '../../context/HotelContext';
 import { KanbanV2Card, KanbanV2Column } from '../../services/kanbanV2';
 import { Hospede, Quarto, Reserva } from '../../types';
+import { buildCanonicalReceptionRoomRows } from './receptionRoomViewModel';
 
 interface ReceptionRoomsKanbanProps {
   columns: KanbanV2Column[];
@@ -93,23 +94,6 @@ const STATUS_THEME: Record<string, StatusTheme> = {
   },
 };
 
-function roomId(card: KanbanV2Card) {
-  const metadata = card.metadata && typeof card.metadata === 'object' ? card.metadata as Record<string, unknown> : {};
-  return typeof metadata.room_id === 'string' ? metadata.room_id : '';
-}
-
-function linkedReservation(room: Quarto, reservations: Reserva[]) {
-  const candidates = reservations.filter(reservation =>
-    reservation.quarto_id === room.id && ['checkin_realizado', 'confirmada', 'pendente'].includes(reservation.status),
-  );
-  return candidates.sort((a, b) => {
-    const priority = (status: string) => status === 'checkin_realizado' ? 0 : status === 'confirmada' ? 1 : 2;
-    const diff = priority(a.status) - priority(b.status);
-    if (diff) return diff;
-    return String(a.data_checkin || a.checkin || '').localeCompare(String(b.data_checkin || b.checkin || ''));
-  })[0] || null;
-}
-
 function parseDate(value?: string) {
   if (!value) return null;
   const date = new Date(value);
@@ -169,19 +153,10 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const cardsWithRooms = useMemo(
-    () => cards.filter(card => rooms.some(room => room.id === roomId(card) || String(room.numero) === String(card.room_number))),
-    [cards, rooms],
+  const roomRows = useMemo(
+    () => buildCanonicalReceptionRoomRows(rooms, cards, reservations, guests, columns),
+    [rooms, cards, reservations, guests, columns],
   );
-
-  const roomRows = useMemo(() => rooms.map(room => {
-    const card = cardsWithRooms.find(item => roomId(item) === room.id || String(item.room_number) === String(room.numero));
-    if (!card) return null;
-    const reservation = linkedReservation(room, reservations);
-    const guest = reservation ? guests.find(item => item.id === reservation.hospede_id) : null;
-    const column = columns.find(item => item.id === card.column_id);
-    return { room, card, reservation, guest, column };
-  }).filter(Boolean) as Array<{ room: Quarto; card: KanbanV2Card; reservation: Reserva | null; guest: Hospede | undefined; column: KanbanV2Column | undefined }>, [rooms, cardsWithRooms, reservations, guests, columns]);
 
   const visibleRows = useMemo(() => {
     const q = query.trim().toLocaleLowerCase('pt-BR');
@@ -310,7 +285,7 @@ export const ReceptionRoomsKanban: React.FC<ReceptionRoomsKanbanProps> = ({
           const reservationBusy = stayActionId === reservation?.id || stayActionId === `room:${room.id}`;
           const stay = stayInfo(reservation);
           const roomType = roomTypes.find(type => type.id === room.tipo_quarto_id);
-          const availableDestinations = rooms.filter(item => item.id !== room.id && String(item.status).toLowerCase() === 'disponivel' && !linkedReservation(item, reservations));
+          const availableDestinations = rooms.filter(item => item.id !== room.id && String(item.status).toLowerCase() === 'disponivel' && !roomRows.some(row => row.room.id === item.id && !!row.reservation));
           const canChangeOperationalStatus = !statusChangeAllowedRoomIds || statusChangeAllowedRoomIds.includes(room.id);
 
           return <aside className="border-t border-slate-200 bg-white p-4 xl:border-l xl:border-t-0">
