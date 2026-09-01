@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Image, PanelLeft, Plus, Trash2 } from 'lucide-react';
+import { ExternalLink, Image, PanelLeft, Plus, Trash2 } from 'lucide-react';
 import { WorkspaceShortcutSummary } from '../../workspace-engine/WorkspaceShortcutSummary';
+import { WorkspaceWidgetHost } from '../../workspace-engine/WorkspaceWidgetHost';
 import { WorkspaceDefinition, WorkspaceViewport } from '../../workspace-engine/types';
 import {
   getWorkspaceVisualSurface,
@@ -36,6 +37,7 @@ const viewportRatios: Record<WorkspaceViewport, number> = {
 export const WorkspaceVisualCanvasEditor: React.FC<WorkspaceVisualCanvasEditorProps> = ({ definition, viewport, onChange }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
   const [backgroundDraft, setBackgroundDraft] = useState('');
   const surface = getWorkspaceVisualSurface(definition.visualPresentation, viewport);
   const activeWidgets = useMemo(() => definition.widgets.filter(widget => widget.enabled !== false), [definition.widgets]);
@@ -44,6 +46,7 @@ export const WorkspaceVisualCanvasEditor: React.FC<WorkspaceVisualCanvasEditorPr
     ...surface.shortcuts.map(shortcut => shortcut.widgetId),
   ]), [surface]);
   const availableWidgets = activeWidgets.filter(widget => !placedIds.has(widget.id));
+  const openWidget = definition.widgets.find(widget => widget.id === openWidgetId) || null;
 
   const persistSurface = (next: WorkspaceVisualSurface) => {
     onChange({ visualPresentation: setWorkspaceVisualSurface(definition.visualPresentation, next) });
@@ -176,7 +179,10 @@ export const WorkspaceVisualCanvasEditor: React.FC<WorkspaceVisualCanvasEditorPr
               {surface.sidebar.widgetIds.map(widgetId => {
                 const widget = definition.widgets.find(item => item.id === widgetId);
                 if (!widget) return null;
-                return <button key={widgetId} type="button" onClick={() => persistSurface(removeWidgetFromVisualSurface(surface, widgetId))} title="Remover do menu" className="block w-full truncate rounded-lg bg-white/10 px-2 py-2 text-left text-[9px] font-bold hover:bg-white/20">{widget.title || widget.type}</button>;
+                return <div key={widgetId} className="flex items-center gap-1 rounded-lg bg-white/10 p-1">
+                  <button type="button" onClick={() => setOpenWidgetId(widgetId)} className="min-w-0 flex-1 truncate rounded-md px-1 py-1.5 text-left text-[9px] font-bold hover:bg-white/10" aria-haspopup="dialog">{widget.title || widget.type}</button>
+                  <button type="button" onClick={() => persistSurface(removeWidgetFromVisualSurface(surface, widgetId))} title="Remover do menu" className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-white/55 hover:bg-rose-500/20 hover:text-rose-200" aria-label={`Remover ${widget.title || widget.type} do menu`}><Trash2 className="h-3 w-3" /></button>
+                </div>;
               })}
               {surface.sidebar.widgetIds.length === 0 && <div className="rounded-lg border border-dashed border-white/20 p-2 text-[8px] text-white/50">Menu vazio</div>}
             </div>
@@ -201,14 +207,23 @@ export const WorkspaceVisualCanvasEditor: React.FC<WorkspaceVisualCanvasEditorPr
               <button type="button" onPointerDown={event => event.stopPropagation()} onClick={event => { event.stopPropagation(); persistSurface(removeWidgetFromVisualSurface(surface, shortcut.widgetId)); }} className={`absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-lg text-stone-400 hover:bg-rose-50 hover:text-rose-600 ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} aria-label="Remover atalho"><Trash2 className="h-3.5 w-3.5" /></button>
               {selected && <div className="absolute bottom-2 left-2 flex gap-1" onPointerDown={event => event.stopPropagation()}>
                 {(['s', 'm', 'l', 'xl'] as WorkspaceShortcutSize[]).map(size => <button key={size} type="button" onClick={() => updateShortcut(shortcut.id, { size })} className={`h-6 min-w-6 rounded-md px-1 text-[8px] font-black ${shortcut.size === size ? 'bg-stone-950 text-white' : 'border border-stone-200 bg-white text-stone-600'}`}>{sizeLabels[size]}</button>)}
+                <button type="button" onClick={() => setOpenWidgetId(shortcut.widgetId)} className="inline-flex h-6 items-center gap-1 rounded-md bg-amber-400 px-2 text-[8px] font-black text-stone-950" aria-haspopup="dialog"><ExternalLink className="h-3 w-3" />Abrir widget</button>
                 <button type="button" onClick={() => persistSurface(placeWidgetInSidebar(surface, shortcut.widgetId))} className="h-6 rounded-md border border-stone-200 bg-white px-2 text-[8px] font-black text-stone-600">Mover ao menu</button>
               </div>}
               <button type="button" onPointerDown={event => beginResize(event, shortcut.id)} className={`absolute bottom-1.5 right-1.5 h-5 w-5 cursor-se-resize rounded-md border border-stone-200 bg-white text-[9px] text-stone-500 shadow-sm ${selected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} aria-label="Redimensionar atalho">↘</button>
             </div>;
           })}
         </div>
-        <p className="mt-2 text-[9px] leading-relaxed text-stone-400">Os atalhos de Resumo, Chegadas, Saídas e Alertas já exibem dados vivos usando os mesmos seletores dos widgets completos. Os demais continuam como destinos do widget completo até receberem um adaptador de apresentação próprio.</p>
+        <p className="mt-2 text-[9px] leading-relaxed text-stone-400">Os atalhos usam dados vivos quando existe um adaptador de apresentação. Selecione um atalho e use “Abrir widget” — ou clique em uma entrada do menu — para testar o widget completo existente no host genérico.</p>
       </div>
     </div>
+
+    <WorkspaceWidgetHost
+      workspace={definition}
+      widget={openWidget}
+      open={Boolean(openWidget)}
+      onClose={() => setOpenWidgetId(null)}
+      mode={viewport === 'mobile' ? 'fullscreen' : 'modal'}
+    />
   </div>;
 };
