@@ -5,7 +5,6 @@ import {
   TipoQuarto,
   Hospede,
   Reserva,
-  Pagamento,
   BloqueioQuarto,
   AutomacaoMensagem,
   Usuario,
@@ -456,40 +455,6 @@ export async function upsertReservationToSupabase(reserva: Reserva): Promise<boo
 export async function deleteReservationFromSupabase(id: string): Promise<boolean> {
   try {
     const { error } = await supabase.from('reservas').delete().eq('id', id);
-    return !error;
-  } catch {
-    return false;
-  }
-}
-
-// ============================================================================
-// SERVIÇOS DE SINCRONIZAÇÃO - PAGAMENTOS
-// ============================================================================
-export async function fetchPaymentsFromSupabase(): Promise<Pagamento[] | null> {
-  try {
-    const { data, error } = await supabase
-      .from('pagamentos')
-      .select('*')
-      .order('data_pagamento', { ascending: false });
-    if (error || !data) return null;
-    return data as Pagamento[];
-  } catch {
-    return null;
-  }
-}
-
-export async function upsertPaymentToSupabase(pagamento: Pagamento): Promise<boolean> {
-  try {
-    const { error } = await supabase.from('pagamentos').upsert({
-      id: pagamento.id,
-      reserva_id: pagamento.reserva_id,
-      valor: Number(pagamento.valor) || 0,
-      metodo: pagamento.metodo,
-      status: pagamento.status || 'aprovado',
-      codigo_transacao: pagamento.codigo_transacao || '',
-      parcelas: Number(pagamento.parcelas) || 1,
-      data_pagamento: pagamento.data_pagamento || new Date().toISOString(),
-    });
     return !error;
   } catch {
     return false;
