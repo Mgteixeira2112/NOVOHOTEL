@@ -58,10 +58,10 @@ test('editor Desktop vive no preview e não fica duplicado na aparência geral',
   assert.match(editor, /Esta é a renderização real do Workspace/);
 });
 
-test('controles manuais de largura Desktop não competem com o editor visual', () => {
+test('configuração comum pode editar largura sem criar um segundo editor Desktop', () => {
   assert.doesNotMatch(widgetPresentation, /data-widget-desktop-customization/);
-  assert.doesNotMatch(widgetPresentation, />LARGURA<select/);
-  assert.match(widgetPresentation, /Ordem e largura Desktop são editadas no preview/);
+  assert.match(widgetPresentation, />LARGURA<select/);
+  assert.match(widgetPresentation, /Base visual compartilhada pelas estratégias/);
   assert.match(widgetPresentation, /data-widget-mobile-customization/);
   assert.match(widgetPresentation, /data-widget-kds-customization/);
 });
