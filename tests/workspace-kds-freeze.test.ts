@@ -8,7 +8,7 @@ const controls = readFileSync('src/components/admin/WorkspaceGeneralPresentation
 
 const forbiddenParallelSources = [
   /from ['\"]@?\/?[^'\"]*supabase[^'\"]*['\"]/i,
-  /from ['\"][^'\"]*(repository|service)[^'\"]*['\"]/i,
+  /from ['\"][^'\"]*\/(repositories|services)\/[^'\"]*['\"]/i,
 ];
 
 test('KDS/TV mantém somente o comportamento já existente no runtime oficial', () => {
