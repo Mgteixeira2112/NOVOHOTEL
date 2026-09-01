@@ -7,11 +7,11 @@ const presentation = readFileSync('src/workspace-engine/presentation.ts', 'utf8'
 
 test('Fábrica expõe o contrato visual comum completo do widget', () => {
   assert.match(controls, /Configuração comum/);
-  assert.match(controls, />EXIBIÇÃO</);
-  assert.match(controls, />LARGURA</);
-  assert.match(controls, />ALTURA</);
-  assert.match(controls, />VISUAL</);
-  assert.match(controls, />CABEÇALHO</);
+  assert.match(controls, />EXIBIÇÃO<select/);
+  assert.match(controls, />LARGURA<select/);
+  assert.match(controls, />ALTURA<select/);
+  assert.match(controls, />VISUAL<select/);
+  assert.match(controls, />CABEÇALHO<select/);
 });
 
 test('opções comuns seguem o vocabulário do Plano Mestre', () => {
