@@ -1,8 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { GripVertical, Maximize2, Move } from 'lucide-react';
 import { WidgetDrivenWorkspace } from '../../workspace-engine/WidgetDrivenWorkspace';
-import { legacySpanToWidth } from '../../workspace-engine/presentation';
-import { WorkspaceDefinition, WorkspaceWidgetWidth } from '../../workspace-engine/types';
+import { legacySpanToWidth, normalizeWidgetPresentation } from '../../workspace-engine/presentation';
+import {
+  WorkspaceDefinition,
+  WorkspaceWidgetDevicePresentation,
+  WorkspaceWidgetDisplay,
+  WorkspaceWidgetHeaderStyle,
+  WorkspaceWidgetHeight,
+  WorkspaceWidgetVisualStyle,
+  WorkspaceWidgetWidth,
+} from '../../workspace-engine/types';
 
 interface WorkspaceDesktopLayoutEditorProps {
   definition: WorkspaceDefinition;
@@ -25,17 +33,49 @@ const widthLabels: Record<WorkspaceWidgetWidth, string> = {
   full: '100%',
 };
 
+const fieldClass = 'mt-1 h-9 w-full rounded-xl border border-stone-200 bg-white px-2 text-xs text-stone-900';
+const labelClass = 'text-[10px] font-bold text-stone-600';
+
 export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditorProps> = ({ definition, onChange }) => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [overlayRects, setOverlayRects] = useState<WidgetOverlayRect[]>([]);
   const ordered = [...definition.widgets].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const selectedWidget = definition.widgets.find(widget => widget.id === selectedId);
+  const selectedBasePresentation = selectedWidget ? normalizeWidgetPresentation(selectedWidget) : null;
+  const selectedDesktop = selectedWidget?.presentation?.desktop?.mode === 'auto'
+    ? {}
+    : (selectedWidget?.presentation?.desktop || {});
+
+  const updateDesktopOverride = (widgetId: string, patch: Partial<WorkspaceWidgetDevicePresentation>) => {
+    onChange({
+      presentation: {
+        ...definition.presentation,
+        devices: { ...definition.presentation?.devices, desktop: 'custom' },
+      },
+      widgets: definition.widgets.map(widget => {
+        if (widget.id !== widgetId) return widget;
+        const current = widget.presentation?.desktop?.mode === 'auto' ? {} : (widget.presentation?.desktop || {});
+        return {
+          ...widget,
+          presentation: {
+            ...widget.presentation,
+            desktop: { ...current, mode: 'custom', ...patch },
+          },
+        };
+      }),
+    });
+  };
 
   const updateWidth = (widgetId: string, width: WorkspaceWidgetWidth) => {
+    updateDesktopOverride(widgetId, { width });
+  };
+
+  const clearDesktopOverride = (widgetId: string) => {
     onChange({
       widgets: definition.widgets.map(widget => widget.id === widgetId
-        ? { ...widget, presentation: { ...widget.presentation, width } }
+        ? { ...widget, presentation: { ...widget.presentation, desktop: { mode: 'auto' } } }
         : widget),
     });
   };
@@ -120,10 +160,27 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
     <div className="mb-3 flex flex-col gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div className="flex items-center gap-2"><Move className="h-4 w-4 text-amber-600" /><p className="text-xs font-black text-stone-900">Composição visual Desktop</p></div>
-        <p className="mt-1 text-[10px] text-stone-500">Esta é a renderização real do Workspace. Passe sobre um widget para mover ou redimensionar; conteúdo e comportamento permanecem bloqueados durante a edição.</p>
+        <p className="mt-1 text-[10px] text-stone-500">Esta é a renderização real do Workspace. Mova e redimensione os widgets; ao selecionar um item, personalize somente a apresentação Desktop sem alterar o contrato comum.</p>
       </div>
-      <span className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-stone-500">Runtime real · layout apenas</span>
+      <span className="rounded-full border border-stone-200 bg-white px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-stone-500">Runtime real · Desktop</span>
     </div>
+
+    {selectedWidget && selectedBasePresentation && <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50/40 p-3" data-workspace-desktop-presentation-inspector>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-wider text-amber-700">Override Desktop</p>
+          <p className="mt-0.5 text-xs font-black text-stone-900">{selectedWidget.title || selectedWidget.type}</p>
+        </div>
+        <button type="button" onClick={() => clearDesktopOverride(selectedWidget.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-[10px] font-bold text-stone-600 hover:border-amber-300">Herdar configuração comum</button>
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <label className={labelClass}>EXIBIÇÃO<select value={selectedDesktop.display || selectedBasePresentation.display || 'panel'} onChange={e => updateDesktopOverride(selectedWidget.id, { display: e.target.value as WorkspaceWidgetDisplay })} className={fieldClass}><option value="panel">Painel</option><option value="button">Botão / popup</option></select></label>
+        <label className={labelClass}>LARGURA<select value={selectedDesktop.width || selectedBasePresentation.width || 'full'} onChange={e => updateDesktopOverride(selectedWidget.id, { width: e.target.value as WorkspaceWidgetWidth })} className={fieldClass}>{widths.map(width => <option key={width} value={width}>{widthLabels[width]}</option>)}</select></label>
+        <label className={labelClass}>ALTURA<select value={selectedDesktop.height || selectedBasePresentation.height || 'auto'} onChange={e => updateDesktopOverride(selectedWidget.id, { height: e.target.value as WorkspaceWidgetHeight })} className={fieldClass}><option value="auto">Automática</option><option value="low">Baixa</option><option value="medium">Média</option><option value="high">Alta</option></select></label>
+        <label className={labelClass}>VISUAL<select value={selectedDesktop.visual || selectedBasePresentation.visual || 'standard'} onChange={e => updateDesktopOverride(selectedWidget.id, { visual: e.target.value as WorkspaceWidgetVisualStyle })} className={fieldClass}><option value="minimal">Minimalista</option><option value="standard">Padrão</option><option value="highlight">Destaque</option></select></label>
+        <label className={labelClass}>CABEÇALHO<select value={selectedDesktop.header || selectedBasePresentation.header || 'full'} onChange={e => updateDesktopOverride(selectedWidget.id, { header: e.target.value as WorkspaceWidgetHeaderStyle })} className={fieldClass}><option value="full">Completo</option><option value="compact">Compacto</option><option value="hidden">Oculto</option></select></label>
+      </div>
+    </div>}
 
     <div ref={canvasRef} className="relative overflow-hidden rounded-2xl border border-stone-300 bg-white" data-workspace-desktop-layout-canvas>
       <div className="pointer-events-none select-none" aria-hidden="true" data-workspace-layout-runtime>
@@ -134,7 +191,7 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
         {overlayRects.map(rect => {
           const widget = definition.widgets.find(item => item.id === rect.id);
           if (!widget || widget.enabled === false) return null;
-          const width = widget.presentation?.width || legacySpanToWidth(widget.span);
+          const width = widget.presentation?.desktop?.width || widget.presentation?.width || legacySpanToWidth(widget.span);
           const active = selectedId === widget.id || draggedId === widget.id;
           return <div
             key={widget.id}
@@ -182,6 +239,6 @@ export const WorkspaceDesktopLayoutEditor: React.FC<WorkspaceDesktopLayoutEditor
       </div>
     </div>
 
-    <p className="mt-2 text-[9px] leading-relaxed text-stone-400">O editor usa o mesmo compositor e os mesmos renderers do Workspace exibido. Somente ordem e largura são alteradas.</p>
+    <p className="mt-2 text-[9px] leading-relaxed text-stone-400">Ordem continua sendo da composição do Workspace. Largura, exibição, altura, visual e cabeçalho podem ser sobrescritos apenas no Desktop; remover o override restaura a configuração comum.</p>
   </div>;
 };

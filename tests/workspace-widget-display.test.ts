@@ -19,7 +19,8 @@ test('largura e modo de exibição são contratos independentes e span fica apen
   assert.match(desktopEditor, /WorkspaceWidgetWidth/);
   assert.match(desktopEditor, /const widths: WorkspaceWidgetWidth\[\] = \['small', 'medium', 'large', 'full'\]/);
   assert.match(desktopEditor, /updateWidth/);
-  assert.match(desktopEditor, /presentation: \{ \.\.\.widget\.presentation, width \}/);
+  assert.match(desktopEditor, /updateDesktopOverride\(widgetId, \{ width \}\)/);
+  assert.match(desktopEditor, /desktop: \{ \.\.\.current, mode: 'custom', \.\.\.patch \}/);
   assert.match(desktopEditor, /data-workspace-layout-resize/);
   assert.match(desktopEditor, /beginResize\(event, widget\.id, width\)/);
   assert.match(desktopEditor, /25%/);
