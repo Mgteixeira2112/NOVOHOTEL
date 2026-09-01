@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Eye, Monitor, Smartphone, Tablet, Tv, X } from 'lucide-react';
 import { WidgetDrivenWorkspace } from '../../workspace-engine/WidgetDrivenWorkspace';
 import { WorkspaceDefinition, WorkspaceViewport } from '../../workspace-engine/types';
+import { workspaceSurfaceStyle } from '../../workspace-engine/workspaceVisualPresets';
 import { WorkspaceDesktopLayoutEditor } from './WorkspaceDesktopLayoutEditor';
 
 interface WorkspacePreviewPanelProps {
@@ -28,6 +29,7 @@ export const WorkspacePreviewPanel: React.FC<WorkspacePreviewPanelProps> = ({ de
         : 'max-w-[1440px]';
   const runtimeViewport: WorkspaceViewport = viewport === 'tablet' ? 'desktop' : viewport;
   const editingDesktop = viewport === 'desktop';
+  const surfaceStyle = workspaceSurfaceStyle(definition.presentation?.surface);
 
   useEffect(() => {
     if (!open) return;
@@ -48,7 +50,7 @@ export const WorkspacePreviewPanel: React.FC<WorkspacePreviewPanelProps> = ({ de
         <div className="flex flex-col gap-3 border-b border-stone-200 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <h3 className="text-sm font-black text-stone-900">Editar / visualizar Workspace</h3>
-            <p className="mt-1 text-[10px] text-stone-500">No Desktop, arraste e redimensione os widgets diretamente aqui. Tablet, Celular e KDS permanecem como prévias não interativas.</p>
+            <p className="mt-1 text-[10px] text-stone-500">No Desktop, arraste e redimensione os widgets sobre a superfície escolhida. Tablet, Celular e KDS permanecem como prévias não interativas.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="inline-flex w-fit rounded-2xl border border-stone-200 bg-stone-50 p-1" role="group" aria-label="Dispositivo do preview">
@@ -58,7 +60,7 @@ export const WorkspacePreviewPanel: React.FC<WorkspacePreviewPanelProps> = ({ de
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-stone-100 p-3 sm:p-4" data-workspace-preview-viewport={viewport}>
-          <div className={`mx-auto min-w-0 overflow-hidden rounded-xl border border-stone-300 bg-white shadow-sm ${frameClass}`}>
+          <div className={`mx-auto min-w-0 overflow-hidden rounded-xl border border-stone-300 shadow-sm ${frameClass}`} style={editingDesktop ? surfaceStyle : undefined} data-workspace-preview-surface={definition.presentation?.surface?.backgroundPreset || 'none'}>
             {editingDesktop
               ? <div className="p-3 sm:p-4" data-workspace-preview-desktop-editor><WorkspaceDesktopLayoutEditor definition={definition} onChange={onChange} /></div>
               : <div className="pointer-events-none select-none" aria-hidden="true"><WidgetDrivenWorkspace definition={definition} forcedViewport={runtimeViewport} previewMode /></div>}
