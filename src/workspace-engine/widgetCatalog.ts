@@ -16,6 +16,7 @@ export interface WorkspaceWidgetCatalogItem {
   sectors?: OperationalSectorId[];
   readiness: WorkspaceWidgetReadiness;
   readinessNote?: string;
+  requiredRbacResource?: string;
   legacy?: boolean;
 }
 
@@ -24,7 +25,9 @@ const allSectors: OperationalSectorId[] = ['operacao', 'governanca', 'recepcao',
 const allWorkspaceWidgetCatalog: WorkspaceWidgetCatalogItem[] = [
   { type: 'metrics', label: 'Indicadores', description: 'Resumo de volumes e estados do fluxo operacional.', category: 'operacao', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', sectors: allSectors, readiness: 'ready' },
   { type: 'dashboard', label: 'Dashboard', description: 'Dashboard personalizado composto por métricas e visualizações do Dashboard Engine.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'dashboard', sectors: allSectors, readiness: 'ready', readinessNote: 'A composição interna é persistida no Supabase pelo Dashboard Engine.' },
-  { type: 'stay-finance', label: 'Financeiro da hospedagem', description: 'Folio, lançamentos, pagamentos, saldo e estornos da hospedagem ativa via Financial Engine.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'finance', sectors: ['recepcao'], readiness: 'ready', readinessNote: 'Opera somente sobre Folio oficial da hospedagem e não mantém fonte financeira local.' },
+  { type: 'stay-finance', label: 'Financeiro da hospedagem', description: 'Folio, lançamentos, pagamentos, saldo e estornos da hospedagem ativa via Financial Engine.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'finance', sectors: ['recepcao'], readiness: 'ready', readinessNote: 'Opera somente sobre Folio oficial da hospedagem e não mantém fonte financeira local.', requiredRbacResource: 'frontdesk' },
+  { type: 'financial-summary', label: 'Resumo Financeiro', description: 'Recebimentos, estornos, líquido e composição por método a partir do ledger operacional canônico.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'finance', readiness: 'ready', readinessNote: 'Leitura exclusiva da projeção oficial de hotel_os_transactions.', requiredRbacResource: 'financial' },
+  { type: 'financial-transactions', label: 'Transações Financeiras', description: 'Extrato operacional de pagamentos e estornos vinculados ao Folio e ao ledger canônico.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'finance', readiness: 'ready', readinessNote: 'Leitura exclusiva de hotel_os_transactions; não cria fonte financeira local.', requiredRbacResource: 'financial' },
   { type: 'frigobar', label: 'Frigobar', description: 'Estoque do frigobar por quarto, consumo com cobrança no Folio e reposição sem cobrança.', category: 'operacao', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'frigobar', sectors: ['operacao', 'recepcao', 'governanca'], readiness: 'ready', readinessNote: 'Usa exclusivamente o Frigobar Core; consumo é transacional com Inventory Core e Financial Engine.' },
   { type: 'task-kanban', label: 'Kanban de tarefas', description: 'Quadro operacional de tarefas vinculado a um board, consumindo o motor Kanban sem alterá-lo.', category: 'operacao', requiresBoard: true, defaultSpan: 'full', defaultDataSource: 'kanban', sectors: allSectors, readiness: 'ready' },
   { type: 'room-map', label: 'Mapa de quartos', description: 'Cards permanentes dos quartos, status operacional, hóspede e reserva associada.', category: 'dados', requiresBoard: false, defaultSpan: 'full', defaultDataSource: 'composite', sectors: ['recepcao', 'governanca', 'manutencao'], readiness: 'configurable', readinessNote: 'Disponível nos setores que operam diretamente o ciclo do quarto.' },
@@ -71,6 +74,8 @@ export const getWidgetAvailability = (type: WorkspaceWidgetType, sector: Operati
 
 const kdsSuitability: Partial<Record<WorkspaceWidgetType, { suitability: WorkspaceWidgetKdsSuitability; reason: string }>> = {
   'stay-finance': { suitability: 'limited', reason: 'Fluxos financeiros detalhados exigem interação próxima; prefira resumo ou ocultação no KDS.' },
+  'financial-summary': { suitability: 'unsupported', reason: 'Indicadores financeiros não devem aparecer automaticamente em monitores KDS compartilhados.' },
+  'financial-transactions': { suitability: 'unsupported', reason: 'Extrato financeiro detalhado não deve aparecer automaticamente em monitores KDS compartilhados.' },
   frigobar: { suitability: 'limited', reason: 'Operações de consumo e reposição exigem interação; use somente quando o monitor for interativo.' },
   'room-details': { suitability: 'limited', reason: 'Painel contextual depende de seleção e ações de detalhe.' },
   guests: { suitability: 'limited', reason: 'Cadastro e busca de hóspedes não são ideais para visualização a distância.' },

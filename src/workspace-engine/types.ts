@@ -77,6 +77,8 @@ export type WorkspaceWidgetType =
   | 'metrics'
   | 'dashboard'
   | 'stay-finance'
+  | 'financial-summary'
+  | 'financial-transactions'
   | 'frigobar'
   | 'task-kanban'
   | 'room-map'
