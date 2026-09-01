@@ -15,7 +15,8 @@ describe('Maintenance visual Workspace preset', () => {
   });
 
   it('reuses existing operational widgets instead of creating parallel implementations', () => {
-    expect(template).toContain("widgetByType(widgets, 'task-kanban')");
+    expect(template).toContain("widgetByType(widgets, 'maintenance')");
+    expect(template).not.toContain("widgetByType(widgets, 'task-kanban')");
     expect(template).toContain("widgetByType(widgets, 'room-map')");
     expect(template).toContain("widgetByType(widgets, 'room-details')");
     expect(template).toContain("widgetByType(widgets, 'quick-actions')");
