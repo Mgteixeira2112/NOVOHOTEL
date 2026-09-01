@@ -1,5 +1,5 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
-import { WorkspaceDefinition, WorkspaceLayout, WorkspaceScope, WorkspaceWidgetDefinition } from './types';
+import { WorkspaceBackgroundPresetId, WorkspaceDefinition, WorkspaceLayout, WorkspaceScope, WorkspaceWidgetDefinition } from './types';
 import { normalizeWorkspaceWidgets } from './widgetCatalog';
 import { createWorkspaceDefinition } from './workspaceFactory';
 
@@ -26,6 +26,24 @@ interface OfficialWorkspaceTemplate {
 const createSectorWidgets = (id: OfficialWorkspaceId, name: string, sector: OperationalSectorId): WorkspaceWidgetDefinition[] =>
   createWorkspaceDefinition({ id, name, sector }).widgets;
 
+const createVisualPresentation = (backgroundPreset: WorkspaceBackgroundPresetId): WorkspaceDefinition['presentation'] => ({
+  surface: {
+    backgroundPreset,
+    backgroundFit: 'cover',
+    backgroundPosition: 'center',
+    overlayOpacity: 0,
+    minHeight: 760,
+  },
+  sidebar: {
+    enabled: false,
+    x: 2,
+    y: 110,
+    width: 240,
+    itemSize: 'normal',
+    visual: 'glass',
+  },
+});
+
 /**
  * Official templates are inputs of the Workspace Factory, never runtime
  * instances by themselves. The registry receives only definitions generated
@@ -47,6 +65,7 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     sectors: ['governanca'],
     layout: 'operational',
     defaultScope: 'sector',
+    presentation: createVisualPresentation('operations'),
     widgets: [
       { id: 'governanca-metrics', type: 'metrics', boardId: 'kanban-board-governanca', order: 10, span: 'full' },
       { id: 'governanca-kanban', type: 'kanban-cards', boardId: 'kanban-board-governanca', title: 'Central de trabalho', order: 20, span: 'full' },
@@ -61,6 +80,7 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     sectors: ['recepcao'],
     layout: 'operational',
     defaultScope: 'sector',
+    presentation: createVisualPresentation('lobby'),
     widgets: [
       { id: 'recepcao-metrics', type: 'metrics', title: 'Resumo operacional', order: 10, span: 'full', enabled: true },
       { id: 'recepcao-chegadas', type: 'arrivals', title: 'Chegadas de hoje', order: 20, span: 1, enabled: true },
@@ -81,6 +101,7 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     sectors: ['operacao'],
     layout: 'operational',
     defaultScope: 'sector',
+    presentation: createVisualPresentation('operations'),
     widgets: createSectorWidgets('workspace-operacao', 'Operação Geral', 'operacao'),
   },
   {
@@ -90,6 +111,7 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     sectors: ['manutencao'],
     layout: 'operational',
     defaultScope: 'sector',
+    presentation: createVisualPresentation('operations'),
     widgets: createSectorWidgets('workspace-manutencao', 'Manutenção', 'manutencao'),
   },
   {
@@ -99,6 +121,7 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     sectors: ['cozinha'],
     layout: 'operational',
     defaultScope: 'sector',
+    presentation: createVisualPresentation('service'),
     widgets: createSectorWidgets('workspace-cozinha', 'Cozinha & Room Service', 'cozinha'),
   },
   {
@@ -109,6 +132,7 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     layout: 'management',
     defaultScope: 'mine',
     presentation: {
+      ...createVisualPresentation('finance'),
       header: {
         showHotel: true,
         showWorkspace: true,
@@ -152,6 +176,7 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     sectors: [],
     layout: 'management',
     defaultScope: 'mine',
+    presentation: createVisualPresentation('operations'),
     widgets: [
       { id: 'administrativo-central', type: 'hotel-os-admin', title: 'Central Hotel OS', order: 10, span: 'full', enabled: true, dataSource: 'composite' },
       { id: 'administrativo-acessos', type: 'user-access', title: 'Equipe & Acessos', order: 20, span: 'full', enabled: true, dataSource: 'users' },
@@ -175,6 +200,8 @@ export const createOfficialWorkspaceDefinition = (workspaceId: OfficialWorkspace
     presentation: template.presentation ? {
       ...template.presentation,
       header: template.presentation.header ? { ...template.presentation.header } : undefined,
+      surface: template.presentation.surface ? { ...template.presentation.surface } : undefined,
+      sidebar: template.presentation.sidebar ? { ...template.presentation.sidebar } : undefined,
       kds: template.presentation.kds ? { ...template.presentation.kds } : undefined,
       devices: template.presentation.devices ? { ...template.presentation.devices } : undefined,
     } : undefined,
