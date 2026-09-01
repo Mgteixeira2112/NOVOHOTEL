@@ -5,7 +5,6 @@ import {
   TipoQuarto, 
   Hospede, 
   Reserva, 
-  Pagamento, 
   BloqueioQuarto, 
   AutomacaoMensagem, 
   Usuario, 
@@ -170,7 +169,7 @@ interface HotelContextType {
       };
       observacoes?: string;
     }
-  ) => { reserva: Reserva; hospede: Hospede; pagamento: Pagamento };
+  ) => { reserva: Reserva; hospede: Hospede };
 
   updateReservationStatus: (id: string, status: ReservationStatus, extras?: { checkinTime?: string; checkoutTime?: string }) => void;
   cancelReservation: (id: string, motivo?: string) => void;
@@ -809,18 +808,8 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const bookingCode = generateBookingCode();
     const smartPin = room.fechadura_pin || generateSmartLockPin();
 
-    // 3. Registrar apenas a intenção de pagamento da reserva.
-    // O recebimento real só pode ser gravado pelo Financial Engine após existir Folio.
-    const paymentIntent: Pagamento = {
-      id: `intent-${reservationId}`,
-      reserva_id: reservationId,
-      valor: valorTotal,
-      metodo: params.pagamento.metodo,
-      status: 'pendente',
-      parcelas: params.pagamento.parcelas || 1,
-    };
-
-    // 4. Registrar a Reserva
+    // 3. Registrar a Reserva. A forma escolhida permanece como intenção na própria reserva;
+    // recebimentos reais só são gravados pelo Financial Engine após existir Folio.
     const reservation: Reserva = {
       id: reservationId,
       codigo: bookingCode,
@@ -858,7 +847,7 @@ export const HotelProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       checkout: reservation.checkout,
     }).catch(() => {});
 
-    return { reserva: reservation, hospede: guest, pagamento: paymentIntent };
+    return { reserva: reservation, hospede: guest };
   };
 
   const updateReservationStatus = (
