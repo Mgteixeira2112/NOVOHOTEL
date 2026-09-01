@@ -1,5 +1,4 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
-import { legacySpanToWidth, normalizeWidgetPresentation } from './presentation';
 import { WorkspaceWidgetDefinition, WorkspaceWidgetType } from './types';
 
 export type WorkspaceWidgetReadiness = 'ready' | 'configurable' | 'planned';
@@ -93,33 +92,25 @@ export const createWorkspaceWidget = (
   const item = getWidgetCatalogItem(type);
   if (item?.legacy) throw new Error(`Widget legado ${type} não pode ser criado pela Fábrica.`);
   const suffix = Math.random().toString(36).slice(2, 8);
-  const span = item?.defaultSpan ?? 'full';
   return {
     id: `widget-${type}-${Date.now().toString(36)}-${suffix}`,
     type,
     title: item?.label || type,
     boardId: item?.requiresBoard ? options?.boardId : undefined,
     order: options?.order ?? 10,
-    span,
     enabled: true,
     dataSource: item?.defaultDataSource,
     filters: {},
     actions: {},
     permissions: { view: true },
-    presentation: {
-      display: span === 'button' ? 'button' : 'panel',
-      width: legacySpanToWidth(span),
-      height: 'auto',
-      visual: 'standard',
-      header: 'full',
-    },
     settings: {},
   };
 };
 
 /**
- * Normaliza a definição persistida sem apagar widgets desativados.
- * A decisão de exibição pertence ao runtime, não à persistência da Fábrica.
+ * Normaliza a definição persistida sem apagar widgets desativados nem reescrever
+ * campos históricos de apresentação. Dados legados já existentes são preservados
+ * pelo spread, mas novas composições deixam de sintetizar span/presentation.
  */
 export const normalizeWorkspaceWidgets = (widgets: WorkspaceWidgetDefinition[]) =>
   widgets
@@ -128,13 +119,11 @@ export const normalizeWorkspaceWidgets = (widgets: WorkspaceWidgetDefinition[]) 
       return {
         ...widget,
         order: widget.order ?? index,
-        span: widget.span ?? catalog?.defaultSpan ?? 'full',
         enabled: widget.enabled !== false,
         dataSource: widget.dataSource ?? catalog?.defaultDataSource,
         filters: widget.filters ?? {},
         actions: widget.actions ?? {},
         permissions: widget.permissions ?? { view: true },
-        presentation: normalizeWidgetPresentation(widget, catalog?.defaultSpan),
         settings: widget.settings ?? {},
       };
     })
