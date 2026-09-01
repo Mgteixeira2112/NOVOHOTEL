@@ -1,0 +1,212 @@
+TEST_EXIT=1
+=== FAILURE SIGNALS ===
+1:$ tsx --test tests/**/*.test.ts
+185:    # Subtest: moves failed processing to dead letter after retry limit
+186:    ok 4 - moves failed processing to dead letter after retry limit
+1295:# Subtest: 4. login failed: registro de falha de login para detecção de anomalias
+1296:ok 209 - 4. login failed: registro de falha de login para detecção de anomalias
+1547:# Subtest: 4. retry: incrementa contagem e marca como FAILED para reexecução em caso de erro temporário
+1548:ok 251 - 4. retry: incrementa contagem e marca como FAILED para reexecução em caso de erro temporário
+1559:# Subtest: 6. reprocessamento: permite que operador/admin reprocesse eventos em DEAD_LETTER ou FAILED
+1560:ok 253 - 6. reprocessamento: permite que operador/admin reprocesse eventos em DEAD_LETTER ou FAILED
+1661:# Subtest: 23. integração financeiro: PAYMENT_FAILED notifica usuário autorizado e LOGIN_FAILED alerta administrador
+1662:ok 270 - 23. integração financeiro: PAYMENT_FAILED notifica usuário autorizado e LOGIN_FAILED alerta administrador
+4506:not ok 744 - todo widget oficial tem maturidade explícita e tipos únicos
+4510:  location: '/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:27:1'
+4511:  failureType: 'testCodeFailure'
+4517:  code: 'ERR_ASSERTION'
+4518:  name: 'AssertionError'
+4520:  actual: 25
+4521:  operator: 'strictEqual'
+4523:    TestContext.<anonymous> (/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:28:10)
+4542:not ok 747 - runtime registra 17 renderers operacionais e quatro adapters administrativos
+4546:  location: '/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:55:1'
+4547:  failureType: 'testCodeFailure'
+4549:    Expected values to be strictly equal:
+4553:  code: 'ERR_ASSERTION'
+4554:  name: 'AssertionError'
+4556:  actual: 23
+4557:  operator: 'strictEqual'
+4559:    TestContext.<anonymous> (/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:56:10)
+4595:# fail 2
+=== TAIL ===
+# Subtest: Equipe usa o diretório oficial e respeita os setores do Workspace
+ok 730 - Equipe usa o diretório oficial e respeita os setores do Workspace
+  ---
+  duration_ms: 1.923847
+  type: 'test'
+  ...
+# Subtest: Equipe é somente leitura e não cria persistência paralela
+ok 731 - Equipe é somente leitura e não cria persistência paralela
+  ---
+  duration_ms: 0.326299
+  type: 'test'
+  ...
+# Subtest: Equipe está registrada e marcada ready na biblioteca
+ok 732 - Equipe está registrada e marcada ready na biblioteca
+  ---
+  duration_ms: 0.223477
+  type: 'test'
+  ...
+# Subtest: Atalhos e Pedidos permanecem explicitamente fora do Workspace 1.0
+ok 733 - Atalhos e Pedidos permanecem explicitamente fora do Workspace 1.0
+  ---
+  duration_ms: 0.283559
+  type: 'test'
+  ...
+# Subtest: todos os Workspaces usam o menu de usuário compartilhado ao lado de Sair
+ok 734 - todos os Workspaces usam o menu de usuário compartilhado ao lado de Sair
+  ---
+  duration_ms: 1.497161
+  type: 'test'
+  ...
+# Subtest: troca de usuário é autorizada pela identidade Supabase Auth e não pelo usuário simulado
+ok 735 - troca de usuário é autorizada pela identidade Supabase Auth e não pelo usuário simulado
+  ---
+  duration_ms: 0.274011
+  type: 'test'
+  ...
+# Subtest: modo de teste altera somente o contexto operacional e preserva a sessão JWT
+ok 736 - modo de teste altera somente o contexto operacional e preserva a sessão JWT
+  ---
+  duration_ms: 0.242402
+  type: 'test'
+  ...
+# Subtest: somente usuários ativos aparecem no seletor administrativo
+ok 737 - somente usuários ativos aparecem no seletor administrativo
+  ---
+  duration_ms: 0.192859
+  type: 'test'
+  ...
+# Subtest: largura e modo de exibição são contratos independentes e span fica apenas como legado
+ok 738 - largura e modo de exibição são contratos independentes e span fica apenas como legado
+  ---
+  duration_ms: 0.936937
+  type: 'test'
+  ...
+# Subtest: definições antigas com span button continuam legíveis sem misturar largura e display novos
+ok 739 - definições antigas com span button continuam legíveis sem misturar largura e display novos
+  ---
+  duration_ms: 0.204221
+  type: 'test'
+  ...
+# Subtest: popup é isolado do header e possui formas seguras de fechamento
+ok 740 - popup é isolado do header e possui formas seguras de fechamento
+  ---
+  duration_ms: 0.180046
+  type: 'test'
+  ...
+# Subtest: migração converte widgets legados sem alterar o workspace de origem
+ok 741 - migração converte widgets legados sem alterar o workspace de origem
+  ---
+  duration_ms: 1.741957
+  type: 'test'
+  ...
+# Subtest: checkins legado se torna dois widgets independentes de chegada e saída
+ok 742 - checkins legado se torna dois widgets independentes de chegada e saída
+  ---
+  duration_ms: 0.249184
+  type: 'test'
+  ...
+# Subtest: migração preserva board do kanban de tarefas
+ok 743 - migração preserva board do kanban de tarefas
+  ---
+  duration_ms: 0.303335
+  type: 'test'
+  ...
+# Subtest: todo widget oficial tem maturidade explícita e tipos únicos
+not ok 744 - todo widget oficial tem maturidade explícita e tipos únicos
+  ---
+  duration_ms: 1.960105
+  type: 'test'
+  location: '/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:27:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    a biblioteca oficial deve manter 23 tipos auditados nesta baseline
+    
+    25 !== 23
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 23
+  actual: 25
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:28:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.start (node:internal/test_runner/test:944:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:296:17)
+  ...
+# Subtest: nenhum widget marcado ready pode ficar sem renderer builtin
+ok 745 - nenhum widget marcado ready pode ficar sem renderer builtin
+  ---
+  duration_ms: 0.741092
+  type: 'test'
+  ...
+# Subtest: somente Pedidos e Atalhos ficam fora do runtime e ambos são planned
+ok 746 - somente Pedidos e Atalhos ficam fora do runtime e ambos são planned
+  ---
+  duration_ms: 0.269803
+  type: 'test'
+  ...
+# Subtest: runtime registra 17 renderers operacionais e quatro adapters administrativos
+not ok 747 - runtime registra 17 renderers operacionais e quatro adapters administrativos
+  ---
+  duration_ms: 0.353829
+  type: 'test'
+  location: '/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:55:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    23 !== 21
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 21
+  actual: 23
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (/home/runner/work/SITE-PARA-HOTEIS/SITE-PARA-HOTEIS/tests/workspace-widget-runtime-audit.test.ts:56:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: Equipe & Acessos é somente adapter de apresentação do módulo administrativo existente
+ok 748 - Equipe & Acessos é somente adapter de apresentação do módulo administrativo existente
+  ---
+  duration_ms: 0.323693
+  type: 'test'
+  ...
+# Subtest: Automações & Fechaduras é somente adapter de apresentação do módulo administrativo existente
+ok 749 - Automações & Fechaduras é somente adapter de apresentação do módulo administrativo existente
+  ---
+  duration_ms: 0.248513
+  type: 'test'
+  ...
+# Subtest: Configurações & Design é somente adapter de apresentação do módulo administrativo existente
+ok 750 - Configurações & Design é somente adapter de apresentação do módulo administrativo existente
+  ---
+  duration_ms: 0.195244
+  type: 'test'
+  ...
+# Subtest: Central Hotel OS é somente adapter de apresentação do módulo administrativo existente
+ok 751 - Central Hotel OS é somente adapter de apresentação do módulo administrativo existente
+  ---
+  duration_ms: 0.129251
+  type: 'test'
+  ...
+1..751
+# tests 757
+# suites 1
+# pass 755
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11885.265075
+error: script "test" exited with code 1
