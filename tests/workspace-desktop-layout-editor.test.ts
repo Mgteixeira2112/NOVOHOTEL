@@ -69,7 +69,7 @@ test('editor Desktop vive no preview e não fica duplicado na aparência geral',
   assert.match(preview, /<WorkspaceDesktopLayoutEditor definition=\{definition\} onChange=\{onChange\} \/>/);
   assert.doesNotMatch(general, /WorkspaceDesktopLayoutEditor/);
   assert.match(editorModule, /<WorkspacePreviewPanel definition=\{selected\} onChange=\{updateSelected\} \/>/);
-  assert.match(editor, /Esta é a renderização real do Workspace/);
+  assert.match(editor, /Use o alvo para posicionar livremente cada widget sobre a superfície/);
 });
 
 test('configuração comum permanece separada do override Desktop', () => {
