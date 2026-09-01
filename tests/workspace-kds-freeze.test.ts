@@ -30,8 +30,8 @@ test('KDS/TV continua resolvendo apresentação pelo mesmo contrato responsivo',
   assert.match(runtime, /resolveWidgetPresentation\(definition, widget, viewport\)/);
   assert.match(presentation, /definition\.presentation\?\.kds\?\.enabled === false/);
   assert.match(presentation, /definition\.presentation\?\.kds\?\.enabled === true/);
-  assert.match(presentation, /viewport === 'kds'/);
-  assert.match(presentation, /display === 'button'/);
+  assert.match(presentation, /: base\.kds/);
+  assert.match(presentation, /viewport === 'kds' && deviceMode === 'auto' && display === 'button'/);
 });
 
 test('Fábrica mantém apenas os controles KDS/TV já existentes', () => {
