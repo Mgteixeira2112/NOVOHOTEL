@@ -6,6 +6,7 @@ import { createReceptionVisualPresentation } from './receptionVisualTemplate';
 import { createGovernanceVisualPresentation } from './governanceVisualTemplate';
 import { createMaintenanceVisualPresentation } from './maintenanceVisualTemplate';
 import { createKitchenVisualPresentation } from './kitchenVisualTemplate';
+import { createOperationsVisualPresentation } from './operationsVisualTemplate';
 import { WorkspaceDefinition, WorkspaceViewport, WorkspaceWidgetDefinition } from './types';
 import { getWorkspaceVisualSurface } from './visualPresentation';
 
@@ -27,6 +28,7 @@ const resolveVisualPresentation = (definition: WorkspaceDefinition) => {
   if (definition.sectors.includes('governanca')) return createGovernanceVisualPresentation(definition.widgets);
   if (definition.sectors.includes('manutencao')) return createMaintenanceVisualPresentation(definition.widgets);
   if (definition.sectors.includes('cozinha')) return createKitchenVisualPresentation(definition.widgets);
+  if (definition.sectors.includes('operacao')) return createOperationsVisualPresentation(definition.widgets);
   return undefined;
 };
 
@@ -66,4 +68,5 @@ export const hasVisualWorkspaceRuntime = (definition: WorkspaceDefinition) => Bo
   || definition.sectors.includes('governanca')
   || definition.sectors.includes('manutencao')
   || definition.sectors.includes('cozinha')
+  || definition.sectors.includes('operacao')
 );
