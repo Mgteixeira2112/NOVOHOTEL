@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useHotel } from '../../context/HotelContext';
 import { formatCurrency } from '../../utils/formatters';
 import {
@@ -12,27 +12,14 @@ import {
 import {
   DespesaOperacional,
   ContaReceber,
-  PixKeyConfig,
-  PixPspConfig,
-  GatewayConfig,
-  PaymentLink,
   HotelFinancialKpis,
   PaymentMethod,
 } from '../../types/financial';
-import {
-  INITIAL_PIX_KEYS,
-  INITIAL_PIX_PSP,
-  INITIAL_GATEWAY_CONFIGS,
-  INITIAL_PAYMENT_LINKS,
-} from '../../data/mockFinancialData';
 
 import { FinancialOverviewTab } from './financial/FinancialOverviewTab';
 import { ReceivablesCrmTab } from './financial/ReceivablesCrmTab';
 import { PayablesTab } from './financial/PayablesTab';
-import { PixConfigTab } from './financial/PixConfigTab';
-import { CreditCardGatewaysTab } from './financial/CreditCardGatewaysTab';
 import { TransactionsAuditTab } from './financial/TransactionsAuditTab';
-import { PaymentLinkModal } from './financial/PaymentLinkModal';
 import { ReceiptModal } from './financial/ReceiptModal';
 import { useAdministrativeFinanceUi } from './financial/useAdministrativeFinanceUi';
 import { useOperationalRevenueUi } from './financial/useOperationalRevenueUi';
@@ -45,6 +32,27 @@ export type FinancialSubTab =
   | 'pix_config'
   | 'gateways'
   | 'transactions';
+
+interface UnavailablePaymentConfigPanelProps {
+  title: string;
+  description: string;
+}
+
+const UnavailablePaymentConfigPanel: React.FC<UnavailablePaymentConfigPanelProps> = ({
+  title,
+  description,
+}) => (
+  <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+    <div className="text-xs font-bold uppercase tracking-wider text-amber-800">
+      Integração financeira ainda não certificada
+    </div>
+    <h2 className="mt-2 text-xl font-bold text-stone-900">{title}</h2>
+    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-stone-700">{description}</p>
+    <p className="mt-3 text-xs font-semibold text-amber-900">
+      Nenhuma configuração será salva localmente. Esta área será habilitada somente quando existir contrato oficial de leitura e escrita.
+    </p>
+  </div>
+);
 
 export const FinancialModule: React.FC = () => {
   const { reservations, hotelConfig, rooms } = useHotel();
@@ -73,79 +81,6 @@ export const FinancialModule: React.FC = () => {
   } = useOperationalTransactionsUi();
 
   const [activeTab, setActiveTab] = useState<FinancialSubTab>('overview');
-
-  // PIX, gateways e links ainda permanecem no legado até seus contratos oficiais
-  // serem auditados em uma etapa própria. Contas, KPIs e extrato já usam fontes oficiais.
-  const [pixKeys, setPixKeys] = useState<PixKeyConfig[]>(() => {
-    try {
-      const saved = localStorage.getItem('ITAJUBA_PMS_PIX_KEYS_V1');
-      return saved ? JSON.parse(saved) : INITIAL_PIX_KEYS;
-    } catch {
-      return INITIAL_PIX_KEYS;
-    }
-  });
-
-  const [pixPsp, setPixPsp] = useState<PixPspConfig>(() => {
-    try {
-      const saved = localStorage.getItem('ITAJUBA_PMS_PIX_PSP_V1');
-      return saved ? JSON.parse(saved) : INITIAL_PIX_PSP;
-    } catch {
-      return INITIAL_PIX_PSP;
-    }
-  });
-
-  const [gateways, setGateways] = useState<Record<string, GatewayConfig>>(() => {
-    try {
-      const saved = localStorage.getItem('ITAJUBA_PMS_GATEWAYS_V1');
-      return saved ? JSON.parse(saved) : INITIAL_GATEWAY_CONFIGS;
-    } catch {
-      return INITIAL_GATEWAY_CONFIGS;
-    }
-  });
-
-  const [paymentLinks, setPaymentLinks] = useState<PaymentLink[]>(() => {
-    try {
-      const saved = localStorage.getItem('ITAJUBA_PMS_PAY_LINKS_V1');
-      return saved ? JSON.parse(saved) : INITIAL_PAYMENT_LINKS;
-    } catch {
-      return INITIAL_PAYMENT_LINKS;
-    }
-  });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ITAJUBA_PMS_PIX_KEYS_V1', JSON.stringify(pixKeys));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [pixKeys]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ITAJUBA_PMS_PIX_PSP_V1', JSON.stringify(pixPsp));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [pixPsp]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ITAJUBA_PMS_GATEWAYS_V1', JSON.stringify(gateways));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [gateways]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('ITAJUBA_PMS_PAY_LINKS_V1', JSON.stringify(paymentLinks));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [paymentLinks]);
-
-  const [paymentLinkModalOpen, setPaymentLinkModalOpen] = useState(false);
-  const [selectedReceivableForLink, setSelectedReceivableForLink] = useState<ContaReceber | null>(null);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [receiptReceivable, setReceiptReceivable] = useState<ContaReceber | null>(null);
   const [receiptExpense, setReceiptExpense] = useState<DespesaOperacional | null>(null);
@@ -204,13 +139,12 @@ export const FinancialModule: React.FC = () => {
     receita_outros: otherRevenue,
   };
 
-  const primaryPixKey = pixKeys.find((k) => k.ativo) || pixKeys[0];
-  const primaryGateway =
-    (Object.values(gateways) as GatewayConfig[]).find((g) => g.is_primary) ||
-    (Object.values(gateways) as GatewayConfig[])[0];
-
   const handleUnsupportedAccountMutation = () => {
     alert('Esta operação está indisponível até existir um contrato oficial de criação/exclusão no Financeiro Administrativo.');
+  };
+
+  const handleUnsupportedPaymentConfiguration = () => {
+    alert('PIX, gateways e links de pagamento estão indisponíveis até existir um contrato financeiro oficial de leitura e escrita.');
   };
 
   const handleSettleExpense = async (id: string, method: PaymentMethod) => {
@@ -235,11 +169,6 @@ export const FinancialModule: React.FC = () => {
     }
   };
 
-  const handleOpenPaymentLinkForReceivable = (rec?: ContaReceber) => {
-    setSelectedReceivableForLink(rec || null);
-    setPaymentLinkModalOpen(true);
-  };
-
   const handleViewReceiptReceivable = (rec: ContaReceber) => {
     setReceiptReceivable(rec);
     setReceiptExpense(null);
@@ -250,10 +179,6 @@ export const FinancialModule: React.FC = () => {
     setReceiptExpense(exp);
     setReceiptReceivable(null);
     setReceiptModalOpen(true);
-  };
-
-  const handleSimulateWebhookPixReceived = () => {
-    alert('A simulação PIX não altera mais Contas a Receber. A integração PIX será tratada em uma etapa própria.');
   };
 
   const handleExportReport = () => {
@@ -346,7 +271,7 @@ export const FinancialModule: React.FC = () => {
             kpis={kpis}
             receivables={receivables}
             expenses={expenses}
-            onOpenNewPaymentLink={() => handleOpenPaymentLinkForReceivable()}
+            onOpenNewPaymentLink={handleUnsupportedPaymentConfiguration}
             onOpenNewExpense={handleUnsupportedAccountMutation}
             onOpenNewReceivable={handleUnsupportedAccountMutation}
             onExportReport={handleExportReport}
@@ -357,7 +282,7 @@ export const FinancialModule: React.FC = () => {
           <ReceivablesCrmTab
             receivables={receivables}
             onOpenNewReceivable={handleUnsupportedAccountMutation}
-            onOpenPaymentLink={(rec) => handleOpenPaymentLinkForReceivable(rec)}
+            onOpenPaymentLink={handleUnsupportedPaymentConfiguration}
             onViewReceipt={handleViewReceiptReceivable}
             onSettleReceivable={(id, method) => void handleSettleReceivable(id, method)}
             onDeleteReceivable={handleUnsupportedAccountMutation}
@@ -375,20 +300,16 @@ export const FinancialModule: React.FC = () => {
         )}
 
         {activeTab === 'pix_config' && (
-          <PixConfigTab
-            pixKeys={pixKeys}
-            pixPsp={pixPsp}
-            onUpdatePixKeys={(keys) => setPixKeys(keys)}
-            onUpdatePixPsp={(psp) => setPixPsp(psp)}
-            onSimulateWebhookPixReceived={handleSimulateWebhookPixReceived}
+          <UnavailablePaymentConfigPanel
+            title="Configuração PIX indisponível"
+            description="As chaves PIX e a configuração PSP ainda não possuem fonte oficial certificada no Financeiro. O estado local e os dados mock não são usados como persistência de produção."
           />
         )}
 
         {activeTab === 'gateways' && (
-          <CreditCardGatewaysTab
-            gateways={gateways}
-            onUpdateGateways={(gw) => setGateways(gw)}
-            onOpenPaymentLink={() => handleOpenPaymentLinkForReceivable()}
+          <UnavailablePaymentConfigPanel
+            title="Gateways de pagamento indisponíveis"
+            description="Credenciais, ambiente, gateway principal e links de pagamento permanecerão bloqueados até existir um contrato oficial seguro para armazenamento e operação dessas integrações."
           />
         )}
 
@@ -399,22 +320,6 @@ export const FinancialModule: React.FC = () => {
           />
         )}
       </main>
-
-      <PaymentLinkModal
-        isOpen={paymentLinkModalOpen}
-        onClose={() => {
-          setPaymentLinkModalOpen(false);
-          setSelectedReceivableForLink(null);
-        }}
-        pixKey={primaryPixKey}
-        primaryGateway={primaryGateway}
-        initialGuestName={selectedReceivableForLink?.hospede_nome || ''}
-        initialPhone={selectedReceivableForLink?.hospede_telefone || ''}
-        initialAmount={selectedReceivableForLink?.saldo_pendente || 0}
-        initialDescription={selectedReceivableForLink?.descricao || ''}
-        initialReservationCode={selectedReceivableForLink?.codigo_reserva || ''}
-        onSavePaymentLink={(newLink) => setPaymentLinks((prev) => [newLink, ...prev])}
-      />
 
       <ReceiptModal
         isOpen={receiptModalOpen}
