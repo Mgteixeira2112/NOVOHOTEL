@@ -19,6 +19,7 @@ interface OfficialWorkspaceTemplate {
   sectors: OperationalSectorId[];
   layout: WorkspaceLayout;
   defaultScope: WorkspaceScope;
+  presentation?: WorkspaceDefinition['presentation'];
   widgets: WorkspaceWidgetDefinition[];
 }
 
@@ -107,12 +108,41 @@ export const OFFICIAL_WORKSPACE_TEMPLATES: readonly OfficialWorkspaceTemplate[] 
     sectors: [],
     layout: 'management',
     defaultScope: 'mine',
+    presentation: {
+      header: {
+        showHotel: true,
+        showWorkspace: true,
+        showDate: true,
+        showTime: true,
+        showUser: true,
+        showStatus: true,
+        showOperationalDate: false,
+        hourFormat: '24h',
+        timezone: 'America/Sao_Paulo',
+      },
+      devices: { mobile: 'custom', kds: 'disabled' },
+    },
     widgets: [
-      { id: 'financeiro-overview', type: 'financial-overview', title: 'Visão Financeira Certificada', order: 10, span: 'full', enabled: true, dataSource: 'finance' },
-      { id: 'financeiro-summary', type: 'financial-summary', title: 'Resumo Financeiro', order: 20, span: 'full', enabled: true, dataSource: 'finance' },
-      { id: 'financeiro-receivables', type: 'financial-receivables', title: 'Contas a Receber', order: 30, span: 'full', enabled: true, dataSource: 'finance' },
-      { id: 'financeiro-payables', type: 'financial-payables', title: 'Contas a Pagar', order: 40, span: 'full', enabled: true, dataSource: 'finance' },
-      { id: 'financeiro-transactions', type: 'financial-transactions', title: 'Transações Financeiras', order: 50, span: 'full', enabled: true, dataSource: 'finance' },
+      {
+        id: 'financeiro-overview', type: 'financial-overview', title: 'Visão Financeira Certificada', order: 10, span: 'full', enabled: true, dataSource: 'finance',
+        presentation: { display: 'panel', width: 'full', height: 'auto', visual: 'highlight', header: 'full', mobile: { display: 'panel', width: 'full', visual: 'highlight', header: 'full' } },
+      },
+      {
+        id: 'financeiro-summary', type: 'financial-summary', title: 'Resumo Financeiro', order: 20, span: 'full', enabled: true, dataSource: 'finance',
+        presentation: { display: 'panel', width: 'full', height: 'auto', visual: 'standard', header: 'compact', mobile: { display: 'panel', width: 'full', header: 'compact' } },
+      },
+      {
+        id: 'financeiro-receivables', type: 'financial-receivables', title: 'Contas a Receber', order: 30, span: 'full', enabled: true, dataSource: 'finance',
+        presentation: { display: 'panel', width: 'medium', height: 'auto', visual: 'standard', header: 'compact', mobile: { display: 'summary', width: 'full', header: 'compact' } },
+      },
+      {
+        id: 'financeiro-payables', type: 'financial-payables', title: 'Contas a Pagar', order: 40, span: 'full', enabled: true, dataSource: 'finance',
+        presentation: { display: 'panel', width: 'medium', height: 'auto', visual: 'standard', header: 'compact', mobile: { display: 'summary', width: 'full', header: 'compact' } },
+      },
+      {
+        id: 'financeiro-transactions', type: 'financial-transactions', title: 'Transações Financeiras', order: 50, span: 'full', enabled: true, dataSource: 'finance',
+        presentation: { display: 'panel', width: 'full', height: 'auto', visual: 'standard', header: 'compact', mobile: { display: 'button', width: 'full', header: 'compact' } },
+      },
     ],
   },
   {
@@ -142,6 +172,12 @@ export const createOfficialWorkspaceDefinition = (workspaceId: OfficialWorkspace
     sectors: [...template.sectors],
     layout: template.layout,
     defaultScope: template.defaultScope,
+    presentation: template.presentation ? {
+      ...template.presentation,
+      header: template.presentation.header ? { ...template.presentation.header } : undefined,
+      kds: template.presentation.kds ? { ...template.presentation.kds } : undefined,
+      devices: template.presentation.devices ? { ...template.presentation.devices } : undefined,
+    } : undefined,
     widgets: normalizeWorkspaceWidgets(template.widgets.map(widget => ({
       ...widget,
       actions: widget.actions ? { ...widget.actions } : undefined,
