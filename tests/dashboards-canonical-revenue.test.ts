@@ -9,8 +9,7 @@ test('DashboardModule usa a receita operacional canônica', () => {
   assert.match(dashboard, /useOperationalRevenueUi/);
   assert.match(dashboard, /const totalRevenue = grossPayments/);
   assert.doesNotMatch(dashboard, /payments\s*\.filter/);
-  assert.doesNotMatch(dashboard, /payments,\s*
-/);
+  assert.doesNotMatch(dashboard, /\bpayments\s*,/);
   assert.match(dashboard, /Receita operacional indisponível/);
 });
 
