@@ -23,15 +23,14 @@ const detectViewport = (): WorkspaceViewport => {
   return 'desktop';
 };
 
-const resolveVisualPresentation = (definition: WorkspaceDefinition) => {
+export const resolveWorkspaceVisualPresentation = (definition: WorkspaceDefinition) => {
   if (definition.visualPresentation) return definition.visualPresentation;
   if (definition.layout === 'management') return createAdminVisualPresentation(definition.widgets);
   if (definition.sectors.includes('recepcao')) return createReceptionVisualPresentation(definition.widgets);
   if (definition.sectors.includes('governanca')) return createGovernanceVisualPresentation(definition.widgets);
   if (definition.sectors.includes('manutencao')) return createMaintenanceVisualPresentation(definition.widgets);
   if (definition.sectors.includes('cozinha')) return createKitchenVisualPresentation(definition.widgets);
-  if (definition.sectors.includes('operacao')) return createOperationsVisualPresentation(definition.widgets);
-  return undefined;
+  return createOperationsVisualPresentation(definition.widgets);
 };
 
 interface VisualWorkspaceRuntimeProps { definition: WorkspaceDefinition; }
@@ -40,9 +39,8 @@ interface VisualWorkspaceRuntimeProps { definition: WorkspaceDefinition; }
 export const VisualWorkspaceRuntime: React.FC<VisualWorkspaceRuntimeProps> = ({ definition }) => {
   const [viewport, setViewport] = useState<WorkspaceViewport>(detectViewport);
   const [openWidgetId, setOpenWidgetId] = useState<string | null>(null);
-  const presentation = useMemo(() => resolveVisualPresentation(definition), [definition]);
+  const presentation = useMemo(() => resolveWorkspaceVisualPresentation(definition), [definition]);
   useEffect(() => { const onResize = () => setViewport(detectViewport()); window.addEventListener('resize', onResize); return () => window.removeEventListener('resize', onResize); }, []);
-  if (!presentation) return null;
   const surface = getWorkspaceVisualSurface(presentation, viewport);
   const visibleWidget = (widgetId: string): WorkspaceWidgetDefinition | null => {
     const widget = definition.widgets.find(item => item.id === widgetId) || null;
@@ -63,13 +61,3 @@ export const VisualWorkspaceRuntime: React.FC<VisualWorkspaceRuntimeProps> = ({ 
     <WorkspaceWidgetHost workspace={definition} widget={openWidget} open={Boolean(openWidget)} onClose={() => setOpenWidgetId(null)} mode={viewport === 'mobile' ? 'fullscreen' : 'modal'} />
   </div>;
 };
-
-export const hasVisualWorkspaceRuntime = (definition: WorkspaceDefinition) => Boolean(
-  definition.visualPresentation
-  || definition.layout === 'management'
-  || definition.sectors.includes('recepcao')
-  || definition.sectors.includes('governanca')
-  || definition.sectors.includes('manutencao')
-  || definition.sectors.includes('cozinha')
-  || definition.sectors.includes('operacao')
-);
