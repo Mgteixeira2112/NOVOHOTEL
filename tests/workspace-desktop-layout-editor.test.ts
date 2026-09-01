@@ -10,9 +10,11 @@ const editorModule = readFileSync('src/components/admin/WorkspaceEditorModule.ts
 const configStore = readFileSync('src/workspace-engine/workspaceConfigStore.ts', 'utf8');
 const widgetCatalog = readFileSync('src/workspace-engine/widgetCatalog.ts', 'utf8');
 
-test('editor visual Desktop usa somente ordem e largura já existentes no contrato', () => {
+test('editor visual Desktop mantém ordem e cria overrides sem contaminar a configuração comum', () => {
   assert.match(editor, /a\.order \?\? 0.*b\.order \?\? 0/);
-  assert.match(editor, /presentation: \{ \.\.\.widget\.presentation, width \}/);
+  assert.match(editor, /updateDesktopOverride/);
+  assert.match(editor, /desktop: \{ \.\.\.current, mode: 'custom', \.\.\.patch \}/);
+  assert.match(editor, /devices: \{ \.\.\.definition\.presentation\?\.devices, desktop: 'custom' \}/);
   assert.match(editor, /legacySpanToWidth\(widget\.span\)/);
   assert.doesNotMatch(editor, /supabase|migration|localStorage|fetch\(/i);
 });
@@ -36,7 +38,7 @@ test('composição Desktop permite reordenar por arraste sobre o runtime sem alt
   assert.match(editor, /pointer-events-none select-none/);
 });
 
-test('largura é ajustada pela alça horizontal em passos 25 50 75 100', () => {
+test('largura Desktop é ajustada pela alça em passos 25 50 75 100 e persistida no override', () => {
   assert.match(editor, /data-workspace-layout-resize/);
   assert.match(editor, /pointermove/);
   assert.match(editor, /cursor-ew-resize/);
@@ -46,6 +48,18 @@ test('largura é ajustada pela alça horizontal em passos 25 50 75 100', () => {
   assert.match(editor, /75%/);
   assert.match(editor, /100%/);
   assert.match(editor, /canvasWidth \/ 12 \* 3/);
+  assert.match(editor, /updateDesktopOverride\(widgetId, \{ width \}\)/);
+});
+
+test('inspector Desktop expõe somente propriedades de apresentação já existentes', () => {
+  assert.match(editor, /data-workspace-desktop-presentation-inspector/);
+  assert.match(editor, />EXIBIÇÃO<select/);
+  assert.match(editor, />LARGURA<select/);
+  assert.match(editor, />ALTURA<select/);
+  assert.match(editor, />VISUAL<select/);
+  assert.match(editor, />CABEÇALHO<select/);
+  assert.match(editor, /Herdar configuração comum/);
+  assert.match(editor, /desktop: \{ mode: 'auto' \}/);
 });
 
 test('editor Desktop vive no preview e não fica duplicado na aparência geral', () => {
@@ -58,7 +72,7 @@ test('editor Desktop vive no preview e não fica duplicado na aparência geral',
   assert.match(editor, /Esta é a renderização real do Workspace/);
 });
 
-test('configuração comum pode editar largura sem criar um segundo editor Desktop', () => {
+test('configuração comum permanece separada do override Desktop', () => {
   assert.doesNotMatch(widgetPresentation, /data-widget-desktop-customization/);
   assert.match(widgetPresentation, />LARGURA<select/);
   assert.match(widgetPresentation, /Base visual compartilhada pelas estratégias/);
@@ -66,7 +80,7 @@ test('configuração comum pode editar largura sem criar um segundo editor Deskt
   assert.match(widgetPresentation, /data-widget-kds-customization/);
 });
 
-test('ordem e largura do editor usam a persistência oficial já existente do Workspace', () => {
+test('ordem e apresentação Desktop usam a persistência oficial já existente do Workspace', () => {
   assert.match(editorModule, /saveWorkspaceOverride\(\{ \.\.\.definition, widgets: normalizeWorkspaceWidgets\(definition\.widgets\) \}/);
   assert.match(configStore, /const normalized = \{ \.\.\.definition, widgets: normalizeWorkspaceWidgets\(definition\.widgets\) \}/);
   assert.match(configStore, /definition: normalized/);
