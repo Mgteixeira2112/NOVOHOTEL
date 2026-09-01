@@ -1,4 +1,5 @@
 import { OperationalSectorId } from '../domain/operationalSectors';
+import type { WorkspaceVisualPresentation } from './visualPresentation';
 
 export type WorkspaceLayout = 'operational' | 'management';
 export type WorkspaceViewport = 'desktop' | 'tablet' | 'mobile' | 'kds';
@@ -165,5 +166,6 @@ export interface WorkspaceDefinition {
   layout: WorkspaceLayout;
   defaultScope: WorkspaceScope;
   presentation?: WorkspacePresentation;
+  visualPresentation?: WorkspaceVisualPresentation;
   widgets: WorkspaceWidgetDefinition[];
 }
