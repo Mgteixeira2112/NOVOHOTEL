@@ -6,6 +6,7 @@ import { KANBAN_TENANT_ID, kanbanV2, KanbanV2Card, KanbanV2Column } from '../../
 import { Quarto, Reserva } from '../../types';
 import { ReceptionRoomsKanban } from '../../modules/recepcao/ReceptionRoomsKanban';
 import { receptionGuestStayService } from '../../modules/recepcao/receptionGuestStayService';
+import { selectCanonicalReceptionRoomCards } from '../../modules/recepcao/receptionRoomProjectionSelection';
 import { RECEPTION_ROOMS_BOARD_ID, receptionRoomKanbanService } from '../../modules/recepcao/receptionRoomKanbanService';
 import { receptionStayService } from '../../modules/recepcao/receptionStayService';
 import { WorkspaceWidgetRuntimeContext } from '../widgetRuntimeRegistry';
@@ -43,9 +44,13 @@ export const ReceptionRoomMapWidget: React.FC<WorkspaceWidgetRuntimeContext> = (
     () => visibleStatusSet ? columns.filter(column => visibleStatusSet.has(column.id)) : columns,
     [columns, visibleStatusSet],
   );
+  const canonicalCards = useMemo(
+    () => selectCanonicalReceptionRoomCards(cards, rooms.map(room => room.id)),
+    [cards, rooms],
+  );
   const displayedCards = useMemo(
-    () => visibleStatusSet ? cards.filter(card => visibleStatusSet.has(card.column_id)) : cards,
-    [cards, visibleStatusSet],
+    () => visibleStatusSet ? canonicalCards.filter(card => visibleStatusSet.has(card.column_id)) : canonicalCards,
+    [canonicalCards, visibleStatusSet],
   );
   const sectorId = workspace.sectors[0];
   const sectorLabel = OPERATIONAL_SECTORS.find(sector => sector.id === sectorId)?.label || sectorId || 'Operação';
