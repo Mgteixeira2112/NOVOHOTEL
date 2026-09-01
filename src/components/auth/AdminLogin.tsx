@@ -58,21 +58,19 @@ export const AdminLogin: React.FC = () => {
   };
 
   // Etapa 1: Validação de E-mail e Senha
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setLoading(true);
 
-    setTimeout(() => {
-      const result = loginValidatePassword(email, senha);
-      setLoading(false);
-      if (!result.success) {
-        setErrorMsg(result.message || 'E-mail ou senha incorretos.');
-      } else {
-        setStep2FA(true);
-        setCode2FA('');
-      }
-    }, 350);
+    const result = await loginValidatePassword(email, senha);
+    setLoading(false);
+    if (!result.success) {
+      setErrorMsg(result.message || 'E-mail ou senha incorretos.');
+    } else {
+      setStep2FA(true);
+      setCode2FA('');
+    }
   };
 
   // Etapa 2: Validação do Código 2FA
