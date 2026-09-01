@@ -25,7 +25,7 @@ const surface = (viewport: WorkspaceVisualSurface['viewport'], widgets: Workspac
     shortcuts: compact([
       shortcut(viewport, widgetByType(widgets, 'metrics'), { x: mainX, y: 6, width: mobile ? mainWidth : Math.round(mainWidth * .32), height: mobile ? 13 : 19 }, mobile ? 's' : 'l'),
       shortcut(viewport, widgetByType(widgets, 'alerts'), { x: mobile ? mainX : mainX + Math.round(mainWidth * .35), y: mobile ? 22 : 6, width: mobile ? mainWidth : Math.round(mainWidth * .28), height: mobile ? 13 : 19 }, mobile ? 's' : 'm'),
-      shortcut(viewport, widgetByType(widgets, 'task-kanban'), { x: mainX, y: mobile ? 38 : 30, width: mobile ? mainWidth : Math.round(mainWidth * .63), height: mobile ? 34 : 62 }, 'xl'),
+      shortcut(viewport, widgetByType(widgets, 'maintenance'), { x: mainX, y: mobile ? 38 : 30, width: mobile ? mainWidth : Math.round(mainWidth * .63), height: mobile ? 34 : 62 }, 'xl'),
       shortcut(viewport, widgetByType(widgets, 'room-map'), { x: mobile ? mainX : mainX + Math.round(mainWidth * .66), y: mobile ? 75 : 30, width: mobile ? mainWidth : Math.round(mainWidth * .34), height: mobile ? 20 : 29 }, mobile ? 'm' : 'l'),
       shortcut(viewport, widgetByType(widgets, 'room-details'), { x: mobile ? mainX : mainX + Math.round(mainWidth * .66), y: mobile ? 0 : 63, width: mobile ? 0 : Math.round(mainWidth * .34), height: mobile ? 0 : 29 }, 'l'),
     ]).filter(item => item.rect.width > 0 && item.rect.height > 0),
