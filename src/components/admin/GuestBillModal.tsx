@@ -76,7 +76,9 @@ export const GuestBillModal: React.FC<GuestBillModalProps> = ({
         : []);
 
   const totalConsumo = reserva.valor_consumo || 0;
-  const isPaid = reserva.status === 'checkout_concluido' || reserva.status === 'checkin_realizado' || reserva.status === 'confirmada';
+  // O status financeiro não pode ser inferido pelo ciclo de vida da reserva.
+  // A certificação depende do Folio canônico, cujo vínculo explícito ainda não existe neste componente.
+  const financialStatusLabel = 'SITUAÇÃO FINANCEIRA NÃO CERTIFICADA';
 
   // Montagem do texto estruturado para WhatsApp
   const generateFolioWhatsAppText = () => {
@@ -97,7 +99,7 @@ ${totalConsumo > 0 ? `• Consumos Frigobar / Extras: ${formatCurrency(totalCons
 
 ────────────────────────
 💰 *VALOR TOTAL DA CONTA:* *${formatCurrency(reserva.valor_total)}*
-💳 *Forma de Pagamento:* ${reserva.forma_pagamento ? reserva.forma_pagamento.toUpperCase() : 'PIX'} (${isPaid ? 'CONCILIADO / PAGO' : 'A PAGAR'})
+💳 *Forma de Pagamento:* ${reserva.forma_pagamento ? reserva.forma_pagamento.toUpperCase() : 'PIX'} (${financialStatusLabel})
 ────────────────────────
 🌟 *Agradecemos imensamente sua preferência!*
 Esperamos recebê-lo novamente em breve em Itajubá.`
@@ -473,7 +475,7 @@ Esperamos recebê-lo novamente em breve em Itajubá.`
                         {reserva.forma_pagamento ? reserva.forma_pagamento.replace('_', ' ') : 'PIX'}
                       </strong>
                       <span className="text-[10px] text-stone-500">
-                        {isPaid ? 'Pagamento Aprovado & Conciliado no PMS' : 'Pendente de quitação no Check-out'}
+                        Situação financeira não certificada — consulte o Folio oficial
                       </span>
                     </div>
                   </div>
@@ -513,7 +515,7 @@ Esperamos recebê-lo novamente em breve em Itajubá.`
                   <span>Situação Financeira:</span>
                   <span className="font-bold uppercase tracking-wider flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    {isPaid ? 'QUITADA / LIQUIDADA' : 'SALDO PENDENTE'}
+                    NÃO CERTIFICADA
                   </span>
                 </div>
               </div>
