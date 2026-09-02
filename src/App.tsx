@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { HotelProvider, useHotel } from './context/HotelContext';
+import { SaaSTenantProvider } from './context/SaaSTenantContext';
 import { FrigobarProvider } from './context/FrigobarContext';
 import { Navbar } from './components/navigation/Navbar';
 import { HeroSection } from './components/landing/HeroSection';
@@ -81,5 +82,13 @@ const MainContent: React.FC = () => {
 };
 
 export default function App() {
-  return <HotelProvider><FrigobarProvider><MainContent /></FrigobarProvider></HotelProvider>;
+  return (
+    <HotelProvider>
+      <SaaSTenantProvider>
+        <FrigobarProvider>
+          <MainContent />
+        </FrigobarProvider>
+      </SaaSTenantProvider>
+    </HotelProvider>
+  );
 }
