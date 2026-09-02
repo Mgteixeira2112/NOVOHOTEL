@@ -21,7 +21,10 @@ const HOTEL_ADMIN_TAB_BY_ROUTE: Partial<Record<SaaSRouteId, AdminTab>> = {
   'hotel-inventory': 'frigobar',
   'hotel-finance': 'financial',
   'hotel-management': 'management_bi',
+  'hotel-team': 'users',
+  'hotel-command-center': 'command_center',
   'hotel-settings': 'settings',
+  'hotel-automations': 'automation',
 };
 
 export function resolveHotelRouteCompatibility(path: string): HotelRouteCompatibilityPlan | undefined {
