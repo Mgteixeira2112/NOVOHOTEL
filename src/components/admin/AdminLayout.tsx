@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useHotel } from '../../context/HotelContext';
-import { AdminHeader } from '../navigation/AdminHeader';
+import { SaaSShell } from '../layout/SaaSShell';
 import { SaaSFixedMenu } from '../navigation/SaaSFixedMenu';
 import { DashboardModule } from './DashboardModule';
 import { ExecutiveDashboardModule } from './ExecutiveDashboardModule';
@@ -50,20 +50,20 @@ export const AdminLayout: React.FC = () => {
   };
 
   const returnToDashboard = () => navigateTo('dashboard', '/app');
+  const renderNavigation = () => (
+    <SaaSFixedMenu
+      activeTab={activeTab}
+      role={userRole}
+      hasTabAccess={hasTabAccess}
+      onNavigate={navigateTo}
+    />
+  );
 
   return (
-    <div className={`min-h-screen bg-stone-100/90 flex flex-col text-stone-900 ${fontClass}`}>
+    <>
       <KanbanLocalAutomationBridge />
-      <AdminHeader />
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <SaaSFixedMenu
-          activeTab={activeTab}
-          role={userRole}
-          hasTabAccess={hasTabAccess}
-          onNavigate={navigateTo}
-        />
-
-        <main>
+      <SaaSShell renderNavigation={renderNavigation}>
+        <div className={fontClass}>
           {!hasPermission ? (
             <div className="bg-white p-10 rounded-3xl border text-center max-w-xl mx-auto">
               <ShieldAlert className="w-8 h-8 mx-auto text-amber-600" />
@@ -95,8 +95,8 @@ export const AdminLayout: React.FC = () => {
               {(activeTab === 'settings' || activeTab === 'design') && <SettingsModule />}
             </>
           )}
-        </main>
-      </div>
-    </div>
+        </div>
+      </SaaSShell>
+    </>
   );
 };
