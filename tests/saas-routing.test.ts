@@ -26,10 +26,21 @@ test('rotas estáveis do hotel apontam para telas existentes', () => {
   assert.equal(resolveHotelRouteCompatibility('/app/configuracoes/automacoes')?.adminTab, 'automation');
 });
 
-test('operação mantém fallback explícito para o Workspace legado', () => {
+test('operação, governança e manutenção usam a tela operacional fixa', () => {
   assert.deepEqual(resolveHotelRouteCompatibility('/app/operacao'), {
     routeId: 'hotel-operations',
-    mode: 'legacy-workspace',
+    mode: 'admin-screen',
+    adminTab: 'kanban',
+  });
+  assert.deepEqual(resolveHotelRouteCompatibility('/app/operacao/governanca'), {
+    routeId: 'hotel-housekeeping',
+    mode: 'admin-screen',
+    adminTab: 'kanban',
+  });
+  assert.deepEqual(resolveHotelRouteCompatibility('/app/operacao/manutencao'), {
+    routeId: 'hotel-maintenance',
+    mode: 'admin-screen',
+    adminTab: 'kanban',
   });
 });
 
@@ -62,6 +73,9 @@ test('restrições explícitas do menu continuam coerentes por perfil', () => {
 test('rotas críticas exigem a permissão backend correspondente', () => {
   assert.equal(permissionPolicyForRoute('hotel-reservations').backendPermission, PERMISSIONS.reservationsView);
   assert.equal(permissionPolicyForRoute('hotel-rooms').backendPermission, PERMISSIONS.roomsView);
+  assert.equal(permissionPolicyForRoute('hotel-operations').backendPermission, PERMISSIONS.housekeepingView);
+  assert.equal(permissionPolicyForRoute('hotel-housekeeping').backendPermission, PERMISSIONS.housekeepingView);
+  assert.equal(permissionPolicyForRoute('hotel-maintenance').backendPermission, PERMISSIONS.maintenanceView);
   assert.equal(permissionPolicyForRoute('hotel-pdv').backendPermission, PERMISSIONS.posView);
   assert.equal(permissionPolicyForRoute('hotel-finance').backendPermission, PERMISSIONS.financeView);
   assert.equal(permissionPolicyForRoute('hotel-settings').backendPermission, PERMISSIONS.adminManage);
