@@ -23,19 +23,37 @@ import { OperationalSectorId } from './domain/operationalSectors';
 import { resolveWorkspaceForUserAndSectors } from './workspace-engine/registry';
 import { WorkspaceRuntime } from './workspace-engine/WorkspaceRuntime';
 import { DEFAULT_WORKSPACE_HOTEL_ID, hydrateWorkspaceOverridesFromSupabase, subscribeWorkspaceConfig } from './workspace-engine/workspaceConfigStore';
+import { resolveHotelRouteCompatibility } from './routes/saasRouteCompatibility';
+
+const currentPathname = () => typeof window === 'undefined' ? '/app' : window.location.pathname;
 
 const AuthenticatedWorkspaceRouter: React.FC = () => {
-  const { currentUser, hotelConfig } = useHotel();
+  const { currentUser, hotelConfig, adminActiveTab, setAdminActiveTab } = useHotel();
+  const [pathname, setPathname] = useState(currentPathname);
   const [sectorIds, setSectorIds] = useState<OperationalSectorId[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setWorkspaceRevision] = useState(0);
   const role = currentUser?.tipo_usuario || '';
   const management = role === 'admin' || role === 'gerente';
   const hotelId = hotelConfig?.id || DEFAULT_WORKSPACE_HOTEL_ID;
+  const routePlan = resolveHotelRouteCompatibility(pathname);
+  const fixedAdminRoute = routePlan?.mode === 'admin-screen' && Boolean(routePlan.adminTab);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onPopState = () => setPathname(window.location.pathname);
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!fixedAdminRoute || !routePlan?.adminTab || adminActiveTab === routePlan.adminTab) return;
+    setAdminActiveTab(routePlan.adminTab);
+  }, [fixedAdminRoute, routePlan?.adminTab, adminActiveTab, setAdminActiveTab]);
 
   useEffect(() => {
     let cancelled = false;
-    if (!currentUser?.id || management) {
+    if (!currentUser?.id || management || fixedAdminRoute) {
       setSectorIds([]);
       setLoading(false);
       return () => { cancelled = true; };
@@ -51,13 +69,13 @@ const AuthenticatedWorkspaceRouter: React.FC = () => {
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [currentUser?.id, management, hotelId]);
+  }, [currentUser?.id, management, fixedAdminRoute, hotelId]);
 
   useEffect(() => subscribeWorkspaceConfig(() => {
     setWorkspaceRevision(current => current + 1);
   }), []);
 
-  if (management) return <AdminLayout />;
+  if (management || fixedAdminRoute) return <AdminLayout />;
   if (loading) return <div className="min-h-screen grid place-items-center bg-slate-100 text-slate-600 text-sm font-bold">Carregando ambiente operacional…</div>;
 
   const workspace = resolveWorkspaceForUserAndSectors(currentUser?.id, sectorIds, hotelId);
