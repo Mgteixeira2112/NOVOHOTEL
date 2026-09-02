@@ -5,16 +5,20 @@ import test from 'node:test';
 const controls = readFileSync('src/components/admin/WorkspaceWidgetPresentationControls.tsx', 'utf8');
 const presentation = readFileSync('src/workspace-engine/presentation.ts', 'utf8');
 
-test('Fábrica expõe o contrato visual comum completo do widget', () => {
+test('Fábrica expõe somente a exibição como controle comum visível do widget', () => {
   assert.match(controls, /Configuração comum/);
   assert.match(controls, />EXIBIÇÃO<select/);
-  assert.match(controls, />LARGURA<select/);
-  assert.match(controls, />ALTURA<select/);
-  assert.match(controls, />VISUAL<select/);
-  assert.match(controls, />CABEÇALHO<select/);
+  assert.match(controls, /Completo/);
+  assert.match(controls, /Resumo/);
+  assert.match(controls, /Atalho/);
+  assert.match(controls, /Oculto/);
+  assert.doesNotMatch(controls, />LARGURA<select/);
+  assert.doesNotMatch(controls, />ALTURA<select/);
+  assert.doesNotMatch(controls, />VISUAL<select/);
+  assert.doesNotMatch(controls, />CABEÇALHO<select/);
 });
 
-test('opções comuns seguem o vocabulário do Plano Mestre', () => {
+test('contratos visuais legados continuam disponíveis para compatibilidade interna', () => {
   assert.match(controls, /Pequena/);
   assert.match(controls, /Média/);
   assert.match(controls, /Grande/);
