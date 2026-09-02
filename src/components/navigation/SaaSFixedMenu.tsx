@@ -73,41 +73,40 @@ export const SaaSFixedMenu: React.FC<SaaSFixedMenuProps> = ({ activeTab, role, h
   if (!currentVisibleSection) return null;
 
   return (
-    <div className="bg-white rounded-2xl border border-stone-200 p-2 shadow-xs mb-6 space-y-2">
-      <nav className="flex items-center gap-1.5 overflow-x-auto min-w-0" aria-label="Áreas do sistema">
-        {visibleSections.map(section => {
-          const selected = section.id === currentVisibleSection.id;
-          const firstItem = section.items[0];
-          return (
+    <nav className="space-y-1" aria-label="Áreas do sistema">
+      {visibleSections.map(section => {
+        const selected = section.id === currentVisibleSection.id;
+        const firstItem = section.items[0];
+        return (
+          <div key={section.id} className="space-y-1">
             <button
-              key={section.id}
               type="button"
               onClick={() => onNavigate(firstItem.adminTab, firstItem.path)}
-              className={`px-3.5 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap transition-colors ${selected ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100'}`}
+              className={`w-full rounded-xl px-3 py-2.5 text-left text-sm font-bold transition-colors ${selected ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'}`}
             >
               {section.label}
             </button>
-          );
-        })}
-      </nav>
 
-      {currentVisibleSection.items.length > 1 && (
-        <div className="border-t border-stone-100 pt-2 flex items-center gap-1.5 overflow-x-auto" aria-label={`Opções de ${currentVisibleSection.label}`}>
-          {currentVisibleSection.items.map(item => {
-            const selected = item.adminTab === activeTab || (item.adminTab === 'settings' && activeTab === 'design');
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onNavigate(item.adminTab, item.path)}
-                className={`px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap ${selected ? 'bg-stone-100 text-stone-950' : 'text-stone-500 hover:bg-stone-50 hover:text-stone-800'}`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
+            {selected && section.items.length > 1 && (
+              <div className="ml-3 space-y-1 border-l border-stone-200 pl-2" aria-label={`Opções de ${section.label}`}>
+                {section.items.map(item => {
+                  const itemSelected = item.adminTab === activeTab || (item.adminTab === 'settings' && activeTab === 'design');
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => onNavigate(item.adminTab, item.path)}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-xs font-semibold ${itemSelected ? 'bg-stone-100 text-stone-950' : 'text-stone-500 hover:bg-stone-50 hover:text-stone-800'}`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </nav>
   );
 };
