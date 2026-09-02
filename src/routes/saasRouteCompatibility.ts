@@ -15,6 +15,9 @@ const HOTEL_ADMIN_TAB_BY_ROUTE: Partial<Record<SaaSRouteId, AdminTab>> = {
   'hotel-reservations': 'reservations',
   'hotel-rooms': 'rooms',
   'hotel-guests': 'guests',
+  'hotel-operations': 'kanban',
+  'hotel-housekeeping': 'kanban',
+  'hotel-maintenance': 'kanban',
   'hotel-kanban': 'kanban',
   'hotel-pdv': 'pdv',
   'hotel-kds': 'kds',
@@ -30,10 +33,6 @@ const HOTEL_ADMIN_TAB_BY_ROUTE: Partial<Record<SaaSRouteId, AdminTab>> = {
 export function resolveHotelRouteCompatibility(path: string): HotelRouteCompatibilityPlan | undefined {
   const route = findSaaSRoute(path);
   if (!route || route.environment !== 'hotel') return undefined;
-
-  if (route.id === 'hotel-operations') {
-    return { routeId: route.id, mode: 'legacy-workspace' };
-  }
 
   const adminTab = HOTEL_ADMIN_TAB_BY_ROUTE[route.id];
   if (!adminTab) return undefined;
