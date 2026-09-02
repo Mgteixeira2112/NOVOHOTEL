@@ -1,6 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { AdminTab, UserRole } from '../../types';
-import { SAAS_FIXED_MENU, menuSectionForTab, roleCanSeeMenuItem } from '../../navigation/saasFixedMenu';
+import { useSaaSTenant } from '../../context/SaaSTenantContext';
+import { SAAS_FIXED_MENU, menuSectionForTab, roleCanSeeMenuItem, type SaaSMenuItem } from '../../navigation/saasFixedMenu';
+import { findSaaSRoute } from '../../routes/saasRouteCatalog';
+import { permissionPolicyForRoute } from '../../routes/saasRoutePermissions';
 
 interface SaaSFixedMenuProps {
   activeTab: string;
@@ -9,13 +12,61 @@ interface SaaSFixedMenuProps {
   onNavigate: (tab: AdminTab, path: string) => void;
 }
 
+const backendPermissionForItem = (item: SaaSMenuItem): string | undefined => {
+  const route = findSaaSRoute(item.path);
+  return route ? permissionPolicyForRoute(route.id).backendPermission : undefined;
+};
+
 export const SaaSFixedMenu: React.FC<SaaSFixedMenuProps> = ({ activeTab, role, hasTabAccess, onNavigate }) => {
+  const { available: tenantAvailable, loading: tenantLoading, checkPermissions } = useSaaSTenant();
+  const [backendPermissions, setBackendPermissions] = useState<Record<string, boolean>>({});
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
   const activeSection = menuSectionForTab(activeTab) ?? SAAS_FIXED_MENU[0];
+
+  const requiredBackendPermissions = useMemo(() => [...new Set(
+    SAAS_FIXED_MENU
+      .flatMap(section => section.items)
+      .map(backendPermissionForItem)
+      .filter((permission): permission is string => Boolean(permission)),
+  )], []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!tenantAvailable) {
+      setBackendPermissions({});
+      setPermissionsLoading(false);
+      return () => { cancelled = true; };
+    }
+
+    setPermissionsLoading(true);
+    void checkPermissions(requiredBackendPermissions)
+      .then(result => {
+        if (!cancelled) setBackendPermissions(result);
+      })
+      .finally(() => {
+        if (!cancelled) setPermissionsLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [tenantAvailable, checkPermissions, requiredBackendPermissions]);
+
+  const backendAllowsItem = (item: SaaSMenuItem): boolean => {
+    const permission = backendPermissionForItem(item);
+    if (!permission) return true;
+    if (tenantLoading) return false;
+    if (!tenantAvailable) return true;
+    if (permissionsLoading) return false;
+    return backendPermissions[permission] === true;
+  };
 
   const visibleSections = useMemo(() => SAAS_FIXED_MENU.map(section => ({
     ...section,
-    items: section.items.filter(item => roleCanSeeMenuItem(role, item) && hasTabAccess(role, item.adminTab)),
-  })).filter(section => section.items.length > 0), [role, hasTabAccess]);
+    items: section.items.filter(item =>
+      roleCanSeeMenuItem(role, item)
+      && hasTabAccess(role, item.adminTab)
+      && backendAllowsItem(item)
+    ),
+  })).filter(section => section.items.length > 0), [role, hasTabAccess, tenantAvailable, tenantLoading, permissionsLoading, backendPermissions]);
 
   const currentVisibleSection = visibleSections.find(section => section.id === activeSection.id) ?? visibleSections[0];
 
