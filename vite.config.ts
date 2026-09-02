@@ -8,10 +8,10 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(() => {
   return {
-    // GitHub Pages publishes this repository under /SITE-PARA-HOTEIS/.
+    // GitHub Pages publishes this repository under /NOVOHOTEL/.
     // Using an explicit base prevents the production bundle from resolving
     // JS/CSS/assets against the github.io domain root.
-    base: '/SITE-PARA-HOTEIS/',
+    base: '/NOVOHOTEL/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
