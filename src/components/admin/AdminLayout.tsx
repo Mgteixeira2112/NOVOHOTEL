@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useHotel } from '../../context/HotelContext';
 import { SaaSShell } from '../layout/SaaSShell';
 import { SaaSFixedMenu } from '../navigation/SaaSFixedMenu';
@@ -10,6 +10,7 @@ import { ReservationsModule } from './ReservationsModule';
 import { CheckInOutModule } from './CheckInOutModule';
 import { GuestsModule } from './GuestsModule';
 import { FrigobarModule } from './FrigobarModule';
+import { FinancialModule } from './FinancialModule';
 import { AutomationModule } from './AutomationModule';
 import { SettingsModule } from './SettingsModule';
 import { UsersOperationalAccessModule } from './UsersOperationalAccessModule';
@@ -19,8 +20,6 @@ import { WorkspaceEditorModule } from './WorkspaceEditorModule';
 import { PDVPage } from './PDVPage';
 import { KDSPage } from './KDSPage';
 import { HotelOSCommandCenter } from './HotelOSCommandCenter';
-import { WidgetDrivenWorkspace } from '../../workspace-engine/WidgetDrivenWorkspace';
-import { getWorkspaceDefinition } from '../../workspace-engine/registry';
 import { ShieldAlert, ArrowRight } from 'lucide-react';
 import { AdminTab } from '../../types';
 import { getTheme, getFontFamilyClass } from '../../utils/themeHelper';
@@ -32,7 +31,6 @@ export const AdminLayout: React.FC = () => {
   const theme = getTheme(hotelConfig?.tema_cor);
   const fontClass = getFontFamilyClass(hotelConfig?.tipografia);
   const activeTab = adminActiveTab as ExtendedAdminTab;
-  const financialWorkspace = useMemo(() => getWorkspaceDefinition('workspace-financeiro', hotelConfig?.id), [hotelConfig?.id]);
   const userRole = currentUser?.tipo_usuario || 'recepcionista';
   const managementOnly = activeTab === 'command_center' || activeTab === 'workspace_editor';
   const hasPermission = managementOnly
@@ -86,7 +84,7 @@ export const AdminLayout: React.FC = () => {
               {activeTab === 'checkin_out' && <CheckInOutModule />}
               {activeTab === 'rooms' && <RoomsModule />}
               {activeTab === 'guests' && <GuestsModule />}
-              {activeTab === 'financial' && financialWorkspace && <WidgetDrivenWorkspace definition={financialWorkspace} />}
+              {activeTab === 'financial' && <FinancialModule />}
               {activeTab === 'frigobar' && <FrigobarModule />}
               {activeTab === 'automation' && <AutomationModule />}
               {activeTab === 'users' && <UsersOperationalAccessModule />}
