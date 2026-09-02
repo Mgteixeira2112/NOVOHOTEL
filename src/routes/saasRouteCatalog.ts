@@ -13,6 +13,8 @@ export type SaaSRouteId =
   | 'hotel-rooms'
   | 'hotel-guests'
   | 'hotel-operations'
+  | 'hotel-housekeeping'
+  | 'hotel-maintenance'
   | 'hotel-kanban'
   | 'hotel-pdv'
   | 'hotel-kds'
@@ -57,6 +59,8 @@ export const HOTEL_ROUTES: readonly SaaSRouteDefinition[] = [
   { id: 'hotel-rooms', environment: 'hotel', path: '/app/quartos', label: 'Quartos', authenticated: true, menu: true },
   { id: 'hotel-guests', environment: 'hotel', path: '/app/hospedes', label: 'Hóspedes', authenticated: true, menu: true },
   { id: 'hotel-operations', environment: 'hotel', path: '/app/operacao', label: 'Operação', authenticated: true, menu: true, operationalSector: true },
+  { id: 'hotel-housekeeping', environment: 'hotel', path: '/app/operacao/governanca', label: 'Governança', authenticated: true, menu: false, operationalSector: true },
+  { id: 'hotel-maintenance', environment: 'hotel', path: '/app/operacao/manutencao', label: 'Manutenção', authenticated: true, menu: false, operationalSector: true },
   { id: 'hotel-kanban', environment: 'hotel', path: '/app/kanban', label: 'Kanban', authenticated: true, menu: true, operationalSector: true },
   { id: 'hotel-pdv', environment: 'hotel', path: '/app/pdv', label: 'PDV', authenticated: true, menu: true },
   { id: 'hotel-kds', environment: 'hotel', path: '/app/kds', label: 'KDS', authenticated: true, menu: true, operationalSector: true },
