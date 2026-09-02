@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HOTEL_ROUTES, PLATFORM_ROUTES, PUBLIC_ROUTES, findSaaSRoute, routesForEnvironment } from '../src/routes/saasRouteCatalog';
 import { resolveHotelRouteCompatibility } from '../src/routes/saasRouteCompatibility';
+import { permissionPolicyForRoute } from '../src/routes/saasRoutePermissions';
 import { SAAS_FIXED_MENU, menuItemForTab, roleCanSeeMenuItem } from '../src/navigation/saasFixedMenu';
+import { PERMISSIONS } from '../src/core/permissions/permissionKeys';
 
 test('catálogo separa os três ambientes SaaS', () => {
   assert.equal(routesForEnvironment('public').length, PUBLIC_ROUTES.length);
@@ -55,4 +57,12 @@ test('restrições explícitas do menu continuam coerentes por perfil', () => {
   assert.equal(roleCanSeeMenuItem('recepcionista', finance), false);
   assert.equal(roleCanSeeMenuItem('admin', settings), true);
   assert.equal(roleCanSeeMenuItem('recepcionista', settings), false);
+});
+
+test('rotas críticas exigem a permissão backend correspondente', () => {
+  assert.equal(permissionPolicyForRoute('hotel-reservations').backendPermission, PERMISSIONS.reservationsView);
+  assert.equal(permissionPolicyForRoute('hotel-rooms').backendPermission, PERMISSIONS.roomsView);
+  assert.equal(permissionPolicyForRoute('hotel-pdv').backendPermission, PERMISSIONS.posView);
+  assert.equal(permissionPolicyForRoute('hotel-finance').backendPermission, PERMISSIONS.financeView);
+  assert.equal(permissionPolicyForRoute('hotel-settings').backendPermission, PERMISSIONS.adminManage);
 });
