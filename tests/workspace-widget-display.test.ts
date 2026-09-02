@@ -8,14 +8,13 @@ const presentation = readFileSync('src/workspace-engine/presentation.ts', 'utf8'
 const controls = readFileSync('src/components/admin/WorkspaceWidgetPresentationControls.tsx', 'utf8');
 const desktopEditor = readFileSync('src/components/admin/WorkspaceDesktopLayoutEditor.tsx', 'utf8');
 
-test('largura e modo de exibição são contratos independentes e span fica apenas como legado', () => {
+test('largura e modo de exibição seguem contratos independentes com edição de largura no Desktop', () => {
   assert.match(types, /WorkspaceWidgetDisplay = 'panel' \| 'button'/);
   assert.match(types, /WorkspaceWidgetWidth = 'small' \| 'medium' \| 'large' \| 'full'/);
   assert.match(types, /Legacy layout contract kept only for persisted definitions/);
   assert.match(types, /WorkspaceWidgetSpan = 1 \| 2 \| 3 \| 4 \| 'full' \| 'button'/);
   assert.match(controls, /EXIBIÇÃO/);
-  assert.match(controls, />LARGURA<select/);
-  assert.match(controls, /Botão \/ popup/);
+  assert.doesNotMatch(controls, />LARGURA<select/);
   assert.match(desktopEditor, /WorkspaceWidgetWidth/);
   assert.match(desktopEditor, /const widths: WorkspaceWidgetWidth\[\] = \['small', 'medium', 'large', 'full'\]/);
   assert.match(desktopEditor, /updateWidth/);
