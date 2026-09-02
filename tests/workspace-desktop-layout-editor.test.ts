@@ -72,12 +72,13 @@ test('editor Desktop vive no preview e não fica duplicado na aparência geral',
   assert.match(editor, /Use o alvo para posicionar livremente cada widget sobre a superfície/);
 });
 
-test('configuração comum permanece separada do override Desktop', () => {
+test('configuração comum fica simplificada e o override Desktop permanece no editor visual', () => {
   assert.doesNotMatch(widgetPresentation, /data-widget-desktop-customization/);
-  assert.match(widgetPresentation, />LARGURA<select/);
+  assert.match(widgetPresentation, />EXIBIÇÃO<select/);
+  assert.doesNotMatch(widgetPresentation, />LARGURA<select/);
   assert.match(widgetPresentation, /Base visual compartilhada pelas estratégias/);
-  assert.match(widgetPresentation, /data-widget-mobile-customization/);
-  assert.match(widgetPresentation, /data-widget-kds-customization/);
+  assert.match(editor, /data-workspace-desktop-presentation-inspector/);
+  assert.match(editor, />LARGURA<select/);
 });
 
 test('ordem e apresentação Desktop usam a persistência oficial já existente do Workspace', () => {
