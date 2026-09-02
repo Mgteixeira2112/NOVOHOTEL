@@ -9,7 +9,8 @@ test('templates oficiais recebem presets visuais coerentes sem ativar sidebar po
   assert.match(factory, /id: 'workspace-recepcao'[\s\S]*presentation: createVisualPresentation\('lobby'\)/);
   assert.match(factory, /id: 'workspace-cozinha'[\s\S]*presentation: createVisualPresentation\('service'\)/);
   assert.match(factory, /id: 'workspace-financeiro'[\s\S]*\.\.\.createVisualPresentation\('finance'\)/);
-  assert.match(factory, /id: 'workspace-administrativo'[\s\S]*presentation: createVisualPresentation\('operations'\)/);
+  assert.match(factory, /id: 'workspace-administrativo-hotel'[\s\S]*presentation: createVisualPresentation\('operations'\)/);
+  assert.match(factory, /id: 'workspace-administrativo-sistema'[\s\S]*presentation: createVisualPresentation\('operations'\)/);
   assert.match(factory, /sidebar:\s*\{[\s\S]*enabled: false,[\s\S]*x: 2,[\s\S]*y: 110,[\s\S]*width: 240,[\s\S]*itemSize: 'normal',[\s\S]*visual: 'glass'/);
 });
 
