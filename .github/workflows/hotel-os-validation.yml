@@ -15,6 +15,23 @@ jobs:
           bun-version: latest
       - run: bun install --frozen-lockfile
       - run: bun run lint
-      - run: bun run test
+      - name: Run tests with diagnostic output
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          bun run test 2>&1 | tee test-output.txt
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload test diagnostic output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-test-output
+          path: test-output.txt
+      - name: Fail if tests failed
+        if: steps.tests.outputs.exit_code != '0'
+        run: exit 1
       - run: bun run build
       - run: bun run audit:production
