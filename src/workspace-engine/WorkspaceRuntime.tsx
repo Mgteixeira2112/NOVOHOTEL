@@ -2,7 +2,7 @@ import React from 'react';
 import { WorkspaceDefinition } from './types';
 import { WidgetDrivenWorkspace } from './WidgetDrivenWorkspace';
 import { registerBuiltinWorkspaceWidgets } from './registerBuiltinWidgets';
-import { ReceptionWorkspaceShared } from '../modules/recepcao/ReceptionWorkspaceShared';
+import { ReceptionWorkspaceMenuBridge } from '../modules/recepcao/ReceptionWorkspaceMenuBridge';
 
 interface WorkspaceRuntimeProps { definition: WorkspaceDefinition; }
 
@@ -12,8 +12,9 @@ registerBuiltinWorkspaceWidgets();
  * Runtime único dos Workspaces.
  *
  * A definição continua vindo da Central/Fábrica de Workspaces. A Recepção usa
- * a apresentação visual operacional aprovada; as demais áreas permanecem no
- * runtime dirigido diretamente pelos widgets da definição persistida.
+ * a apresentação visual operacional aprovada e o menu lateral derivado dos
+ * widgets habilitados; as demais áreas permanecem no runtime dirigido
+ * diretamente pelos widgets da definição persistida.
  */
 export const WorkspaceRuntime: React.FC<WorkspaceRuntimeProps> = ({ definition }) => {
   const isReception = definition.sectors.includes('recepcao') || definition.widgets.some(widget =>
@@ -21,6 +22,6 @@ export const WorkspaceRuntime: React.FC<WorkspaceRuntimeProps> = ({ definition }
     || widget.boardId === 'kanban-board-recepcao',
   );
 
-  if (isReception) return <ReceptionWorkspaceShared definition={definition} />;
+  if (isReception) return <ReceptionWorkspaceMenuBridge definition={definition} />;
   return <WidgetDrivenWorkspace definition={definition} />;
 };
