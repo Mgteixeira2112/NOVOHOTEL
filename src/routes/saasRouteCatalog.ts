@@ -19,7 +19,10 @@ export type SaaSRouteId =
   | 'hotel-inventory'
   | 'hotel-finance'
   | 'hotel-management'
+  | 'hotel-team'
+  | 'hotel-command-center'
   | 'hotel-settings'
+  | 'hotel-automations'
   | 'platform-home'
   | 'platform-organizations'
   | 'platform-hotels'
@@ -60,7 +63,10 @@ export const HOTEL_ROUTES: readonly SaaSRouteDefinition[] = [
   { id: 'hotel-inventory', environment: 'hotel', path: '/app/estoque', label: 'Estoque', authenticated: true, menu: true },
   { id: 'hotel-finance', environment: 'hotel', path: '/app/financeiro', label: 'Financeiro', authenticated: true, menu: true },
   { id: 'hotel-management', environment: 'hotel', path: '/app/gestao', label: 'Gestão', authenticated: true, menu: true },
+  { id: 'hotel-team', environment: 'hotel', path: '/app/gestao/equipe', label: 'Equipe & Acessos', authenticated: true, menu: false },
+  { id: 'hotel-command-center', environment: 'hotel', path: '/app/gestao/hotel-os', label: 'Central Hotel OS', authenticated: true, menu: false },
   { id: 'hotel-settings', environment: 'hotel', path: '/app/configuracoes', label: 'Configurações', authenticated: true, menu: true },
+  { id: 'hotel-automations', environment: 'hotel', path: '/app/configuracoes/automacoes', label: 'Automações', authenticated: true, menu: false },
 ] as const;
 
 export const PLATFORM_ROUTES: readonly SaaSRouteDefinition[] = [
