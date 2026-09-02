@@ -3,10 +3,19 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const adminLayout = readFileSync('src/components/admin/AdminLayout.tsx', 'utf8');
+const financialModule = readFileSync('src/components/admin/FinancialModule.tsx', 'utf8');
 
-test('AdminLayout resolve Financeiro pelo Workspace oficial e não pelo módulo legado', () => {
-  assert.match(adminLayout, /getWorkspaceDefinition\('workspace-financeiro'/);
-  assert.match(adminLayout, /<WidgetDrivenWorkspace definition=\{financialWorkspace\}/);
-  assert.doesNotMatch(adminLayout, /import \{ FinancialModule \}/);
-  assert.doesNotMatch(adminLayout, /<FinancialModule \/>/);
+test('AdminLayout renderiza Financeiro fixo sem Workspace Engine', () => {
+  assert.doesNotMatch(adminLayout, /getWorkspaceDefinition\('workspace-financeiro'/);
+  assert.doesNotMatch(adminLayout, /WidgetDrivenWorkspace/);
+  assert.match(adminLayout, /import \{ FinancialModule \} from '\.\/FinancialModule'/);
+  assert.match(adminLayout, /activeTab === 'financial' && <FinancialModule \/>/);
+});
+
+test('FinancialModule reutiliza a camada financeira administrativa oficial', () => {
+  assert.match(financialModule, /useAdministrativeFinanceUi/);
+  assert.match(financialModule, /ReceivablesCrmTab/);
+  assert.match(financialModule, /PayablesTab/);
+  assert.doesNotMatch(financialModule, /workspace-engine/);
+  assert.doesNotMatch(financialModule, /WorkspaceDefinition/);
 });
