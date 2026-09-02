@@ -5,7 +5,7 @@ import test from 'node:test';
 const factory = readFileSync('src/workspace-engine/workspaceOfficialFactory.ts', 'utf8');
 const registry = readFileSync('src/workspace-engine/registry.ts', 'utf8');
 
-const financeBlock = factory.match(/id: 'workspace-financeiro'[\s\S]*?(?=\n  \{\n    id: 'workspace-administrativo')/)?.[0] || '';
+const financeBlock = factory.match(/id: 'workspace-financeiro'[\s\S]*?(?=\n  \{\n    id: 'workspace-administrativo-hotel')/)?.[0] || '';
 
 test('Factory mantém Workspace Financeiro como template oficial de gestão', () => {
   assert.match(factory, /\| 'workspace-financeiro'/);
