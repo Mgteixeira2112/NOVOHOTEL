@@ -16,6 +16,7 @@ interface SaaSTenantContextValue {
   canSwitchHotels: boolean;
   refresh: () => Promise<void>;
   switchHotel: (hotelId: string) => Promise<boolean>;
+  checkPermissions: (permissions: readonly string[]) => Promise<Record<string, boolean>>;
 }
 
 const SaaSTenantContext = createContext<SaaSTenantContextValue | undefined>(undefined);
@@ -101,6 +102,21 @@ export const SaaSTenantProvider: React.FC<React.PropsWithChildren> = ({ children
   const activeHotelId = activeMembership?.hotel_id ?? hotelConfig?.id ?? null;
   const canSwitchHotels = (snapshot?.hotels.length ?? 0) > 1;
 
+  const checkPermissions = useCallback(async (permissions: readonly string[]): Promise<Record<string, boolean>> => {
+    const uniquePermissions = [...new Set(permissions.filter(Boolean))];
+    if (!activeMembership?.hotel_id || uniquePermissions.length === 0) return {};
+
+    const entries = await Promise.all(uniquePermissions.map(async permission => {
+      try {
+        return [permission, await tenantService.can(permission, activeMembership.hotel_id)] as const;
+      } catch {
+        return [permission, false] as const;
+      }
+    }));
+
+    return Object.fromEntries(entries);
+  }, [activeMembership?.hotel_id]);
+
   const value = useMemo<SaaSTenantContextValue>(() => ({
     snapshot,
     activeContext,
@@ -114,6 +130,7 @@ export const SaaSTenantProvider: React.FC<React.PropsWithChildren> = ({ children
     canSwitchHotels,
     refresh,
     switchHotel,
+    checkPermissions,
   }), [
     snapshot,
     activeContext,
@@ -126,6 +143,7 @@ export const SaaSTenantProvider: React.FC<React.PropsWithChildren> = ({ children
     canSwitchHotels,
     refresh,
     switchHotel,
+    checkPermissions,
   ]);
 
   return <SaaSTenantContext.Provider value={value}>{children}</SaaSTenantContext.Provider>;
