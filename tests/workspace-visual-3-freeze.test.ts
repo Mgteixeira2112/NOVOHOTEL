@@ -37,9 +37,9 @@ test('Freeze Visual 3.0 mantém edição na Fábrica usando o runtime real', () 
   assert.match(editor, /data-workspace-sidebar-editor/);
 });
 
-test('Freeze Visual 3.0 preserva fallback Desktop e ativa posição livre/sidebar somente por configuração', () => {
-  assert.match(runtime, /desktopSpatialActive = viewport === 'desktop' && desktopSpatialEntries\.length > 0/);
-  assert.match(runtime, /desktopSidebarActive = viewport === 'desktop' && sidebar\?\.enabled === true/);
+test('Freeze Visual 3.0 preserva fallback Desktop em grade automática e sidebar opcional', () => {
+  assert.match(runtime, /const desktopSpatialEntries: typeof entries = \[\]/);
+  assert.match(runtime, /desktopSidebarActive = viewport === 'desktop' && entries\.some\(\(\{ presentation \}\) => presentation\.display === 'button'\) && sidebar\?\.enabled !== false/);
   assert.match(runtime, /desktopFlowEntries\.forEach\(entry =>/);
   assert.match(runtime, /renderDesktopSurface\(\)/);
   assert.match(runtime, /renderDesktopSpatialWidgets\(\)/);
