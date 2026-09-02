@@ -22,13 +22,14 @@ test('biblioteca mantém fundos pré-carregados sem dependência externa', () =>
   assert.doesNotMatch(presets, /https?:\/\//);
 });
 
-test('Fábrica permite escolher fundo, encaixe, posição e altura da superfície', () => {
+test('Fábrica simplifica a superfície para seleção de fundo e grade automática', () => {
   assert.match(controls, /data-workspace-surface-controls/);
   assert.match(controls, /WORKSPACE_BACKGROUND_PRESETS/);
   assert.match(controls, /backgroundPreset/);
-  assert.match(controls, /backgroundFit/);
-  assert.match(controls, /backgroundPosition/);
-  assert.match(controls, /minHeight/);
+  assert.match(controls, /widgets seguem uma grade automática/);
+  assert.doesNotMatch(controls, /backgroundFit/);
+  assert.doesNotMatch(controls, /backgroundPosition/);
+  assert.doesNotMatch(controls, /minHeight/);
 });
 
 test('preview Desktop renderiza a superfície selecionada sem alterar o runtime funcional', () => {

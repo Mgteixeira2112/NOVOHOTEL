@@ -5,20 +5,21 @@ import test from 'node:test';
 const runtime = readFileSync('src/workspace-engine/WidgetDrivenWorkspace.tsx', 'utf8');
 const controls = readFileSync('src/components/admin/WorkspaceGeneralPresentationControls.tsx', 'utf8');
 
-test('Fábrica configura somente o contrato oficial da sidebar Desktop', () => {
+test('Fábrica mantém somente liga desliga do menu lateral Desktop', () => {
   assert.match(controls, /const sidebar = presentation\.sidebar \|\| \{\}/);
   assert.match(controls, /updateSidebar/);
   assert.match(controls, /data-workspace-sidebar-controls/);
-  assert.match(controls, /sidebar\.enabled === true/);
-  assert.match(controls, /WorkspaceSidebarItemSize/);
-  assert.match(controls, /WorkspaceSidebarVisualStyle/);
+  assert.match(controls, /checked=\{sidebar\.enabled !== false\}/);
+  assert.match(controls, /Exibir menu/);
+  assert.doesNotMatch(controls, /WorkspaceSidebarItemSize/);
+  assert.doesNotMatch(controls, /WorkspaceSidebarVisualStyle/);
 });
 
-test('runtime captura somente widgets Desktop resolvidos como botão quando sidebar está ativa', () => {
-  assert.match(runtime, /desktopSidebarActive = viewport === 'desktop' && sidebar\?\.enabled === true/);
+test('runtime ativa sidebar Desktop quando há widget-botão e ela não foi desabilitada', () => {
+  assert.match(runtime, /desktopSidebarActive = viewport === 'desktop' && entries\.some\(\(\{ presentation \}\) => presentation\.display === 'button'\) && sidebar\?\.enabled !== false/);
   assert.match(runtime, /entries\.filter\(\(\{ presentation \}\) => presentation\.display === 'button'\)/);
-  assert.match(runtime, /!isDesktopSidebarEntry\(presentation\) && hasDesktopSpatialPosition\(widget\)/);
-  assert.match(runtime, /!isDesktopSidebarEntry\(presentation\) && !hasDesktopSpatialPosition\(widget\)/);
+  assert.match(runtime, /desktopFlowEntries = viewport === 'desktop'/);
+  assert.match(runtime, /entries\.filter\(\(\{ presentation \}\) => !isDesktopSidebarEntry\(presentation\)\)/);
   assert.match(runtime, /desktopFlowEntries\.forEach\(entry =>/);
 });
 

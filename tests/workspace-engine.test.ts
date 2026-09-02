@@ -30,11 +30,11 @@ test('biblioteca visível registra apenas widgets canônicos para compor workspa
   }
 });
 
-test('biblioteca classifica disponibilidade e maturidade por setor', () => {
+test('biblioteca classifica disponibilidade e maturidade sem limitar composição por setor', () => {
   assert.deepEqual(getWidgetAvailability('task-kanban', 'cozinha'), { allowed: true, readiness: 'ready', reason: '' });
-  assert.equal(getWidgetAvailability('room-map', 'cozinha').allowed, false);
+  assert.equal(getWidgetAvailability('room-map', 'cozinha').allowed, true);
   assert.equal(getWidgetAvailability('arrivals', 'recepcao').allowed, true);
-  assert.equal(getWidgetAvailability('arrivals', 'governanca').allowed, false);
+  assert.equal(getWidgetAvailability('arrivals', 'governanca').allowed, true);
   assert.deepEqual(getWidgetAvailability('orders', 'cozinha'), {
     allowed: false,
     readiness: 'planned',

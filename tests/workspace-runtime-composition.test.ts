@@ -9,12 +9,13 @@ const appSource = readFileSync('src/App.tsx', 'utf8');
 const editorSource = readFileSync('src/components/admin/WorkspaceEditorModule.tsx', 'utf8');
 const storeSource = readFileSync('src/workspace-engine/workspaceConfigStore.ts', 'utf8');
 
-test('WorkspaceRuntime usa sempre o canvas dirigido pela composição de widgets', () => {
+test('WorkspaceRuntime mantém Recepção aprovada e usa canvas dirigido por widgets nas demais áreas', () => {
   assert.match(runtimeSource, /<WidgetDrivenWorkspace definition=\{definition\}/);
+  assert.match(runtimeSource, /ReceptionWorkspaceShared/);
+  assert.match(runtimeSource, /if \(isReception\) return <ReceptionWorkspaceShared definition=\{definition\} \/>/);
   assert.doesNotMatch(runtimeSource, /getWorkspaceAdapter/);
   assert.doesNotMatch(runtimeSource, /GenericOperationalWorkspace/);
   assert.doesNotMatch(runtimeSource, /GovernancaWorkspace/);
-  assert.doesNotMatch(runtimeSource, /ReceptionWorkspaceShared/);
 });
 
 test('canvas renderiza somente widgets ativos, visíveis e na ordem da apresentação resolvida', () => {
@@ -32,10 +33,10 @@ test('normalização preserva widgets desativados, apresentação e ordem config
   assert.match(catalogSource, /sort\(\(a, b\) => \(a\.order \?\? 0\) - \(b\.order \?\? 0\)\)/);
 });
 
-test('roteador operacional reage às alterações salvas pela Fábrica', () => {
+test('roteador operacional reage às alterações salvas pela Fábrica e considera usuário, setores e hotel', () => {
   assert.match(appSource, /subscribeWorkspaceConfig/);
   assert.match(appSource, /setWorkspaceRevision\(current => current \+ 1\)/);
-  assert.match(appSource, /resolveWorkspaceForSectors\(sectorIds, hotelId\)/);
+  assert.match(appSource, /resolveWorkspaceForUserAndSectors\(currentUser\?\.id, sectorIds, hotelId\)/);
 });
 
 test('Fábrica altera composição e persistência dispara atualização do runtime', () => {

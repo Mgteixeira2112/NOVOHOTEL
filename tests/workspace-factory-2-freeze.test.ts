@@ -22,7 +22,7 @@ const retiredFinancialUi = [
   'src/components/admin/financial/NewReceivableModal.tsx',
 ];
 
-test('Freeze 2.0: catálogo oficial mantém sete Workspaces gerados pela Fábrica', () => {
+test('Freeze 2.0: catálogo oficial mantém oito Workspaces gerados pela Fábrica', () => {
   assert.deepEqual(OFFICIAL_WORKSPACE_TEMPLATES.map(item => item.id), [
     'workspace-governanca',
     'workspace-recepcao',
@@ -30,7 +30,8 @@ test('Freeze 2.0: catálogo oficial mantém sete Workspaces gerados pela Fábric
     'workspace-manutencao',
     'workspace-cozinha',
     'workspace-financeiro',
-    'workspace-administrativo',
+    'workspace-administrativo-hotel',
+    'workspace-administrativo-sistema',
   ]);
 });
 
@@ -62,7 +63,8 @@ test('Freeze 2.0: Fábrica separa templates e instâncias persistidas', () => {
   assert.match(factoryUi, /Templates de gestão/);
   assert.match(factoryUi, />Meus Workspaces</);
   assert.match(factoryUi, /createOfficialWorkspaceDefinition\('workspace-financeiro'\)/);
-  assert.match(factoryUi, /createOfficialWorkspaceDefinition\('workspace-administrativo'\)/);
+  assert.match(factoryUi, /createOfficialWorkspaceDefinition\('workspace-administrativo-hotel'\)/);
+  assert.match(factoryUi, /createOfficialWorkspaceDefinition\('workspace-administrativo-sistema'\)/);
   assert.match(factoryUi, /loadWorkspaceOverrides\(hotelId\)/);
 });
 
