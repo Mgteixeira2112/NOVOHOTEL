@@ -60,7 +60,7 @@ test('Mobile suporta adaptação vertical, resumo e botão sem duplicar Workspac
   assert.match(runtime, /data-widget-mobile-summary/);
   assert.match(generalControls, /Adaptar automaticamente/);
   assert.match(widgetControls, /Resumo/);
-  assert.match(widgetControls, /Botão \/ popup/);
+  assert.match(widgetControls, /Botão/);
 });
 
 test('KDS aplica orientação, densidade, distância, tela cheia e controles operacionais', () => {
@@ -77,17 +77,15 @@ test('KDS aplica orientação, densidade, distância, tela cheia e controles ope
   assert.match(generalControls, /Ocultar controles de edição/);
 });
 
-test('Fábrica mantém configuração comum e personalizações por dispositivo com Preview real', () => {
+test('Fábrica mantém configuração comum simplificada e Preview real por dispositivo', () => {
   assert.match(editor, /WorkspaceGeneralPresentationControls/);
   assert.match(editor, /WorkspaceWidgetPresentationControls/);
   assert.match(editor, /WorkspacePreviewPanel/);
   assert.match(generalControls, /Apresentação por dispositivo/);
   assert.match(generalControls, /Cabeçalho do Workspace/);
   assert.match(widgetControls, /Configuração comum/);
-  assert.match(widgetControls, /Personalizações por dispositivo/);
-  assert.doesNotMatch(widgetControls, /desktopMode === 'custom'/);
-  assert.match(widgetControls, /mobileMode === 'custom'/);
-  assert.match(widgetControls, /kdsMode === 'custom'/);
+  assert.match(widgetControls, />EXIBIÇÃO<select/);
+  assert.doesNotMatch(widgetControls, /data-widget-desktop-customization/);
   assert.match(preview, /WorkspaceDesktopLayoutEditor/);
   assert.match(preview, /<WidgetDrivenWorkspace definition=\{definition\} forcedViewport=\{runtimeViewport\} previewMode \/>/);
   assert.match(preview, /Desktop/);
@@ -96,22 +94,22 @@ test('Fábrica mantém configuração comum e personalizações por dispositivo 
   assert.match(preview, /KDS \/ TV/);
 });
 
-test('configuração comum expõe largura sem duplicar um override Desktop separado', () => {
+test('configuração comum deixa largura e demais ajustes avançados fora da superfície principal', () => {
   assert.doesNotMatch(widgetControls, />Estratégia<select/);
-  assert.match(widgetControls, />LARGURA<select/);
-  assert.match(widgetControls, /mode: 'custom'/);
-  assert.doesNotMatch(widgetControls, /presentation\.desktop\?\.mode === 'auto' \? \{\}/);
-  assert.match(widgetControls, /presentation\.mobile\?\.mode === 'auto' \? \{\}/);
-  assert.match(widgetControls, /presentation\.kds\?\.mode === 'auto' \? \{\}/);
+  assert.match(widgetControls, />EXIBIÇÃO<select/);
+  assert.doesNotMatch(widgetControls, />LARGURA<select/);
+  assert.doesNotMatch(widgetControls, />ALTURA<select/);
+  assert.doesNotMatch(widgetControls, />VISUAL<select/);
+  assert.doesNotMatch(widgetControls, />CABEÇALHO<select/);
   assert.match(widgetControls, /Base visual compartilhada pelas estratégias/);
 });
 
-test('nomes dos controles seguem o vocabulário comum aprovado sem adicionar novas opções', () => {
-  assert.match(widgetControls, />ALTURA<select/);
-  assert.match(widgetControls, /Automática/);
-  assert.match(widgetControls, />VISUAL<select/);
-  assert.match(widgetControls, /Minimalista/);
-  assert.match(widgetControls, />CABEÇALHO<select/);
+test('vocabulário visível prioriza modos simples e mantém KDS na configuração geral', () => {
+  assert.match(widgetControls, /Completo/);
+  assert.match(widgetControls, /Resumo/);
+  assert.match(widgetControls, /Atalho/);
+  assert.match(widgetControls, /Botão/);
+  assert.match(widgetControls, /Oculto/);
   assert.match(generalControls, /Tela KDS \/ TV/);
   assert.match(generalControls, /Distância de visualização/);
 });
